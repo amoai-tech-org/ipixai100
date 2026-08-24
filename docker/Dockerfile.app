@@ -1,12 +1,12 @@
 # Dockerfile for the Mastra + Next.js monolith.
 # Mastra runs in-process with Next.js — no separate agent service needed.
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies (no lockfile in this starter).
-COPY package.json ./
-RUN npm install
+# Install the locked tree. @mastra/memory is pinned exactly at 1.26.1.
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 
 WORKDIR /app
 

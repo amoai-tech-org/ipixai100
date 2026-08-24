@@ -12,7 +12,6 @@ export function createLocalAgents(): Record<string, AbstractAgent> {
   // resourceId is required when the Mastra agent has Memory enabled.
   // Without it, CopilotKit seeds working memory onto a frontend-minted
   // threadId that does not exist in LibSQL yet ("Thread … not found").
-  // @ts-expect-error - ignore for now, typing error
   return MastraAgent.getLocalAgents({
     mastra,
     resourceId: "default",

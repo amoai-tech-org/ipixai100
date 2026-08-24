@@ -1,6 +1,6 @@
 # Agent instructions
 
-This is the canonical iPix CopilotKit + Mastra runtime: [amo-tech-ai/ipix](https://github.com/amo-tech-ai/ipix).
+This is the canonical iPix CopilotKit + Mastra runtime: [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai).
 
 - Cursor rules: `.cursor/rules/`
 - Claude skills: `.claude/skills/` (Cursor reads the same tree via `.cursor/skills` → symlink)
