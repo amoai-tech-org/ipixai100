@@ -24,7 +24,7 @@
     "@mastra/client-js": "1.23.2",
     "@mastra/core": "1.41.0",
     "@mastra/libsql": "1.1.0-alpha.2",
-    "@mastra/memory": "1.18.0",
+    "@mastra/memory": "1.26.1",
     "@mastra/pg": "1.13.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

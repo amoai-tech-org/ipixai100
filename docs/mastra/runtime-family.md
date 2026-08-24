@@ -3,7 +3,7 @@
 Canonical GitHub: `amoai-tech/ipixai` (same SSOT as `AGENTS.md`)  
 Canonical local path: `/home/sk/ipixai` (this work landed on `ipi/1042-runtime-compile`).
 
-`@mastra/memory` is declared as exact `1.18.0` (no `^`). Docker builds copy `package-lock.json` and run `npm ci` so they cannot float to a later 1.x.
+`@mastra/memory` is declared as exact `1.26.1` (no `^`). That is the first official release that includes Mastra PR #21120 (drops `image-size`). Docker builds copy `package-lock.json` and run `npm ci` so they cannot float to a later 1.x.
 
 This ticket **installs** `@mastra/pg`. It does **not** construct `PostgresStore`. Storage remains `LibSQLStore(":memory:")` until IPI-1043 / IPI-1044.
 
@@ -24,13 +24,13 @@ That would force `@mastra/core`, `@mastra/memory`, `@mastra/libsql`, and `mastra
 | `@ag-ui/client` | 0.0.58 | AG-UI client (unchanged override) |
 | `@ag-ui/mastra` | 1.1.2 | AG-UI Mastra adapter (unchanged) |
 | `@mastra/core` | 1.41.0 | Mastra core (unchanged) |
-| `@mastra/memory` | **1.18.0** | Required so `Memory.recall()` matches `@mastra/core@1.41.0` (pagination fields). `1.0.1-alpha.1`/`1.0.1`/`1.1.0` fail typecheck |
+| `@mastra/memory` | **1.26.1** | Peer `@mastra/core >=1.4.1-0 <2` still covers 1.41.0. Smallest exact release with PR #21120 (no `image-size`). `1.18.0` typechecked but pulled a vulnerable `image-size`. |
 | `@mastra/libsql` | 1.1.0-alpha.2 | Current storage (unchanged) |
 | `@mastra/pg` | **1.13.0** | Newest pg whose peer includes core 1.41 (`@mastra/core >= 1.34.0-0 < 2`) |
 | `mastra` | 1.1.0-alpha.3 | CLI (unchanged) |
 | `@ai-sdk/openai` | ^2.0.42 | AI SDK (unchanged) |
 
-`@mastra/memory` / `@mastra/libsql` / `mastra` remain the starter alphas. Replacing them is out of scope unless pg peers require it; they do not at 1.13.0.
+`@mastra/libsql` / `mastra` remain the starter alphas. `@mastra/memory` is the official 1.26.1 security pin, not an alpha.
 
 ## Compile scope
 

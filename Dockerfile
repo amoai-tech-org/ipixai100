@@ -9,7 +9,7 @@ RUN corepack enable
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install the locked tree (package.json pins @mastra/memory@1.18.0 exactly)
+# Install the locked tree (package.json pins @mastra/memory@1.26.1 exactly)
 RUN npm ci
 
 # Copy source code

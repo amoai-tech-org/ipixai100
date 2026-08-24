@@ -4,7 +4,7 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install the locked tree. @mastra/memory is pinned exactly at 1.18.0.
+# Install the locked tree. @mastra/memory is pinned exactly at 1.26.1.
 COPY package.json package-lock.json ./
 RUN npm ci
 
