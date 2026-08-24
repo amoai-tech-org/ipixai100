@@ -128,7 +128,7 @@ Phase: **MVP** (after Brand + Shoots). Do not put CRM in Core.
 | Evidence | `components/evidence-block/` | **COPY + CLEAN** |
 | Generative UI registry | `components/copilot/generative-ui-registry.tsx` | **DEFER** until typed `ShootPlan` |
 | Task progress UI | mostly missing / “AI is thinking” | **DEFER** MVP HITL/task tickets |
-| Mobile bottom nav | **not in `app/src`** | **REBUILD** in MVP from design `BottomNavigation.dc.html` |
+| Mobile bottom nav | **not in `app/src`** | **REBUILD Post-MVP** from design `BottomNavigation.dc.html` (MVP is desktop ≥768; no tab bar) |
 | Bottom sheet | `components/ui/bottom-sheet.tsx` (Vaul, 38/62/90) | **COPY + CLEAN** |
 
 ---
