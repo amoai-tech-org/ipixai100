@@ -9,6 +9,8 @@
     "dev:debug": "LOG_LEVEL=debug npm run dev:ui",
     "build": "node scripts/dev-guard.mjs --port 3000 --port 4111 -- next build",
     "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts"
   },
   "dependencies": {
@@ -22,7 +24,8 @@
     "@mastra/client-js": "1.23.2",
     "@mastra/core": "1.41.0",
     "@mastra/libsql": "1.1.0-alpha.2",
-    "@mastra/memory": "1.0.1-alpha.1",
+    "@mastra/memory": "^1.18.0",
+    "@mastra/pg": "1.13.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
@@ -44,7 +47,8 @@
     "concurrently": "^9.1.2",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.0"
   },
   "overrides": {
     "@ag-ui/client": "0.0.58",
