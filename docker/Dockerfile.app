@@ -4,9 +4,9 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies (no lockfile in this starter).
-COPY package.json ./
-RUN npm install
+# Install the locked tree. @mastra/memory is pinned exactly at 1.18.0.
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Copy source code
 COPY . .

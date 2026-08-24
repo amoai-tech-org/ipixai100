@@ -7,10 +7,10 @@ WORKDIR /app
 RUN corepack enable
 
 # Copy package files
-COPY package.json ./
+COPY package.json package-lock.json ./
 
-# Install dependencies (no lockfile in this starter)
-RUN npm install
+# Install the locked tree (package.json pins @mastra/memory@1.18.0 exactly)
+RUN npm ci
 
 # Copy source code
 COPY . .

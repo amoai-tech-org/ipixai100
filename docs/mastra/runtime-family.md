@@ -1,7 +1,9 @@
 # IPI-1042 runtime family (pin only)
 
-Canonical GitHub: `amoai-tech/ipixai`  
+Canonical GitHub: `amoai-tech/ipixai` (same SSOT as `AGENTS.md`)  
 Canonical local path: `/home/sk/ipixai` (this work landed on `ipi/1042-runtime-compile`).
+
+`@mastra/memory` is declared as exact `1.18.0` (no `^`). Docker builds copy `package-lock.json` and run `npm ci` so they cannot float to a later 1.x.
 
 This ticket **installs** `@mastra/pg`. It does **not** construct `PostgresStore`. Storage remains `LibSQLStore(":memory:")` until IPI-1043 / IPI-1044.
 
