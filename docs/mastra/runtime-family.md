@@ -1,11 +1,10 @@
 # IPI-1042 runtime family (pin only)
 
-Canonical GitHub: `amoai-tech/ipixai` (same SSOT as `AGENTS.md`)  
-Canonical local path: `/home/sk/ipixai` (this work landed on `ipi/1042-runtime-compile`).
+Canonical GitHub: [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai) (same SSOT as `AGENTS.md`).
 
 `@mastra/memory` is declared as exact `1.26.1` (no `^`). That is the first official release that includes Mastra PR #21120 (drops `image-size`). Docker builds copy `package-lock.json` and run `npm ci` so they cannot float to a later 1.x.
 
-This ticket **installs** `@mastra/pg`. It does **not** construct `PostgresStore`. Storage remains `LibSQLStore(":memory:")` until IPI-1043 / IPI-1044.
+This ticket **installs** `@mastra/pg`. It does **not** construct `PostgresStore`. Runtime storage stays `new LibSQLStore({ id: "mastra-storage", url: ":memory:" })`. Agent memory stays `new LibSQLStore({ id: "weather-agent-memory", url: "file::memory:" })`. Wiring Postgres is IPI-1043 / IPI-1044.
 
 ## Why not `@mastra/pg@1.21.1`
 
