@@ -9,7 +9,7 @@
   "navbar": {
     "links": [
       {
-        "href": "https://github.com/amo-tech-ai/ipix",
+        "href": "https://github.com/amoai-tech/ipixai",
         "label": "GitHub"
       }
     ]
@@ -23,6 +23,14 @@
           "docs/README",
           "docs/new-plan",
           "docs/roadmap"
+        ]
+      },
+      {
+        "group": "Product",
+        "pages": [
+          "docs/prd",
+          "docs/sitemap",
+          "docs/design/SITEMAP-V2"
         ]
       },
       {
