@@ -8,7 +8,7 @@ description: "How V2 pages map from lumina-studio without copying Worker runtime
 **Date:** 2026-08-24  
 **Does not:** copy UI, change app code, or create Linear issues.  
 **Evidence:** [amo-tech-ai/lumina-studio](https://github.com/amo-tech-ai/lumina-studio) `app/src/app/**/page.tsx` (local `legacy lumina-studio checkout`, `main` @ `b2d3de8e5`) vs design pack `Universal-design-prompt-4/` vs `SITEMAP.md` vs `progress-tracker.md` (2026-07-12, **stale**).  
-**New app today:** [amo-tech-ai/ipix](https://github.com/amoai-tech/ipixai) CopilotKit starter — demo `/` only.
+**New app today:** [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai) CopilotKit starter — demo `/` only.
 
 Phases: **Core → MVP → Post-MVP → Advanced**. Core stop-line is **IPI-1041 · CORE-001 — Prove Persistence, Restart Recovery, and Cross-Organization Isolation**. Full Operator Shell is **not** Core.
 
@@ -52,7 +52,7 @@ Sitemap: [SITEMAP-V2.md](./SITEMAP-V2.md)
 | `/app/campaigns` | `/app/campaigns` | COPY + CLEAN | **Not** a placeholder anymore — `campaigns` table | `campaigns-workspace`, `campaign-card` | July “Coming soon” tickets in docs | MVP |
 | `/app/assets` | `/app/assets` | COPY + CLEAN | `listAssets` + filters | `assets-workspace`, upload panel | — | MVP |
 | `/app/assets/[id]` | `/app/assets/[id]` | COPY + CLEAN | Detail workspace + tests | `asset-detail-workspace` | — | MVP |
-| `/app/preview` | `/app/preview` | COPY | Spec-driven frames; little runtime tar | `channel-preview-studio`, `image_specs` | Orphan layout vs shell | MVP |
+| `/app/preview` | `/app/preview` | COPY | Spec-driven frames; little Worker-runtime coupling | `channel-preview-studio`, `image_specs` | Orphan layout vs shell | MVP |
 | `/app/analytics` | `/app/analytics` | REDESIGN | Counts are real; **reach/engagement/CTR/conversions null** | Layout, DNA math | Fake paid-media numbers | Post-MVP |
 | `/app/analytics/campaigns` | `/app/analytics/campaigns` | REDESIGN | Same honesty problem | Workspace shell | Mock charts | Post-MVP |
 | `/app/inbox` | `/app/inbox` | COPY + CLEAN | RPC-backed; tracker said API-only — **wrong now** | `inbox-workspace`, `list_notifications` | Unread polling CF glue if any | MVP |
@@ -100,7 +100,7 @@ Sitemap: [SITEMAP-V2.md](./SITEMAP-V2.md)
 | Class | n | Examples |
 |---|---:|---|
 | COPY | 2 | Channel Preview; CRM hub redirect |
-| COPY + CLEAN | 24 | Command Center, Brand×2, Shoots×3, Campaigns, Assets×2, Inbox, Matching talent, Booking×2, CRM×6, Onboarding, Login |
+| COPY + CLEAN | 21 | Matrix **rows** (not split `/login`/`/signup`). Command Center, Brand×2, Shoots×3, Campaigns, Assets×2, Inbox, Matching talent, Booking×2, CRM×6, Onboarding, Login |
 | REDESIGN | 5 | `/`, analytics×2, talent profile URL, signup split |
 | REBUILD | 3 | `/matching/talent/[id]` index, availability, role dashboards |
 | DROP | 12+ | 9 service pages, nested onboarding page, catalog/events HTML, demo `/` |
@@ -207,7 +207,7 @@ Core stays: **no** Command Center, **no** CRM, **no** `/app/plans`.
 ## 7. Risks / doc conflicts
 
 1. **`progress-tracker.md` is the wrong SSOT** — it predates CRM deal UI, inbox UI, campaigns, assets, analytics, planner reads, preview studio. Planning from it under-counts ~10 screens.  
-2. **`SITEMAP.md` counts HTML prototypes** (31 SCR) as the product map; React has 43 routes including 9 SEO pages the sitemap barely treats as product.  
+2. **HTML prototype counts (31 SCR)** belong in this audit and in git history of root `SITEMAP.md` on `main`. They are not the V2 product map (`docs/sitemap.md`). React has 43 routes including 9 SEO pages.  
 3. **Two Planners.** Legacy `/app/planner` ≠ Core AI Production Planner. Merging them in nav will confuse operators and Linear. v2 name: `/app/planner` = AI; `/app/plans` = timeline workspace.  
 4. **Login comment vs `LoginForm`.** Docs/comments still say stub; code is live Auth.  
 5. **Matching URL.** Design `/app/matching/talent/:id` vs code query-param profile.  

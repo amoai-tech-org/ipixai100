@@ -11,8 +11,8 @@ description: "Code-backed inventory of lumina-studio routes that informed the V2
 **Date:** 2026-08-24  
 **Status:** Planning evidence. No pages copied. No Linear issues created.  
 **Implementation truth:** [amo-tech-ai/lumina-studio](https://github.com/amo-tech-ai/lumina-studio) (`legacy lumina-studio checkout`, legacy `main`) `app/src/app/**/page.tsx`  
-**New app:** [amo-tech-ai/ipix](https://github.com/amoai-tech/ipixai) (`this repository`) CopilotKit + Mastra starter — **one demo route** (`src/app/page.tsx`)  
-**Design pack:** `Universal-design-prompt-4/` + repo-root `SITEMAP.md`  
+**New app:** [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai) (`this repository`) CopilotKit + Mastra starter — **one demo route** (`src/app/page.tsx`)  
+**Design pack:** `Universal-design-prompt-4/`. HTML prototype counts live in this audit and in git history of root `SITEMAP.md` on `main` (this PR replaces that root file with a pointer to `docs/sitemap.md`).  
 **Progress tracker:** `Universal-design-prompt-4/progress-tracker.md` (2026-07-12 — **stale vs current code**)
 
 Companion: [PAGE-MIGRATION-PLAN.md](./PAGE-MIGRATION-PLAN.md)

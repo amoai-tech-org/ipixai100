@@ -216,7 +216,7 @@ Status = V2 intent, not HTML completeness.
 
 **MVP chrome:** Nav │ Workspace │ Intelligence (read-only) + CopilotKit dock. Rebuild dock; do not copy Worker `dynamic()` chat.
 
-**Mobile:** rebuild bottom nav in MVP from design; Core is desktop-first.
+**Mobile:** Core and MVP are desktop-first (≥768px). Rebuild bottom nav **Post-MVP** with phone support; do not put a mobile tab bar in MVP while sub-768 viewports are deferred.
 
 **Talent Post-MVP rail:** Dashboard · Offers · Availability · Inbox.
 

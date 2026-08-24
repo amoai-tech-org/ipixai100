@@ -8,7 +8,7 @@ description: "iPix V2 product requirements: CopilotKit, Mastra, HITL writes, Cor
 **Status:** Master specification · Baseline V2  
 **Date:** 2026-08-24  
 **Author:** iPix Core Architecture Team  
-**Repository:** [amo-tech-ai/ipix](https://github.com/amoai-tech/ipixai) (`this repository`)  
+**Repository:** [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai) (`this repository`)  
 **This file is the product SSOT.** Other PRDs are companions or drafts.
 
 | Document | Role |
@@ -48,7 +48,11 @@ When docs, legacy code, and runtime disagree:
 | `[DEFERRED]` | Out of this phase |
 | `[LEGACY]` | Reference only |
 
-### 1.2 Stack truth (this repo) `[VERIFIED]`
+### 1.2 Stack truth (this repo)
+
+**Today `[VERIFIED]`:** Next.js App Router + CopilotKit v2 (`/api/copilotkit`) + AG-UI (`@ag-ui/mastra`) + Mastra. Persistence is **in-memory** (`LibSQLStore` `url: ":memory:"` in `src/mastra/index.ts`). Without `COPILOTKIT_LICENSE_KEY` the route uses `InMemoryAgentRunner`. `identifyUser` is still the starter stub `id: "demo-user"`.
+
+**Core target `[REQUIRED]` (not verified in this repo yet):**
 
 ```text
 Next.js App Router (Node / Vercel)
@@ -59,7 +63,7 @@ Next.js App Router (Node / Vercel)
   → Existing Supabase (Auth, RLS, domain RPCs)
 ```
 
-- **Chat/UI runtime:** CopilotKit (`@copilotkit/*`) — not CopilotKit.
+- **Chat/UI runtime:** CopilotKit (`@copilotkit/*`) — not a custom Worker Copilot SSE shim.
 - **Dev:** `npm run dev:ui` (port 3000) and `npm run dev:agent` (port 4111) in **separate** terminals. Combined `npm run dev` is blocked (**DEV-STAB-001**).
 - **Media:** Cloudinary signed uploads `[PROPOSED]` (ADR-005). Do not invent a second CDN pipeline.
 - **Models:** OpenAI SDK in the starter today; production routing via Cloudflare AI Gateway (Gemini failover) `[PROPOSED]`.
@@ -75,7 +79,7 @@ Fashion production runs on spreadsheets, email, and tools that do not know Brand
 ### 2.1 Pillars
 
 1. **Node-first `[VERIFIED]`** — ADR-001. Cloudflare = DNS/CDN/WAF/R2/AI Gateway only until gold persistence exists on Node.
-2. **Supabase tenancy `[VERIFIED]`** — ADR-003. Org from membership, server-side. Fail closed.
+2. **Supabase tenancy `[REQUIRED]`** — ADR-003. Org from membership, server-side. Fail closed. Not verified while `identifyUser` returns `demo-user`.
 3. **Mastra memory vs domain `[VERIFIED]`** — ADR-002. `mastra.*` is conversation/traces; `shoot.*` / `planner.*` / `talent.*` / `crm.*` are product truth.
 4. **HITL writes `[REQUIRED]`** — Approval cards → RPC. No agent `INSERT` into domain tables.
 
@@ -106,7 +110,7 @@ Fashion production runs on spreadsheets, email, and tools that do not know Brand
 
 | ID | Goal | Phase |
 |---|---|---|
-| G-1 | Brand DNA from a public URL in < 2 min active operator time | Core/MVP |
+| G-1 | Brand DNA from a public URL in < 2 min active operator time | **MVP** |
 | G-2 | One action instantiates an 11-phase 5-week shoot DAG | MVP |
 | G-3 | Chat + working memory survive hard refresh **and** agent restart (`PostgresStore`) | **Core** |
 | G-4 | Org B cannot read Org A threads, shoots, assets, or CRM | **Core** |
@@ -144,7 +148,7 @@ Planner ACL (ADR-008 `[PROPOSED]`): `owner > manager > contributor > viewer`.
 
 ## 6. Journeys
 
-1. **Brand DNA `[Core/MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload.
+1. **Brand DNA `[MVP]`** — URL → crawl/vision → `BrandDNACard` → Approve → `promote_brand_draft` RPC. Fail: manual intake + upload. Not Core (Core is persist + thin `/app/planner` only).
 2. **3-gate shoot `[MVP]`** — Deliverables → shot list → budget → `commit_shoot_draft` → `shoot.*` + `planner.instances`. **Not** Core.
 3. **Production DAG `[MVP UI; schema Core-ready]`** — Topological shift on slip; cycle detection before write.
 4. **Talent + booking `[MVP]`** — Separate routes: `/app/matching/talent/[id]/book` and `/app/bookings/[id]`. **Not** Shoot Wizard `flow=booking`.
@@ -202,7 +206,7 @@ flowchart TB
 
 **Write path `[REQUIRED]`:** Browser JWT → CopilotKit → Mastra **read/compute/propose** → GenUI → operator Approve → `SECURITY DEFINER` RPC (`REVOKE` from `anon`) → domain row + audit.
 
-**Memory `[REQUIRED]`:** `resourceId` built **server-side** as `org:{orgId}:user:{userId}`. `disableInit: true` in production; migrations own `mastra.*` DDL.
+**Memory `[REQUIRED]`:** `resourceId` built **server-side** as `org:{orgId}::user:{userId}` (live double-colon contract in `docs/mastra/supabase-mastra.md`). Do not switch to a single colon without migrating existing strings. `disableInit: true` in production; migrations own `mastra.*` DDL.
 
 ---
 
@@ -228,7 +232,7 @@ Existing iPix project — no greenfield DB.
 - RLS on every exposed tenant table; `is_org_member(org_id)`; fail closed.
 - Canonical shoots: `shoot.shoots`. Freeze `public.shoots`.
 - Types: `supabase gen types typescript` → `src/types/database.ts`.
-- Local baseline dumps must **not** be pending on `db push --linked`. Do not `MAINTAIN`/`TRUNCATE` to `authenticated`.
+- Local baseline dumps must **not** be pending on `db push --linked`. Do not `GRANT` extra privileges on domain objects to `authenticated`/`anon`, and do not `TRUNCATE` tenant tables as a substitute for migrations.
 
 ---
 
@@ -265,7 +269,7 @@ WCAG 2.1 AA. Full keyboard. Semantic landmarks + `aria-live` on streams. Breakpo
 | ID | Criterion | Phase |
 |---|---|---|
 | AC-01 | `TEST-PERSIST-UUID` survives refresh **and** agent restart from `mastra` messages | Core |
-| AC-02 | Org B + Org A `threadId` → 403, empty body | Core |
+| AC-02 | Org B + Org A `threadId` → **403** with a JSON error envelope and **no thread/message content** (clients still distinguish 401 vs 403) | Core |
 | AC-03 | Brand URL → DNA card &lt; 120s; no domain write until Approve | MVP |
 | AC-04 | 3-gate commit exact rows in `shoot.*` + `planner.instances` &lt; 1.5s | MVP |
 | AC-05 | +3 business days on predecessor shifts successors &lt; 15ms; no cycles | MVP |
@@ -340,16 +344,16 @@ Do not claim production-ready without a labeled verification level (unit / build
 
 ## 19. Linear tracks (one concern per issue)
 
-| Epic | Scope |
+| Epic | Canonical title (file Linear issues before scheduling) |
 |---|---|
-| CORE-001 | Bundle pin, PostgresStore, persist + restart gold |
-| AUTH-002 | Session/org, RLS/RPC, cross-tenant 403 |
-| AGENT-003 | Production Planner compute tools + JWT reads |
-| UI-004 | Shell + CopilotKit dock rebuild + ApprovalCard |
-| PLAN-005 | `/app/planner` Core page; `/app/plans` later |
-| FLOW-006 | 3-gate shoot, brand crawl, Cloudinary, booking routes |
+| Persistence | `IPI-TBD · CORE-001 — Pin bundle, PostgresStore, persist + restart gold` |
+| Auth / tenancy | `IPI-TBD · AUTH-002 — Session/org, RLS/RPC, cross-tenant 403` |
+| Planner agent | `IPI-TBD · AGENT-003 — Production Planner compute tools + JWT reads` |
+| Operator UI | `IPI-TBD · UI-004 — Shell + CopilotKit dock rebuild + ApprovalCard` |
+| Planner page | `IPI-TBD · PLAN-005 — Thin /app/planner Core page; /app/plans later` |
+| MVP flows | `IPI-TBD · FLOW-006 — 3-gate shoot, brand crawl, Cloudinary, booking routes` |
 
-Issue titles: `IPI-NNN · SPEC — Plain English`. No bare IDs in user-facing text.
+Replace `IPI-TBD` with the live Linear identifier when the issue exists. No bare `CORE-001` in roadmaps.
 
 ---
 
@@ -377,4 +381,4 @@ Reuse ~domain/UI; drop ~runtime glue. Do not rebuild 40 screens from blank.
 - **SSOT:** this file + `SITEMAP.md` + accepted ADRs.  
 - **Core gate:** AC-01 + AC-02 before Operator Shell.  
 - **Do not** `supabase db push --linked` with un-ledgered baseline dumps.  
-- Companion PRDs that say CopilotKit or “31 screens built” are **stale** relative to this repo.
+- Companion PRDs that treat HTML prototypes as shipped product (“31 screens built”) or that prescribe a custom Worker Copilot SSE runtime are **stale** relative to this repo.
