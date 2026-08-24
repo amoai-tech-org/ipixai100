@@ -83,7 +83,7 @@ Sitemap: [SITEMAP-V2.md](./SITEMAP-V2.md)
 | Role dashboards (SCR-25) | REBUILD | Post-MVP |
 | Collaboration/audit as a route (SCR-18) | DEFER — Inbox + evidence cover MVP | Advanced |
 | Catalog / collections / PDP crops / events | DROP until a merchant product exists | Advanced |
-| Mobile galleries / bottom-nav HTML | REBUILD (no React bottom nav in `app/src`) | MVP (shell) / Post-MVP (polish) |
+| Mobile galleries / bottom-nav HTML | REBUILD (no React bottom nav in `app/src`) | Post-MVP (tab bar + sub-768; MVP is desktop ≥768 only) |
 | Pricing, features, about, contact pages | DROP or one marketing page | Post-MVP |
 | Duplicate Matching.v2 HTML | DROP | — |
 
@@ -214,7 +214,7 @@ Core stays: **no** Command Center, **no** CRM, **no** `/app/plans`.
 6. **Shoot Wizard.** HTML 10 steps vs code 6 + giant page. Porting “the design” as-is is a rewrite, not a copy.  
 7. **Onboarding.** HTML 13 screens vs shorter live funnel.  
 8. **Analytics.** UI looks complete; several KPIs are explicitly `null`.  
-9. **Mobile.** Design pack has galleries + bottom nav; `app/src` has **no** bottom-nav component (only incidental `sm:`/`md:`).  
+9. **Mobile.** Design pack has galleries + bottom nav; `app/src` has **no** bottom-nav component (only incidental `sm:`/`md:`). Rebuild is **Post-MVP** (PRD/sitemap: Core/MVP desktop ≥768).  
 10. **New repo** still shows weather/proverbs — Core UI-001 must replace it, not sit beside Operator Shell.  
 11. **CRM vs Brand.** Two company-like objects; sitemap must keep both (relationship vs DNA).  
 12. **Campaigns tracker tickets** still say “Coming soon” while `CampaignsWorkspace` queries `campaigns`.
