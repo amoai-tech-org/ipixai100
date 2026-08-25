@@ -54,29 +54,33 @@ begin
     end if;
   end loop;
 
-  -- Existing tables are out of sweep scope (skip if CI has no dump).
-  if to_regclass('planner.assignments') is not null
-     and not has_table_privilege('authenticated', 'planner.assignments', 'select') then
+  -- Existing tables are out of sweep scope. CI bootstrap creates assignments.
+  if to_regclass('planner.assignments') is null then
+    raise notice 'skip: planner.assignments missing — existing-table SELECT not verified this run';
+  elsif not has_table_privilege('authenticated', 'planner.assignments', 'select') then
     raise exception 'existing planner.assignments must keep authenticated SELECT';
   end if;
 end
 $$;
 
--- Finding 2: keep NOTICE; do not fail the test.
+-- Finding 2 / global ACL: NOTICE only. Left join so defaclnamespace = 0 is visible.
 do $$
 declare
   acl text;
 begin
-  select d.defaclacl::text
+  select string_agg(
+           coalesce(n.nspname, '(global)') || ' ' || d.defaclobjtype::text || ' ' || d.defaclacl::text,
+           ' | '
+         )
     into acl
   from pg_default_acl d
-  join pg_namespace n on n.oid = d.defaclnamespace
-  where pg_get_userbyid(d.defaclrole) = 'supabase_admin'
-    and n.nspname = 'public'
-    and d.defaclobjtype = 'r';
+  left join pg_namespace n on n.oid = d.defaclnamespace
+  where pg_get_userbyid(d.defaclrole) in ('supabase_admin', 'postgres')
+    and d.defaclobjtype in ('r', 'S')
+    and (n.nspname is null or n.nspname in ('public', 'planner'));
 
-  if acl is not null and position('anon=' in acl) > 0 then
-    raise notice 'Finding 2 KEEP: supabase_admin public table defaults still grant anon (unfixable without superuser)';
+  if acl is not null then
+    raise notice 'default ACL snapshot (NOTICE-only): %', acl;
   end if;
 end
 $$;

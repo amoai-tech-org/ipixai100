@@ -20,6 +20,12 @@
 -- Detection stays NOTICE in the security test. Do not fail CI forever on an
 -- unfixable platform row. Revisit only if Supabase exposes a superuser path.
 --
+-- Schema-less defaults (defaclnamespace = 0) union with IN SCHEMA rows.
+-- Hosted 2026-08-25 MCP: postgres global row is functions only
+-- `{postgres=X/postgres}` — no global table/sequence grant to JWT roles.
+-- This file therefore keeps IN SCHEMA planner as the table/sequence fix.
+-- Re-check `pg_default_acl` where defaclnamespace = 0 before a hosted apply.
+--
 -- After apply: a new planner table is invisible to the Data API until an
 -- explicit GRANT. Empty results look like an RLS bug — they are missing GRANT.
 -- Document that trap in a separate docs PR (not this file).
