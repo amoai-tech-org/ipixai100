@@ -31,9 +31,13 @@ SELECT json_build_object(
     SELECT coalesce(json_agg(json_build_object(
       'name', tc.constraint_name,
       'table', tc.table_name,
-      'type', tc.constraint_type
+      'type', tc.constraint_type,
+      'def', pg_get_constraintdef(pc.oid)
     ) ORDER BY tc.table_name, tc.constraint_name), '[]'::json)
     FROM information_schema.table_constraints tc
+    JOIN pg_namespace n ON n.nspname = tc.table_schema
+    JOIN pg_class c ON c.relname = tc.table_name AND c.relnamespace = n.oid
+    JOIN pg_constraint pc ON pc.conrelid = c.oid AND pc.conname = tc.constraint_name
     WHERE tc.table_schema = 'mastra'
   ),
   'indexes', (

@@ -116,7 +116,7 @@ async function readPhase(url, ids, expectedFingerprint) {
     });
     const messages = listed.messages ?? listed;
     const order = messages.map((m) => m.id);
-    if (order[0] !== ids.msg1 || order[1] !== ids.msg2) {
+    if (order.length !== 2 || order[0] !== ids.msg1 || order[1] !== ids.msg2) {
       throw new Error(`message order mismatch: ${JSON.stringify(order)}`);
     }
     return { pid: process.pid, threadId: thread.id, order };

@@ -113,6 +113,7 @@ describe("IPI-1044 local URL guard", () => {
   it("fingerprints mastra function and trigger catalogs", () => {
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_functiondef/);
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_triggerdef/);
+    expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_constraintdef/);
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).not.toMatch(/proname = 'trigger_set_timestamps'/);
   });
 });
