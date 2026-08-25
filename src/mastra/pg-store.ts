@@ -1,10 +1,5 @@
-import { createRequire } from "node:module";
+import { Pool } from "pg";
 import { PostgresStore } from "@mastra/pg";
-
-const require = createRequire(import.meta.url);
-const { Pool } = require("pg") as {
-  Pool: new (config: { connectionString: string; max: number }) => PostgresStore["pool"];
-};
 
 declare global {
   // ponytail: Next HMR otherwise opens extra pools; ceiling is one process-wide Pool.
@@ -100,7 +95,6 @@ SELECT json_build_object(
     JOIN pg_namespace n ON n.oid = p.pronamespace
     JOIN pg_language l ON l.oid = p.prolang
     WHERE n.nspname = 'mastra'
-      AND p.proname = 'trigger_set_timestamps'
   ),
   'triggers', (
     SELECT coalesce(json_agg(json_build_object(
@@ -114,12 +108,8 @@ SELECT json_build_object(
     FROM pg_trigger t
     JOIN pg_class c ON c.oid = t.tgrelid
     JOIN pg_namespace n ON n.oid = c.relnamespace
-    JOIN pg_proc p ON p.oid = t.tgfoid
-    JOIN pg_namespace pn ON pn.oid = p.pronamespace
     WHERE n.nspname = 'mastra'
       AND NOT t.tgisinternal
-      AND pn.nspname = 'mastra'
-      AND p.proname = 'trigger_set_timestamps'
   )
 )::text AS fp
 `;
@@ -142,16 +132,6 @@ export function warnIfMastraDatabaseUrlMissing(url: string | undefined): void {
   console.warn(MISSING_URL_WARNING);
 }
 
-/** CI/local may omit the URL (LibSQL). Vercel production/preview must fail closed. */
-export function assertPostgresRequiredForHostedRuntime(url: string | undefined): void {
-  const vercelEnv = process.env.VERCEL_ENV;
-  if ((vercelEnv === "production" || vercelEnv === "preview") && !url) {
-    throw new Error(
-      "MASTRA_DATABASE_URL is required on Vercel production/preview; refusing in-memory fallback",
-    );
-  }
-}
-
 export function assertSafeMastraDatabaseUrl(url: string): URL {
   let parsed: URL;
   try {
@@ -159,12 +139,34 @@ export function assertSafeMastraDatabaseUrl(url: string): URL {
   } catch {
     throw new Error("MASTRA_DATABASE_URL is not a valid URL");
   }
+  if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+    throw new Error(
+      "MASTRA_DATABASE_URL must use postgres: or postgresql:; refusing to connect",
+    );
+  }
+  // pg-connection-string lets host=/hostaddr= override the URL authority.
+  const queryKeys = new Set(
+    [...parsed.searchParams.keys()].map((key) => key.toLowerCase()),
+  );
+  if (queryKeys.has("host") || queryKeys.has("hostaddr") || queryKeys.has("socket")) {
+    throw new Error(
+      "MASTRA_DATABASE_URL must not set host/hostaddr/socket query params; refusing to connect",
+    );
+  }
   if (!isAllowedLocalMastraDatabaseHost(parsed.hostname)) {
     throw new Error(
       "MASTRA_DATABASE_URL host is not on the local allowlist; refusing to connect",
     );
   }
   return parsed;
+}
+
+export async function resetMastraPgSingletonsForTests(): Promise<void> {
+  const pool = globalThis.__ipixMastraPgPool;
+  globalThis.__ipixMastraPgPool = undefined;
+  globalThis.__ipixMastraPgStore = undefined;
+  globalThis.__ipixMastraPgConnectionString = undefined;
+  if (pool) await pool.end();
 }
 
 function assertSameMastraConnectionString(connectionString: string): void {

@@ -5,7 +5,6 @@ import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
 import {
-  assertPostgresRequiredForHostedRuntime,
   getMastraPostgresStore,
   warnIfMastraDatabaseUrlMissing,
 } from "@/mastra/pg-store";
@@ -16,7 +15,6 @@ export const AgentState = z.object({
 
 function createAgentMemoryStorage() {
   const url = process.env.MASTRA_DATABASE_URL;
-  assertPostgresRequiredForHostedRuntime(url);
   warnIfMastraDatabaseUrlMissing(url);
   if (!url) {
     return new LibSQLStore({

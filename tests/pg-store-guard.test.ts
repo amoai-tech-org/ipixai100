@@ -1,14 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
-  assertPostgresRequiredForHostedRuntime,
   assertSafeMastraDatabaseUrl,
   getMastraPgPool,
   getMastraPostgresStore,
   isAllowedLocalMastraDatabaseHost,
   MASTRA_SCHEMA_FINGERPRINT_SQL,
+  resetMastraPgSingletonsForTests,
 } from "../src/mastra/pg-store";
 
 describe("IPI-1044 local URL guard", () => {
+  afterAll(async () => {
+    await resetMastraPgSingletonsForTests();
+  });
+
   it("allows local Docker Postgres", () => {
     const parsed = assertSafeMastraDatabaseUrl(
       "postgresql://postgres:postgres@127.0.0.1:54342/postgres",
@@ -31,6 +35,36 @@ describe("IPI-1044 local URL guard", () => {
     expect(isAllowedLocalMastraDatabaseHost("db.local")).toBe(false);
   });
 
+  it("fails closed on non-postgres URL schemes", () => {
+    expect(() =>
+      assertSafeMastraDatabaseUrl("http://127.0.0.1:54342/postgres"),
+    ).toThrow(/postgres: or postgresql:/);
+    expect(() =>
+      assertSafeMastraDatabaseUrl("postgresql://postgres@127.0.0.1:54342/postgres"),
+    ).not.toThrow();
+    expect(() =>
+      assertSafeMastraDatabaseUrl("postgres://postgres@127.0.0.1:54342/postgres"),
+    ).not.toThrow();
+  });
+
+  it("fails closed when host/hostaddr/socket query params would override the authority", () => {
+    expect(() =>
+      assertSafeMastraDatabaseUrl(
+        "postgresql://postgres:pw@127.0.0.1:54342/postgres?host=db.prod.example.com",
+      ),
+    ).toThrow(/host\/hostaddr\/socket/);
+    expect(() =>
+      assertSafeMastraDatabaseUrl(
+        "postgresql://postgres:pw@127.0.0.1:54342/postgres?hostaddr=8.8.8.8",
+      ),
+    ).toThrow(/host\/hostaddr\/socket/);
+    expect(() =>
+      assertSafeMastraDatabaseUrl(
+        "postgresql://postgres:pw@127.0.0.1:54342/postgres?HOST=db.prod.example.com",
+      ),
+    ).toThrow(/host\/hostaddr\/socket/);
+  });
+
   it("fails closed on hosted fashionos, RDS, Neon, and supabase.com poolers", () => {
     const rejected = [
       "postgresql://postgres:x@db.nvdlhrodvevgwdsneplk.supabase.co:5432/postgres",
@@ -44,35 +78,25 @@ describe("IPI-1044 local URL guard", () => {
     }
   });
 
-  it("reuses one bounded pool for concurrent local queries", async () => {
-    const url = process.env.MASTRA_DATABASE_URL;
-    if (!url) return;
-    const a = getMastraPgPool(url);
-    const b = getMastraPgPool(url);
-    expect(a).toBe(b);
-    expect(getMastraPostgresStore(url)).toBe(getMastraPostgresStore(url));
-    const [first, second] = await Promise.all([
-      a.query("select 1 as n"),
-      b.query("select 1 as n"),
-    ]);
-    expect(first.rows[0].n).toBe(1);
-    expect(second.rows[0].n).toBe(1);
-  });
+  it.skipIf(!process.env.MASTRA_DATABASE_URL)(
+    "reuses one bounded pool for concurrent local queries",
+    async () => {
+      const url = process.env.MASTRA_DATABASE_URL!;
+      const a = getMastraPgPool(url);
+      const b = getMastraPgPool(url);
+      expect(a).toBe(b);
+      expect(getMastraPostgresStore(url)).toBe(getMastraPostgresStore(url));
+      const [first, second] = await Promise.all([
+        a.query("select 1 as n"),
+        b.query("select 1 as n"),
+      ]);
+      expect(first.rows[0].n).toBe(1);
+      expect(second.rows[0].n).toBe(1);
+    },
+  );
 
-  it("fails closed on Vercel production/preview when MASTRA_DATABASE_URL is missing", () => {
-    const previous = process.env.VERCEL_ENV;
-    process.env.VERCEL_ENV = "production";
-    try {
-      expect(() => assertPostgresRequiredForHostedRuntime(undefined)).toThrow(
-        /refusing in-memory fallback/,
-      );
-    } finally {
-      if (previous === undefined) delete process.env.VERCEL_ENV;
-      else process.env.VERCEL_ENV = previous;
-    }
-  });
-
-  it("throws if the singleton is reused with a different connection string", () => {
+  it("throws if the singleton is reused with a different connection string", async () => {
+    await resetMastraPgSingletonsForTests();
     const first =
       process.env.MASTRA_DATABASE_URL ??
       "postgresql://postgres:postgres@127.0.0.1:54342/postgres";
@@ -86,9 +110,9 @@ describe("IPI-1044 local URL guard", () => {
     );
   });
 
-  it("fingerprints mastra timestamp function and trigger catalogs", () => {
-    expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/trigger_set_timestamps/);
+  it("fingerprints mastra function and trigger catalogs", () => {
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_functiondef/);
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_triggerdef/);
+    expect(MASTRA_SCHEMA_FINGERPRINT_SQL).not.toMatch(/proname = 'trigger_set_timestamps'/);
   });
 });

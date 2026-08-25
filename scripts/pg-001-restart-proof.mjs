@@ -2,9 +2,11 @@
  * Local-only PG-001 proof: write a synthetic SS26 thread, kill this PID's
  * store usage, read from a new process. Does not print secrets.
  * Run: npx tsx scripts/pg-001-restart-proof.mjs
+ * Pass --keep to leave the synthetic SS26 rows after a passing read.
  */
 import { createHash, randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { PostgresStore } from "@mastra/pg";
 import { Pool } from "pg";
 import {
@@ -89,6 +91,15 @@ async function writePhase(url, ids) {
   });
 }
 
+async function cleanupPhase(url, ids) {
+  return withStore(url, async (_store, pool) => {
+    await pool.query("DELETE FROM mastra.mastra_messages WHERE thread_id = $1", [
+      ids.threadId,
+    ]);
+    await pool.query("DELETE FROM mastra.mastra_threads WHERE id = $1", [ids.threadId]);
+  });
+}
+
 async function readPhase(url, ids, expectedFingerprint) {
   return withStore(url, async (store, pool) => {
     const fp = await fingerprint(pool);
@@ -142,8 +153,13 @@ if (phase === "write") {
   if (!nonce) throw new Error("read phase needs nonce arg");
   const read = await readPhase(url, proofIds(nonce), expected);
   console.log("READ_OK", JSON.stringify(read));
+} else if (phase === "cleanup") {
+  const nonce = process.argv[3];
+  if (!nonce) throw new Error("cleanup phase needs nonce arg");
+  await cleanupPhase(url, proofIds(nonce));
+  console.log("CLEANUP_OK");
 } else {
-  const script = new URL(import.meta.url).pathname;
+  const script = fileURLToPath(import.meta.url);
   const nonce = randomBytes(6).toString("hex");
   const write = spawnSync("npx", ["tsx", script, "write", nonce], {
     env: process.env,
@@ -178,4 +194,14 @@ if (phase === "write") {
       fingerprintUnchanged: true,
     }),
   );
+  if (!process.argv.includes("--keep")) {
+    const cleanup = spawnSync("npx", ["tsx", script, "cleanup", nonce], {
+      env: process.env,
+      encoding: "utf8",
+    });
+    if (cleanup.status !== 0) {
+      console.error(cleanup.stderr || cleanup.stdout);
+      process.exit(cleanup.status ?? 1);
+    }
+  }
 }
