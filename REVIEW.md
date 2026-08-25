@@ -32,4 +32,4 @@ Keep this file a calibration sheet: severity and what to check. Do not copy full
 - New business rules need tests that assert the observable result (deny Org B, fail closed when unsigned).
 - Database changes need migration coverage and rollback-aware review. Never `supabase db push` to production in a review “fix.”
 - UI / chat changes should preserve keyboard and screen reader behavior, and keep history after refresh when that is the contract.
-- Do not call work Done, complete, or production-ready without evidence: tests or `tsc`/CI as required by `AGENTS.md`, plus a live probe when the claim is runtime or production. Merge is not Done.
+- Do not call work Done, complete, or production-ready unless **every applicable** [`AGENTS.md`](AGENTS.md) check has evidence. Those checks are cumulative, not alternatives: targeted tests when they exist for the path, `npx tsc --noEmit`, `npm run build` when ports 3000 and 4111 are free (required before merge), plus browser/runtime and Org A vs Org B when those claims are in scope. Merge is not Done.
