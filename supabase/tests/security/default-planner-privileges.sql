@@ -1,6 +1,7 @@
 -- IPI-897 · SB-SEC-009 standing guard.
 -- New planner tables/sequences must not inherit anon/authenticated privileges.
 -- Always rolls back. Finding 2 (supabase_admin) is NOTICE-only.
+-- Runner: .github/workflows/ci.yml job planner-default-acl (psql). Not npm run build.
 
 begin;
 
@@ -8,34 +9,54 @@ create table planner._ipi897_guard (id int primary key);
 create sequence planner._ipi897_guard_seq;
 
 do $$
+declare
+  table_privs text[] := array[
+    'select', 'insert', 'update', 'delete',
+    'truncate', 'references', 'trigger'
+  ];
+  seq_privs text[] := array['usage', 'select', 'update'];
+  p text;
+  jwt text;
 begin
-  if has_table_privilege('anon', 'planner._ipi897_guard', 'select')
-     or has_table_privilege('anon', 'planner._ipi897_guard', 'insert') then
-    raise exception 'anon must not inherit privileges on new planner tables';
+  foreach jwt in array array['anon', 'authenticated'] loop
+    foreach p in array table_privs loop
+      if has_table_privilege(jwt, 'planner._ipi897_guard', p) then
+        raise exception '% must not have % on new planner tables', jwt, p;
+      end if;
+    end loop;
+    foreach p in array seq_privs loop
+      if has_sequence_privilege(jwt, 'planner._ipi897_guard_seq', p) then
+        raise exception '% must not have % on new planner sequences', jwt, p;
+      end if;
+    end loop;
+  end loop;
+
+  -- GRANT ALL on tables → arwdDxt (and MAINTAIN on PG17+).
+  foreach p in array table_privs loop
+    if not has_table_privilege('service_role', 'planner._ipi897_guard', p) then
+      raise exception 'service_role must have % on new planner tables', p;
+    end if;
+  end loop;
+
+  if current_setting('server_version_num')::int >= 170000 then
+    if has_table_privilege('anon', 'planner._ipi897_guard', 'maintain')
+       or has_table_privilege('authenticated', 'planner._ipi897_guard', 'maintain') then
+      raise exception 'anon/authenticated must not have maintain on new planner tables';
+    end if;
+    if not has_table_privilege('service_role', 'planner._ipi897_guard', 'maintain') then
+      raise exception 'service_role must have maintain on new planner tables';
+    end if;
   end if;
 
-  if has_table_privilege('authenticated', 'planner._ipi897_guard', 'select')
-     or has_table_privilege('authenticated', 'planner._ipi897_guard', 'insert')
-     or has_table_privilege('authenticated', 'planner._ipi897_guard', 'update')
-     or has_table_privilege('authenticated', 'planner._ipi897_guard', 'delete') then
-    raise exception 'authenticated must not inherit CRUD on new planner tables';
-  end if;
+  foreach p in array seq_privs loop
+    if not has_sequence_privilege('service_role', 'planner._ipi897_guard_seq', p) then
+      raise exception 'service_role must have % on new planner sequences', p;
+    end if;
+  end loop;
 
-  if not has_table_privilege('service_role', 'planner._ipi897_guard', 'select') then
-    raise exception 'service_role must keep table defaults on new planner tables';
-  end if;
-
-  if has_sequence_privilege('anon', 'planner._ipi897_guard_seq', 'usage')
-     or has_sequence_privilege('authenticated', 'planner._ipi897_guard_seq', 'usage') then
-    raise exception 'anon/authenticated must not inherit usage on new planner sequences';
-  end if;
-
-  if not has_sequence_privilege('service_role', 'planner._ipi897_guard_seq', 'usage') then
-    raise exception 'service_role must keep sequence defaults on new planner sequences';
-  end if;
-
-  -- Existing tables are out of sweep scope; they must still be reachable.
-  if not has_table_privilege('authenticated', 'planner.assignments', 'select') then
+  -- Existing tables are out of sweep scope (skip if CI has no dump).
+  if to_regclass('planner.assignments') is not null
+     and not has_table_privilege('authenticated', 'planner.assignments', 'select') then
     raise exception 'existing planner.assignments must keep authenticated SELECT';
   end if;
 end
