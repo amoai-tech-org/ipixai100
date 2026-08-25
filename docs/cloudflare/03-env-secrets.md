@@ -1,3 +1,7 @@
+---
+noindex: true
+---
+
 # 03 — Secrets and environment contract
 
 **Rule:** names only. Values were not copied into git. Re-enter in Infisical for the **new** app.
