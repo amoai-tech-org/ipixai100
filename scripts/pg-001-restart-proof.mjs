@@ -3,7 +3,7 @@
  * store usage, read from a new process. Does not print secrets.
  * Run: npx tsx scripts/pg-001-restart-proof.mjs
  */
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { PostgresStore } from "@mastra/pg";
 import { Pool } from "pg";
@@ -119,26 +119,33 @@ if (!url) {
   throw new Error("MASTRA_DATABASE_URL required (local Docker only)");
 }
 
-const ids = {
-  resourceId: "resource-ss26-pg001-local",
-  threadId: "thread-ss26-pg001-local",
-  msg1: "msg-ss26-look-list",
-  msg2: "msg-ss26-studio-day",
-};
+function proofIds(nonce) {
+  return {
+    resourceId: `resource-ss26-pg001-local-${nonce}`,
+    threadId: `thread-ss26-pg001-local-${nonce}`,
+    msg1: `msg-ss26-look-list-${nonce}`,
+    msg2: `msg-ss26-studio-day-${nonce}`,
+  };
+}
 
 const phase = process.argv[2] ?? "parent";
 
 if (phase === "write") {
-  const written = await writePhase(url, ids);
+  const nonce = process.argv[3];
+  if (!nonce) throw new Error("write phase needs nonce arg");
+  const written = await writePhase(url, proofIds(nonce));
   console.log("WRITE_OK", JSON.stringify({ pid: written.pid, fingerprint: written.fingerprint }));
 } else if (phase === "read") {
   const expected = process.argv[3];
+  const nonce = process.argv[4];
   if (!expected) throw new Error("read phase needs fingerprint arg");
-  const read = await readPhase(url, ids, expected);
+  if (!nonce) throw new Error("read phase needs nonce arg");
+  const read = await readPhase(url, proofIds(nonce), expected);
   console.log("READ_OK", JSON.stringify(read));
 } else {
   const script = new URL(import.meta.url).pathname;
-  const write = spawnSync("npx", ["tsx", script, "write"], {
+  const nonce = randomBytes(6).toString("hex");
+  const write = spawnSync("npx", ["tsx", script, "write", nonce], {
     env: process.env,
     encoding: "utf8",
   });
@@ -148,7 +155,7 @@ if (phase === "write") {
   }
   const line = write.stdout.trim().split("\n").at(-1);
   const payload = JSON.parse(line.replace(/^WRITE_OK\s/, ""));
-  const read = spawnSync("npx", ["tsx", script, "read", payload.fingerprint], {
+  const read = spawnSync("npx", ["tsx", script, "read", payload.fingerprint, nonce], {
     env: process.env,
     encoding: "utf8",
   });

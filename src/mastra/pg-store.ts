@@ -10,6 +10,7 @@ declare global {
   // ponytail: Next HMR otherwise opens extra pools; ceiling is one process-wide Pool.
   var __ipixMastraPgPool: PostgresStore["pool"] | undefined;
   var __ipixMastraPgStore: PostgresStore | undefined;
+  var __ipixMastraPgConnectionString: string | undefined;
 }
 
 const MISSING_URL_WARNING =
@@ -130,8 +131,7 @@ export function isAllowedLocalMastraDatabaseHost(hostname: string): boolean {
     host === "127.0.0.1" ||
     host === "localhost" ||
     host === "::1" ||
-    host === "supabase_db_ipixai" ||
-    host.endsWith(".local")
+    host === "supabase_db_ipixai"
   );
 }
 
@@ -140,6 +140,16 @@ export function warnIfMastraDatabaseUrlMissing(url: string | undefined): void {
   if (missingUrlWarned) return;
   missingUrlWarned = true;
   console.warn(MISSING_URL_WARNING);
+}
+
+/** CI/local may omit the URL (LibSQL). Vercel production/preview must fail closed. */
+export function assertPostgresRequiredForHostedRuntime(url: string | undefined): void {
+  const vercelEnv = process.env.VERCEL_ENV;
+  if ((vercelEnv === "production" || vercelEnv === "preview") && !url) {
+    throw new Error(
+      "MASTRA_DATABASE_URL is required on Vercel production/preview; refusing in-memory fallback",
+    );
+  }
 }
 
 export function assertSafeMastraDatabaseUrl(url: string): URL {
@@ -157,8 +167,18 @@ export function assertSafeMastraDatabaseUrl(url: string): URL {
   return parsed;
 }
 
+function assertSameMastraConnectionString(connectionString: string): void {
+  const existing = globalThis.__ipixMastraPgConnectionString;
+  if (existing && existing !== connectionString) {
+    throw new Error(
+      "MASTRA_DATABASE_URL changed after the Mastra pool was created; refusing to reuse the singleton",
+    );
+  }
+}
+
 export function getMastraPgPool(connectionString: string): PostgresStore["pool"] {
   assertSafeMastraDatabaseUrl(connectionString);
+  assertSameMastraConnectionString(connectionString);
   if (!globalThis.__ipixMastraPgPool) {
     const pool = new Pool({
       connectionString,
@@ -168,11 +188,13 @@ export function getMastraPgPool(connectionString: string): PostgresStore["pool"]
       console.error("Mastra pg pool idle client error", err.message);
     });
     globalThis.__ipixMastraPgPool = pool;
+    globalThis.__ipixMastraPgConnectionString = connectionString;
   }
   return globalThis.__ipixMastraPgPool;
 }
 
 export function getMastraPostgresStore(connectionString: string): PostgresStore {
+  assertSameMastraConnectionString(connectionString);
   if (!globalThis.__ipixMastraPgStore) {
     const pool = getMastraPgPool(connectionString);
     globalThis.__ipixMastraPgStore = new PostgresStore({
