@@ -74,13 +74,16 @@ jobs:
           end
           $roles$;
           create schema if not exists planner;
+          -- Existing-table stand-in: create + SELECT before default ACLs so this
+          -- object is not born with GRANT ALL from the leak we seed next.
+          create table if not exists planner.assignments (id int primary key);
+          grant select on planner.assignments to authenticated;
           -- Reproduce hosted leak so REVOKE is exercised (stock Postgres grants nothing).
+          -- Applies only to objects created after these statements.
           alter default privileges for role postgres in schema planner
             grant all on tables to anon, authenticated;
           alter default privileges for role postgres in schema planner
             grant all on sequences to anon, authenticated;
-          create table if not exists planner.assignments (id int primary key);
-          grant select on planner.assignments to authenticated;
           -- Pre-migration: the leak must exist or REVOKE is untested.
           do $pre$
           begin
