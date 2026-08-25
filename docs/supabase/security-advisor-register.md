@@ -69,7 +69,7 @@ Re-export Security Advisor and refresh this file (docs-only PR) when any of thes
 
 - new `SECURITY DEFINER` RPC, change to function **EXECUTE**, or change to an **existing** function’s body, security mode (`DEFINER`/`INVOKER`), owner, or `search_path`
 - **default privileges** (`ALTER DEFAULT PRIVILEGES` / `pg_default_acl`)
-- **RLS policies** or JWT **table grants** (including on the five backend-only tables — a grant-only change can leave the advisor **count** unchanged while fail-closed proof goes stale)
+- **RLS policies**, RLS **state** (`ENABLE` / `DISABLE` / `FORCE ROW LEVEL SECURITY`), or JWT **table grants** (including on the five backend-only tables — a grant-only or RLS-state change can leave the advisor **count** unchanged while fail-closed proof goes stale)
 - public **extension** add/move / schema placement
 - Auth **plan** or leaked-password setting
 
