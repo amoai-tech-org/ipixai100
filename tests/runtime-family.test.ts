@@ -39,10 +39,15 @@ describe("IPI-1042 runtime family", () => {
     };
 
     expect(pkg.name).toBe("@mastra/pg");
-    expect(pkg.version).toBe("1.13.0");
+    expect(pkg.version).toBe("1.12.1");
     const peer = pkg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();
     expect(coreSatisfiesMastraPeer("1.41.0", peer ?? "")).toBe(true);
     expect(coreSatisfiesMastraPeer("1.41.0", ">=1.34.0-0 <1.41.0")).toBe(false);
+  });
+
+  it("can import @mastra/pg against @mastra/core@1.41.0", async () => {
+    const mod = await import("@mastra/pg");
+    expect(typeof mod.PostgresStore).toBe("function");
   });
 });
