@@ -1,10 +1,10 @@
 import { afterAll, describe, expect, it } from "vitest";
+import { MASTRA_SCHEMA_FINGERPRINT_SQL } from "../scripts/mastra-schema-fingerprint";
 import {
   assertSafeMastraDatabaseUrl,
   getMastraPgPool,
   getMastraPostgresStore,
   isAllowedLocalMastraDatabaseHost,
-  MASTRA_SCHEMA_FINGERPRINT_SQL,
   resetMastraPgSingletonsForTests,
 } from "../src/mastra/pg-store";
 

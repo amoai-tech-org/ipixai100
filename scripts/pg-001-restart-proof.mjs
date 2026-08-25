@@ -9,10 +9,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { PostgresStore } from "@mastra/pg";
 import { Pool } from "pg";
-import {
-  assertSafeMastraDatabaseUrl,
-  MASTRA_SCHEMA_FINGERPRINT_SQL,
-} from "../src/mastra/pg-store.ts";
+import { assertSafeMastraDatabaseUrl } from "../src/mastra/pg-store.ts";
+import { MASTRA_SCHEMA_FINGERPRINT_SQL } from "./mastra-schema-fingerprint.ts";
 
 async function fingerprint(pool) {
   const cols = await pool.query(MASTRA_SCHEMA_FINGERPRINT_SQL);
