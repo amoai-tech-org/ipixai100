@@ -274,7 +274,7 @@ Blocking proofs before DB-001 can unlock **local** PG-001: **cleared 2026-08-25*
 
 ---
 
-## Go / no-go for IPI-1044 · PG-001
+## Go / no-go for IPI-1044 · PG-001 — Make iPix AI Conversations Survive Server Restarts
 
 **PASS / GO for the local schema contract (unlocks [IPI-1044 · PG-001 — Make iPix AI Conversations Survive Server Restarts](https://linear.app/amo100/issue/IPI-1044/ipi-1044-pg-001-make-ipix-ai-conversations-survive-server-restarts) wiring).** **NO-GO for hosted/production writes.** Catalog fingerprint before/after process start is **not** collected here.
 
