@@ -76,7 +76,7 @@ Result: `function`. **The store was not constructed or initialized.** No Postgre
 | Local | Docker `127.0.0.1:54342` (Supabase local) | `psql` `information_schema` + `pg_indexes` + `pg_policies` | none (SELECT) |
 | Hosted | `nvdlhrodvevgwdsneplk` (fashionos, PG 17) | Supabase MCP `list_tables` schema `mastra` (verbose) | none intended |
 
-**2026-08-25 hosted catalog (SELECT only):** MCP `list_tables` plus `execute_sql` `SELECT` on `pg_indexes` / `has_schema_privilege` / `has_table_privilege` / `role_table_grants`. No `init()`, migrate, INSERT, UPDATE, DELETE, or GRANT. MCP is not proven `read_only=true`; queries were SELECT-only.
+**2026-08-25 hosted catalog (SELECT only):** MCP `list_tables` plus `execute_sql` `SELECT` on `pg_indexes` / `has_schema_privilege` / `has_table_privilege` / `role_table_grants`. Privilege re-check covered schema USAGE and SELECT/INSERT/UPDATE/DELETE on all four Core tables for `hyperdrive_mastra_runtime`. No `init()`, migrate, INSERT, UPDATE, DELETE, or GRANT. MCP is not proven `read_only=true`; queries were SELECT-only.
 
 **Environment SSOT:** live Linear **IPI-1043 · DB-001** requires local first, then read-only comparison with the existing hosted project `nvdlhrodvevgwdsneplk`, and explicitly forbids creating a second hosted preview/staging project. Supabase MCP `list_branches` on that project (2026-08-24) returned **only** branch `main` (no preview/branch database). Local Docker (`127.0.0.1:54342`) is the **preview analog** for this matrix. Hosted `list_tables` on fashionos proves live **table/column** shape; it is **not** a write target and does **not** unlock PG-001 against production. The older `docs/12-task-roadmap.md` preview wording is stale and must not override the live task. Reconcile that roadmap in a separate docs change.
 
@@ -241,11 +241,18 @@ If `init()` ran with `schemaName: "mastra"`, MemoryPG would prefix indexes with 
 
 ## Grants and roles
 
-**Local Core tables:** `postgres` ALL; `hyperdrive_mastra_runtime` USAGE + SELECT/INSERT on threads/messages (2026-08-25 `has_*_privilege`). `anon` and `authenticated`: **no** schema USAGE and **no** table SELECT.
+`PostgresStore` in `@mastra/pg@1.12.1` constructs **MemoryPG** and **WorkflowsPG**. Memory needs `mastra_threads`, `mastra_messages`, and `mastra_resources`. Workflows persist `mastra_workflow_snapshot` with SELECT/INSERT/**UPDATE**/**DELETE**. A grant check that only names threads and messages is incomplete.
 
-**Hosted (fashionos, SELECT 2026-08-25):** `anon`, `authenticated`, `service_role`: schema USAGE **false**, threads/messages SELECT/INSERT **false**. `postgres`: true. `role_table_grants` only listed `postgres` among those grantees. **`anon` has no effective USAGE/DML.** Hosted has no `hyperdrive_mastra_runtime` role in this probe. Do **not** GRANT schema `mastra` to `anon`.
+**2026-08-25 `has_schema_privilege` / `has_table_privilege` (SELECT only).** Role `hyperdrive_mastra_runtime` — schema `mastra` **USAGE** and SELECT/INSERT/UPDATE/DELETE on all four Core tables:
 
-Local PG-001 should use the local `postgres` superuser (Docker) or `hyperdrive_mastra_runtime`, never `anon`.
+| Env | USAGE `mastra` | threads | messages | resources | workflow_snapshot |
+|-----|----------------|---------|----------|-----------|-------------------|
+| Local Docker `127.0.0.1:54342` | true | all four DML true | all four DML true | all four DML true | all four DML true |
+| Hosted fashionos `nvdlhrodvevgwdsneplk` | true | all four DML true | all four DML true | all four DML true | all four DML true |
+
+`postgres` has access on both. Hosted `anon` / `authenticated` / `service_role`: schema USAGE **false** (re-checked). **`anon` has no effective USAGE/DML.** Do **not** GRANT schema `mastra` to `anon`.
+
+Local **IPI-1044 · PG-001** may still connect as Docker `postgres` by setup convenience. That is optional, not a workaround: `hyperdrive_mastra_runtime` already has the four-table DML. Never `anon`. Never hosted/production writes from PG-001.
 
 ---
 
@@ -275,7 +282,7 @@ Gates:
 
 1. Import `PostgresStore` from `@mastra/pg@1.12.1` without constructing it — **PASS** on `054da4e`
 2. Required Core indexes and (`workflow_name`, `run_id`) uniqueness — **MATCH** local and hosted (name CHANGE only on snapshot unique)
-3. Hosted `has_schema_privilege` / `has_table_privilege`: **`anon` and `authenticated` have no USAGE/DML**; `postgres` has access. Local `hyperdrive_mastra_runtime` has USAGE+DML
+3. `has_schema_privilege` / `has_table_privilege`: **`anon` and `authenticated` have no USAGE/DML**; `postgres` has access. Local and hosted `hyperdrive_mastra_runtime` have schema USAGE plus SELECT/INSERT/UPDATE/DELETE on all four Core tables (threads, messages, resources, workflow_snapshot)
 4. Hosted RLS `USING (true)` is **not** tenant isolation
 5. Constructor: `schemaName: "mastra"`, `disableInit: true`, injected singleton `pool`
 6. PG-001 must prove catalog fingerprint unchanged across process start **locally**
