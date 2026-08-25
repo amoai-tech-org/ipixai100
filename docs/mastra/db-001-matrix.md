@@ -146,7 +146,7 @@ RLS: **enabled** on all 34 (local `relrowsecurity`; hosted `rls_enabled`). **Thi
 
 ## Core memory tables (load-bearing)
 
-Required columns from `TABLE_SCHEMAS` vs local `information_schema.columns`: **all MATCH** (type + nullability). Hosted `list_tables` columns **match local** (same names, same counts). No required column is MISSING.
+Required columns from `TABLE_SCHEMAS` vs local `information_schema.columns`: **all MATCH** (type + nullability). Hosted MCP `list_tables` includes `data_type` and nullable `options` (not names/counts only). For the four Core tables those hosted types/nullability **MATCH** local. Indexes/uniques/grants remain **UNVERIFIED** on hosted.
 
 Hosted row counts (prior catalog probe, not re-run as `execute_sql`): `mastra_threads` **45**, `mastra_messages` **103**, `mastra_resources` **0**, `mastra_workflow_snapshot` **6140**. Local Core counts: **0**.
 
@@ -280,7 +280,7 @@ Blocking proofs before DB-001 can unlock PG-001: (1) **import still FAILING** â€
 5. The approved constructor uses `schemaName: "mastra"`, `disableInit: true`, and an injected singleton `pool`
 6. The catalog fingerprint remains unchanged across process start
 7. Tenant isolation is enforced by server-derived `resourceId` and application authorization; cross-resource read/write denial tests pass before production
-8. No production writes; PG-001 must not treat fashionos as the first write target
+8. This matrix documentation does not perform production writes. PG-001 must not treat fashionos as the first write target
 
 Live Linear authorizes the existing hosted project for read-only catalog comparison and forbids a second hosted preview/staging project. **NO-GO** also applies if implementation follows the stale preview wording in `docs/12-task-roadmap.md` as permission to write production, trusts client-provided resource scope, or copies GitHub `main` instead of the installed `@mastra/pg@1.13.0`.
 
