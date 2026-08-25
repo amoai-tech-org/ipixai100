@@ -1,56 +1,24 @@
 /**
  * Local-only PG-001 proof: write a synthetic SS26 thread, kill this PID's
  * store usage, read from a new process. Does not print secrets.
+ * Run: npx tsx scripts/pg-001-restart-proof.mjs
  */
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { PostgresStore } from "@mastra/pg";
 import { Pool } from "pg";
-
-const PRODUCTION_MARKERS = ["nvdlhrodvevgwdsneplk"];
-
-function assertSafeUrl(url) {
-  const parsed = new URL(url);
-  if (PRODUCTION_MARKERS.some((m) => url.includes(m))) {
-    throw new Error("refusing hosted fashionos URL");
-  }
-  const host = parsed.hostname;
-  if (
-    host !== "127.0.0.1" &&
-    host !== "localhost" &&
-    host !== "supabase_db_ipixai" &&
-    parsed.hostname.includes("supabase.co")
-  ) {
-    throw new Error("refusing hosted Supabase URL");
-  }
-}
-
-const FINGERPRINT_SQL = `
-SELECT json_agg(row_to_json(t) ORDER BY table_name, column_name)::text AS fp
-FROM (
-  SELECT c.table_name, c.column_name, c.data_type, c.is_nullable
-  FROM information_schema.columns c
-  WHERE c.table_schema = 'mastra'
-    AND c.table_name IN ('mastra_threads','mastra_messages','mastra_resources','mastra_workflow_snapshot')
-) t
-`;
-
-const INDEX_SQL = `
-SELECT json_agg(indexname ORDER BY indexname)::text
-FROM pg_indexes
-WHERE schemaname = 'mastra'
-  AND tablename IN ('mastra_threads','mastra_messages','mastra_workflow_snapshot')
-`;
+import {
+  assertSafeMastraDatabaseUrl,
+  MASTRA_SCHEMA_FINGERPRINT_SQL,
+} from "../src/mastra/pg-store.ts";
 
 async function fingerprint(pool) {
-  const cols = await pool.query(FINGERPRINT_SQL);
-  const idx = await pool.query(INDEX_SQL);
-  const raw = `${cols.rows[0].fp}|${idx.rows[0].json_agg}`;
-  return createHash("sha256").update(raw).digest("hex");
+  const cols = await pool.query(MASTRA_SCHEMA_FINGERPRINT_SQL);
+  return createHash("sha256").update(String(cols.rows[0].fp)).digest("hex");
 }
 
 async function withStore(url, fn) {
-  assertSafeUrl(url);
+  assertSafeMastraDatabaseUrl(url);
   const pool = new Pool({ connectionString: url, max: 4 });
   const store = new PostgresStore({
     id: "ipix-mastra-storage-proof",
@@ -169,7 +137,8 @@ if (phase === "write") {
   const read = await readPhase(url, ids, expected);
   console.log("READ_OK", JSON.stringify(read));
 } else {
-  const write = spawnSync(process.execPath, [process.argv[1], "write"], {
+  const script = new URL(import.meta.url).pathname;
+  const write = spawnSync("npx", ["tsx", script, "write"], {
     env: process.env,
     encoding: "utf8",
   });
@@ -179,11 +148,10 @@ if (phase === "write") {
   }
   const line = write.stdout.trim().split("\n").at(-1);
   const payload = JSON.parse(line.replace(/^WRITE_OK\s/, ""));
-  const read = spawnSync(
-    process.execPath,
-    [process.argv[1], "read", payload.fingerprint],
-    { env: process.env, encoding: "utf8" },
-  );
+  const read = spawnSync("npx", ["tsx", script, "read", payload.fingerprint], {
+    env: process.env,
+    encoding: "utf8",
+  });
   if (read.status !== 0) {
     console.error(read.stderr || read.stdout);
     process.exit(read.status ?? 1);
