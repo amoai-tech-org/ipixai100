@@ -1,102 +1,185 @@
-# New iPix plan — ordered todo
+---
+title: "Execution backlog"
+description: "v2-ipix check-off order. Live Linear is status SSOT; this file is the repo map."
+---
 
-**How to use:** work **top to bottom**. Do not skip Wave 0. Production `app/` stays live.  
-**Detail tickets:** [12-task-roadmap.md](./12-task-roadmap.md)  
-**Supabase evidence:** [data/00-executive-report.md](./data/00-executive-report.md) · **Wave 0 plan:** [data/supa-fix-plan.md](./data/supa-fix-plan.md)
+# New iPix plan — ordered TODO
 
-Status: `todo` · `doing` · `blocked` · `done`
+**Repo check-off SSOT:** this file (`docs/todo.md`).  
+**Status SSOT:** live Linear project [v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2). If this table and Linear disagree, Linear wins.  
+**Product SSOT:** [Product requirements](./prd.md) · [Product sitemap](./sitemap.md)  
+**How to use:** work **top to bottom** in Core. One concern per PR.  
+**Repository:** [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai)  
+**Roadmap detail:** [12-task-roadmap.md](./12-task-roadmap.md)  
+**Area detail:** [Mastra conversion](./mastra/10-mastra-convert.md) · [DB-001 matrix](./mastra/db-001-matrix.md) · [Data pack](./data/README.md)
+
+Status legend: 🟢 Done · 🟡 In Progress · 🔵 Todo · ⚪ Backlog · ⬛ Epic · ∥ parallel · **GATE** stop line
 
 ---
 
-## Wave 0 — Harden live Supabase first (do this before new app work)
+## Wave 0 — closed / managed separately
 
-Like taking the spare lookbook key off the public hook, labeling the real shoot binder, then giving the new crew a **preview studio**.
-
-**SQL and proof steps:** [data/supa-fix-plan.md](./data/supa-fix-plan.md)
-
-| # | Task | What to do (plain English) | Done when | Status |
-|---|------|----------------------------|-----------|--------|
-| **0.1** | **IPI-V2-000 · SB-FIX-001 — Remove unnecessary anonymous execution from brand assets RPC** | Start here. Live advisor: `get_brand_assets` still anon-executable DEFINER. `REVOKE` from `public`/`anon`; keep `authenticated` + membership checks. | Anon EXECUTE denied; Org A own assets OK; Org B denied. | **todo ← start here** |
-| **0.2** | **IPI-V2-000 · SB-FIX-002 — Audit public SECURITY DEFINER function grants** | Broader than “kill advisor noise”: 34 authenticated DEFINER RPCs (planner, bookings, talent, CRM, shoot). Matrix: browser need? EXECUTE role? DEFINER necessary? search_path? `auth.uid()`? org ownership? write idempotency? Do **not** mass-revoke. | PR table with those columns; only extras revoked. | todo |
-| **0.3** | **IPI-V2-000 · SB-FIX-003 — Enable leaked-password protection** | Auth dashboard HaveIBeenPwned. | Advisor leaked-password warning gone. | todo |
-| **0.4** | **IPI-V2-000 · SB-FIX-004 — Document backend-only deny-all tables** | Chatbot/Firecrawl already fail-closed. Optional `REVOKE ALL` from JWT roles. **Do not** add `USING (true)` or fake policies. | Comment in repo; Edge still uses service role. | todo |
-| **0.5** | **IPI-V2-000 · SB-FIX-005 — Declare `shoot.shoots` the canonical shoot source** | New code uses `shoot.*` + shoot RPCs only. Freeze `public.shoots`. | Types/docs: no new `public.shoots` queries. | todo |
-| **0.6** | **IPI-V2-000 · SB-FIX-006 — Verify every JWT-off Edge Function authentication gate** | Firecrawl HMAC = PASS. `capture-lead` proxy secret = PASS (later: distributed rate limit). `health` = no secrets. | Checklist in the PR. | todo |
-| **0.8** | **IPI-V2-000 · SB-FIX-008 — Make future RPC execution fail closed by default** | Default privileges belong to the **creating role**. Live: `postgres` is tight; `supabase_admin` still grants anon/authenticated EXECUTE. Set `ALTER DEFAULT PRIVILEGES FOR ROLE …`. Prove with a test function on **preview**, not prod (`pg_default_acl`). | New function inaccessible until granted; creating role listed. | todo |
-| **0.9** | **IPI-V2-000 · SB-FIX-009 — Lock mutable function search paths** | Fix **all three** advisor hits: `stamp_analysis_locked_at`, `set_updated_at`, `trigger_set_timestamps`. Inspect body; qualify relations if needed; `search_path = ''`. | Triggers still stamp; advisor path warnings gone. | todo |
-| **0.7** | **IPI-V2-000 · SB-FIX-007 — Re-run advisors and RLS tests** | Isolation tests + classified advisor register. Success is **not** “dashboard all green.” Extensions in `public` and remaining DEFINER API notices may stay if justified. | Zero unexplained P0/P1; leftovers classified; 0.1 anon flag gone. | todo |
-| **0.10** | **IPI-V2-000 · SB-FIX-010 — Create isolated persistent Supabase preview** | Persistent branch `ipix-v2`. Own DB/keys/Auth/Storage. **Empty by default — do not copy prod.** Billable compute. | Preview URL in Infisical; Wave 1 points here. | todo |
-| **0.11** | **IPI-V2-000 · SB-FIX-011 — Seed deterministic preview orgs and test data** | After 0.10: QA user, Org A, Org B, brand, shoot, planner instance. Enables RLS + Copilot/Mastra gold tests. | Seed applied on preview only; Org B denied on Org A thread. | todo |
+> **Wave 0 SQL hardening** is closed on legacy `lumina-studio` (PRs #982, #983, #984, #986, #987). Do **not** write production Supabase during Core Mastra work. Persistence proofs use local then existing hosted + `TEST-<uuid>` only — never a second hosted preview project.
 
 ---
 
-## Wave 1 — New app foundation (after Wave 0)
+## Current Core position (2026-08-25)
 
-| # | Task | What to do (plain English) | Done when | Status |
-|---|------|----------------------------|-----------|--------|
-| 1.1 | **IPI-V2-001 · BOOT-001 — Create the parallel Next.js app from the CopilotKit Mastra starter** | New tree (`app-v2/` or worktree). Official starter only. Do not copy the ~681-line route. | Dev server shows starter chat; no production `app/` mix. | todo |
-| 1.2 | **IPI-V2-002 · BOOT-002 — Pin one CopilotKit + Mastra package family** | Install the **compatible set**, not each package’s latest. | `npm ls` + typecheck clean; versions written in the PR. | todo |
-| 1.3 | **IPI-V2-003 · RT-001 — Thin official CopilotKit route** | Stock handler + auth hook later. | `/api/copilotkit` streams; no Worker shims. | todo |
-| 1.4 | **IPI-V2-004 · RT-002 — One page with CopilotKit provider** | `useAgent` on a single page. | Browser streams tokens. | todo |
-| 1.5 | **IPI-V2-005 · MS-001 — In-process Mastra** | Same Node process as Next. | One `npm run dev`; no Cloudflare in this file. | todo |
+- **IPI-1042 · RUNTIME-001 — Make the New iPix AI Runtime Compile and Build Cleanly** is **Done** (Linear + `origin/main`).
+- **Next:** **IPI-1043 · DB-001 — Prove Mastra Can Use the iPix Postgres Schema Safely** (In Progress, read-only matrix). **IPI-1037 · AUTH-001** can start in parallel after 1042.
+- Do **not** start dashboard / wizard / marketing until **IPI-1041 · CORE-001** is Done.
 
----
+**Environment:** local Supabase first; hosted `nvdlhrodvevgwdsneplk` + `TEST-<uuid>` only; fail closed on production writes.
 
-## Wave 2 — Preview database, auth, org
+**Reuse:** proven React + business logic. Official CopilotKit handler + AG-UI events. Do not copy Worker/Hyperdrive.
 
-| # | Task | What to do (plain English) | Done when | Status |
-|---|------|----------------------------|-----------|--------|
-| 2.1 | **IPI-V2-005B · DB-001 — Diff `@mastra/pg` vs preview schema** | Compare installed store contract to preview DB. Do **not** connect production `mastra` yet. | MATCH / NEW / CHANGED table written. | todo |
-| 2.2 | **IPI-V2-006 · PG-001 — PostgresStore on preview `mastra` only** | `schemaName` from env (required). `disableInit: true`. | Chat rows appear in **preview** `mastra.mastra_threads` / messages. | todo |
-| 2.3 | **IPI-V2-007 · AUTH-001 — Supabase Auth on the new app** | Same Auth project; cookie SSR; no `demo-user`. | Unauthenticated Copilot route → 401. | todo |
-| 2.4 | **IPI-V2-008 · AUTH-002 — Organization membership fail-closed** | Server reads `org_members`. Build `resourceId` as `org:{orgId}:user:{userId}`. | User with no org cannot chat; client `orgId` cannot spoof writes. | todo |
+## Better Core order (not one long chain)
 
----
+```text
+IPI-1042 RUNTIME-001
+   ├─ IPI-1043 DB-001 → IPI-1044 PG-001
+   └─ IPI-1037 AUTH-001 → IPI-1046 AUTH-002
 
-## Wave 3 — Planner chat + isolation proof
+PG-001 + AUTH-002 → IPI-1045 STREAM-001 → IPI-1047 ACCESS-001
+STREAM-001 → IPI-1048 PLANNER-001 → IPI-1049 TOOL-001
+PG-001 + PLANNER-001 → IPI-1050 MEM-001
+AUTH + STREAM + PLANNER → IPI-1051 UI-001 → IPI-1031 CORE-HOST-REF → IPI-1041 CORE-001
+```
 
-| # | Task | What to do (plain English) | Done when | Status |
-|---|------|----------------------------|-----------|--------|
-| 3.1 | **IPI-V2-009–017 · PLAN-CHAT — One Production Planner + thread locator + 403** | One planner agent. Tools call existing `planner_*` RPCs (user JWT), not service-role table writes. | Planner page chats; other org gets 403. | todo |
-| 3.2 | **IPI-V2-018 · GOLD-001 — Golden persist test** | Unique `TEST-<uuid>` → stream → SQL → refresh → restart → Org B 403. | SQL + browser proof on **preview** storage. | todo |
-
-**Stop line:** no Operator shell / Brand / Shoots UI port until 3.2 is green.
+Wave 0 parallel (do not steal Core): `IPI-897 ∥ IPI-863 ∥ IPI-1039 ∥ IPI-1040`
 
 ---
 
-## Wave 4 — Product UI (port, don’t rewrite)
+## After Core — thin MVP first, dashboard fan-out
 
-| # | Task | What to do (plain English) | Done when | Status |
-|---|------|----------------------------|-----------|--------|
-| 4.1 | **IPI-V2-UI-001 — Operator shell** | Port layout/nav from current iPix. | Signed-in operator lands in `/app`. | todo |
-| 4.2 | **IPI-V2-UI-002 — Brand Hub** | Read `brands`; crawl via existing Edge. | Operator can open a brand lookbook. | todo |
-| 4.3 | **IPI-V2-UI-003 — Shoots on `shoot.shoots`** | RPCs only; never `public.shoots`. | Shoot detail matches production shoot schema. | todo |
-| 4.4 | **IPI-V2-UI-004 — Assets + CRM** | Existing tables + RLS. | Lists respect org. | todo |
+```text
+CORE-001 → DESIGN-001 → APP-001
+   ├─ BRAND-001 ∥ SHOOT-001          ← thin MVP path
+   ├─ ASSETS-001 ∥ CRM-001 ∥ TALENT-BOOKING-001 ∥ OPERATIONS-001
+   └─ HOME-001 (better after BRAND) · ANALYTICS-001 (better after OPS)
 
----
+CORE-001 → **PLANNER-TRACE-001 (minimal)** → then:
+BRAND + SHOOT → PLAN-001 → APPROVAL-001 → SHOOT-SAVE-001 → SHOOT-WIZARD-001
+             → PLANNER-CONTEXT-001 → PLANNER-QUALITY-001
 
-## Wave 5 — HITL, bookings, polish (after golden chat)
+Other `/app` pages (HOME, ASSETS, CRM, TALENT, OPS) ∥ after APP-001 — not on the thin launch spine.
 
-| # | Task | What to do (plain English) | Done when | Status |
-|---|------|----------------------------|-----------|--------|
-| 5.1 | **IPI-V2-HITL-001 — Planner gate approve/discard** | `planner_approve_gate` / `planner_discard_gate` + idempotency key. | Approve in UI writes Supabase; refresh shows it. | todo |
-| 5.2 | **IPI-V2-BOOK-001 — Talent booking RPCs** | `create_booking_request` / `transition_booking`. | Booking status changes via RPC. | todo |
-| 5.3 | **IPI-V2-SB-IDX-001 — Index pass** | Only after EXPLAIN from the new app (`planner.assignments.user_id`, etc.). | Migration with measured queries. | todo |
+**Guardrails (add to existing ACs, no new issues):** AUTH token never in model content · client `orgId` not authoritative · ACCESS deny leaks zero messages · TOOL-001 no service-role / no writes · SHOOT-SAVE same idempotency key → same shoot id · APPROVAL reject = zero writes · PLANNER-QUALITY approval-before-write in CI · MARKETING-SEO preview hosts never canonical.
+```
 
----
-
-## Explicitly later / not this list
-
-| Do not do yet | Why |
-|---------------|-----|
-| Point new app at **production** `mastra.*` | Wave 2–3 must pass first |
-| Cloudflare Worker chat | ADR: Node/Vercel first |
-| New `public` AI thread tables | Mastra schema owns memory |
-| Copy 681-line Copilot route | Starter replaces it |
-| Add indexes in Wave 0 | Fix security first; indexes after real queries |
+HITL + save is the sensitive path: official Mastra suspend/resume + one idempotent write. Grants **and** RLS.
 
 ---
 
-## Suggested first PRs (Wave 0)
+## Legend
 
-Split is in [data/supa-fix-plan.md](./data/supa-fix-plan.md). **First git PR:** 0.1 revoke only. **Dashboard:** 0.3. **Last before BOOT:** 0.10 preview + **0.11 seed**. No `app-v2` code in Wave 0 PRs.
+🟢 Done · 🟡 In Progress · 🔵 Todo (ready) · ⚪ Backlog · ⬛ Epic/tracker · ∥ parallel · **GATE** stop line
+
+**49 Linear rows below** (6 marketing duplicates listed after). Statuses below are a snapshot (2026-08-25). **Live Linear wins** if they disagree.
+
+---
+
+## All 49
+
+| # | Wave | Do | Linear | Spec | What to do | After | Status |
+|---|---|---|---|---|---|---|---|
+| 1 | 0 | ⬛ | [IPI-1075](https://linear.app/amo100/issue/IPI-1075) | **SUPABASE-EPIC** | Parent for accounts, data, AI memory. | — | 🟡 In Progress |
+| 2 | 0 | ⬛ | [IPI-1036](https://linear.app/amo100/issue/IPI-1036) | **WAVE-0-EPIC** | Hardening parent. Close when 863 + 897 + 1039 + 1031 are green. | — | 🟡 In Progress |
+| 3 | 0 | ⬛ | [IPI-1038](https://linear.app/amo100/issue/IPI-1038) | **MASTRA-V2-002** | Tracker: durability. Owners PG-001 / MEM-001 / CORE-001. | — | ⚪ Backlog |
+| 4 | 0 | ⬛ | [IPI-1052](https://linear.app/amo100/issue/IPI-1052) | **CONVERT-001** | Stay aligned with convert doc. Not a code owner. | — | ⚪ Backlog |
+| 5 | 1 | 🟢 | [IPI-1042](https://linear.app/amo100/issue/IPI-1042) | **RUNTIME-001** | Pin one CopilotKit+Mastra family, add `@mastra/pg`, typecheck, test, build. No store wiring. | Starter in repo | 🟢 Done (Linear + `origin/main`) |
+| 6 | 0 | ∥ | [IPI-897](https://linear.app/amo100/issue/IPI-897) | **SB-SEC-009** | Stop `planner` auto-grants. Prove locally / existing hosted; no unsupported admin ALTERs. | Beside Core | 🔵 Todo |
+| 7 | 0 | ∥ | [IPI-863](https://linear.app/amo100/issue/IPI-863) | **AUTH-V2-001** | Block leaked passwords (HIBP). Pro+. | Beside Core | 🔵 Todo |
+| 8 | 0 | ∥ | [IPI-1039](https://linear.app/amo100/issue/IPI-1039) | **SB-V2-003** | Owner for every Advisor warning. Do not mass-revoke KEEP. | Beside Core | ⚪ Backlog |
+| 9 | 0 | ∥ | [IPI-1040](https://linear.app/amo100/issue/IPI-1040) | **MIGRATION-001** | Add a V2 migration locally without replaying the dump. | After 1042 | ⚪ Backlog |
+| 10 | 1 | ⬛ | [IPI-1078](https://linear.app/amo100/issue/IPI-1078) | **MASTRA-EPIC** | Core AI parent. Close with CORE-001. | 1042 started | 🔵 Todo |
+| 11 | 1 | **NEXT** | [IPI-1043](https://linear.app/amo100/issue/IPI-1043) | **DB-001** | MATCH/CHANGE/MISSING vs **installed** PostgresStore types + local/hosted `mastra`. Read-only. | 1042 | 🟡 In Progress |
+| 12 | 1 | → | [IPI-1044](https://linear.app/amo100/issue/IPI-1044) | **PG-001** | Conversations survive restart. Local then `TEST-<uuid>` on existing hosted. `disableInit` if tables exist. | 1043 | ⚪ Backlog |
+| 13 | 1 | ∥ | [IPI-1037](https://linear.app/amo100/issue/IPI-1037) | **AUTH-001** | Real SSR cookie session. Unauth CopilotKit = 401. No `demo-user`. | 1042 | ⚪ Backlog |
+| 14 | 1 | → | [IPI-1046](https://linear.app/amo100/issue/IPI-1046) | **AUTH-002** | Server-derived org `resourceId`. Client cannot spoof. | 1037 | ⚪ Backlog |
+| 15 | 1 | → | [IPI-1045](https://linear.app/amo100/issue/IPI-1045) | **STREAM-001** | Thin authenticated `/api/copilotkit`. Official AG-UI events. | 1044 + 1046 | ⚪ Backlog |
+| 16 | 1 | → | [IPI-1047](https://linear.app/amo100/issue/IPI-1047) | **ACCESS-001** | Org B cannot open Org A thread. Server-side ownership. | 1045 | ⚪ Backlog |
+| 17 | 1 | → | [IPI-1048](https://linear.app/amo100/issue/IPI-1048) | **PLANNER-001** | Production Planner default agent. Remove weather as product. | 1045 | ⚪ Backlog |
+| 18 | 1 | → | [IPI-1049](https://linear.app/amo100/issue/IPI-1049) | **TOOL-001** | Compute-only shoot tools. Save is 1083. Reuse pure logic. | 1048 | ⚪ Backlog |
+| 19 | 1 | → | [IPI-1050](https://linear.app/amo100/issue/IPI-1050) | **MEM-001** | Memory after refresh/restart. Same store as PG-001. | 1044 + 1048 | ⚪ Backlog |
+| 20 | 1 | → | [IPI-1051](https://linear.app/amo100/issue/IPI-1051) | **UI-001** | One authenticated Planner screen. Not the operator shell. | 1045 + 1048 + 1037 | ⚪ Backlog |
+| 21 | 1 | → | [IPI-1031](https://linear.app/amo100/issue/IPI-1031) | **CORE-HOST-REF** | Hosted `TEST-<uuid>` proof on **existing** project. | 1051 | ⚪ Backlog |
+| 22 | 1 | **GATE** | [IPI-1041](https://linear.app/amo100/issue/IPI-1041) | **CORE-001** | Refresh, restart, Org A/Org B 403. Stop line. | 1047 + 1049 + 1050 + 1051 + 1031 | ⚪ Backlog |
+| 23 | 2 | ⬛ | [IPI-1076](https://linear.app/amo100/issue/IPI-1076) | **DASHBOARD-EPIC** | Operator workspace parent. | CORE-001 | ⚪ Backlog |
+| 24 | 2 | ⬛ | [IPI-1079](https://linear.app/amo100/issue/IPI-1079) | **MVP-EPIC** | Shoot launch parent. | CORE-001 | ⚪ Backlog |
+| 25 | 2 | → | [IPI-1080](https://linear.app/amo100/issue/IPI-1080) | **DESIGN-001** | Reuse proven visual system. | CORE-001 | ⚪ Backlog |
+| 26 | 2 | → | [IPI-1065](https://linear.app/amo100/issue/IPI-1065) | **APP-001** | One `/app/*` shell + nav. | 1080 | ⚪ Backlog |
+| 27 | 2 | ∥ MVP | [IPI-1068](https://linear.app/amo100/issue/IPI-1068) | **BRAND-001** | Brand list + profile. RLS + grants. | 1065 | ⚪ Backlog |
+| 28 | 2 | ∥ MVP | [IPI-1067](https://linear.app/amo100/issue/IPI-1067) | **SHOOT-001** | Shoot list + record. `shoot.shoots` only. | 1065 | ⚪ Backlog |
+| 29 | 2 | ∥ | [IPI-1066](https://linear.app/amo100/issue/IPI-1066) | **HOME-001** | Command Center, real KPIs. | 1065 (better after 1068) | ⚪ Backlog |
+| 30 | 2 | → MVP | [IPI-1081](https://linear.app/amo100/issue/IPI-1081) | **PLAN-001** | Structured shoot plan from Planner. | 1068 + 1067 | ⚪ Backlog |
+| 31 | 2 | → MVP | [IPI-1084](https://linear.app/amo100/issue/IPI-1084) | **APPROVAL-001** | HITL: official suspend/resume. | 1081 | ⚪ Backlog |
+| 32 | 2 | → MVP | [IPI-1083](https://linear.app/amo100/issue/IPI-1083) | **SHOOT-SAVE-001** | One idempotent `commit_shoot_draft` + RLS + grants. | 1084 | ⚪ Backlog |
+| 33 | 2 | → MVP | [IPI-1085](https://linear.app/amo100/issue/IPI-1085) | **SHOOT-WIZARD-001** | Deliverables → shots → budget. | 1083 | ⚪ Backlog |
+| 34 | 2 | → MVP | [IPI-1087](https://linear.app/amo100/issue/IPI-1087) | **PLANNER-CONTEXT-001** | Active brand/shoot brief in session. | 1085 | ⚪ Backlog |
+| 35 | 2 | → MVP | [IPI-1086](https://linear.app/amo100/issue/IPI-1086) | **PLANNER-QUALITY-001** | Catch planner mistakes before operators. | 1087 | ⚪ Backlog |
+| 36 | 2 | ∥ | [IPI-1082](https://linear.app/amo100/issue/IPI-1082) | **PLANNER-TRACE-001** | Where requests succeeded/slowed/failed. | CORE-001 | ⚪ Backlog |
+| 37 | 2 | ∥ | [IPI-1069](https://linear.app/amo100/issue/IPI-1069) | **ASSETS-001** | Gallery + channel preview. | 1065 | ⚪ Backlog |
+| 38 | 2 | ∥ | [IPI-1070](https://linear.app/amo100/issue/IPI-1070) | **CRM-001** | Companies, contacts, pipeline. | 1065 | ⚪ Backlog |
+| 39 | 2 | ∥ | [IPI-1071](https://linear.app/amo100/issue/IPI-1071) | **TALENT-BOOKING-001** | Talent + bookings. | 1065 | ⚪ Backlog |
+| 40 | 2 | ∥ | [IPI-1072](https://linear.app/amo100/issue/IPI-1072) | **OPERATIONS-001** | Inbox + campaigns. | 1065 | ⚪ Backlog |
+| 41 | 2 | ∥ | [IPI-1073](https://linear.app/amo100/issue/IPI-1073) | **ANALYTICS-001** | Honest/null KPIs. | 1072 (better) | ⚪ Backlog |
+| 42 | 3 | ⬛ | [IPI-1077](https://linear.app/amo100/issue/IPI-1077) | **MARKETING-EPIC** | Public site parent. | CORE-001 | ⚪ Backlog |
+| 43 | 3 | → | [IPI-1053](https://linear.app/amo100/issue/IPI-1053) | **MARKETING-NAV-001** | Marketing chrome. Not `/app/*`. | CORE-001 | ⚪ Backlog |
+| 44 | 3 | ∥ | [IPI-1057](https://linear.app/amo100/issue/IPI-1057) | **MARKETING-HOME-001** | Homepage. No marketing CopilotKit chat. | 1053 | ⚪ Backlog |
+| 45 | 3 | ∥ | [IPI-1060](https://linear.app/amo100/issue/IPI-1060) | **MARKETING-SERVICES-001** | Service pages + 301s. | 1053 | ⚪ Backlog |
+| 46 | 3 | ∥ | [IPI-1058](https://linear.app/amo100/issue/IPI-1058) | **MARKETING-LOGIN-001** | Login UX on new Auth. | 1053 + 1037 | ⚪ Backlog |
+| 47 | 3 | → | [IPI-1063](https://linear.app/amo100/issue/IPI-1063) | **MARKETING-SEO-001** | Public sitemap only. | 1057 + 1060 | ⚪ Backlog |
+| 48 | 3 | ∥ | [IPI-1064](https://linear.app/amo100/issue/IPI-1064) | **MARKETING-MEDIA-001** | Images/sliders. | 1057 + 1060 | ⚪ Backlog |
+| 49 | 3 | → | [IPI-1074](https://linear.app/amo100/issue/IPI-1074) | **PLANS-001** | Legacy `/app/plans`. Not Core Planner. | 1065 | ⚪ Backlog |
+
+---
+
+## One person, fastest safe calendar
+
+```text
+1042                         🟢 Done
+1043 ∥ 1037                  ← next (1043 In Progress)
+1044 after 1043 · 1046 after 1037
+1045 after 1044+1046
+1047 ∥ 1048 after 1045
+1049 after 1048 · 1050 after 1044+1048
+1051 after auth+stream+planner
+1031 → 1041                  GATE
+1080 → 1065
+1068 ∥ 1067                  thin MVP
+1081 → 1084 → 1083 → 1085 → 1087 → 1086
+1069 ∥ 1070 ∥ 1071 ∥ 1072 · 1066 · 1073
+1053 → 1057 ∥ 1060 ∥ 1058 → 1063 ∥ 1064 · 1074
+```
+
+---
+
+## Skip — duplicates (not in the 49)
+
+| Duplicate | Use |
+|---|---|
+| IPI-1054 NAV | IPI-1053 |
+| IPI-1055 HOME | IPI-1057 |
+| IPI-1056 LOGIN | IPI-1058 |
+| IPI-1059 SERVICES | IPI-1060 |
+| IPI-1061 SEO | IPI-1063 |
+| IPI-1062 MEDIA | IPI-1064 |
+
+IPI-1032 SB-CI-IPV4 is **Done** on SUPABASE (PR #987). Not v2-ipix.
+
+Do **not** build placeholder `IPI-V2-020` IDs. Use the Linear rows in this file.
+
+---
+
+## STOP LINE
+
+No Operator Shell, MVP pages, Post-MVP, or Advanced work until **IPI-1041 · CORE-001** passes (refresh, restart, Org B 403, with evidence).
+
+### Out of scope until after Core gold
+
+- Cloudflare Worker as the AI runtime
+- MCP external integrations as Core
+- Multi-user live cursors
+- GraphRAG / observational memory
+- WhatsApp / external messaging
