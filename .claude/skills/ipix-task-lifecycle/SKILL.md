@@ -205,7 +205,7 @@ SSOT: edit `docs/linear/issues/IPI-*.md` first → `node scripts/linear-update-i
 | `/worktree` | Audit / add / clean worktrees |
 | `/audit [scope]` | Forensic audit before shipping |
 | `/supa [scope]` | Supabase schema, RLS, migration, type-drift |
-| `/pr-fix PR#` | Fix PR review comments, resolve threads, re-run verify |
+| `/pr [new\|open\|fix\|ship\|ready\|status\|resolve] [PR#]` | One PR command (`.claude/commands/pr.md`) — auto-detect; fix/ship/ready/resolve |
 
 ## Scripts (fallback)
 
@@ -240,9 +240,9 @@ After DB changes: `/supa` or matrix scripts above.
 [ ] AC checked [x] in docs/linear/issues/IPI-*.md
 [ ] Verify matrix green ([pr-workflow verify-matrix](../pr-workflow/references/verify-matrix.md))
 [ ] task-verifier report exists or is explicitly waived (trivial typo only)
-[ ] PR merged or user explicitly waived PR
-[ ] tasks/plan/todo.md row updated 🟢
-[ ] Linear marked Done (MCP or agreed fallback)
+[ ] PR merged (or user waived PR) **and** [post-merge](../pr-workflow/references/post-merge.md) proved ACs + required deploy/migration — merge ≠ Done
+[ ] tasks/plan/todo.md row updated 🟢 (skip if that tracker does not exist in this repo)
+[ ] Linear marked Done only after post-merge proof (MCP or agreed fallback)
 [ ] GitHub review threads resolved (if PR was opened)
 ```
 

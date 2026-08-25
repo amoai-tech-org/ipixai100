@@ -2,13 +2,14 @@
 name: pr-workflow
 description: >
   iPix GitHub PR lifecycle — branch, review-before-PR, verify, commit safely, open PR,
-  triage and resolve review threads (Bugbot/CodeRabbit/human/optibot), and gate merge.
+  triage and resolve review threads (Bugbot/CodeRabbit/human/optibot), gate merge, and
+  run the mandatory post-merge loop (verify on main, Linear, residual risks, docs, changelog).
   Use whenever the user says "open a PR", "create a pull request", "review this PR",
   "review-pr", "pr-fix", "fix PR feedback", "resolve review threads/comments", "bugbot",
-  "cursor review", "is this PR mergeable", "ship this PR", or pastes a `gh pr` URL / PR
-  number. Also use before any `git push` that will open or update a PR, and whenever
+  "cursor review", "is this PR mergeable", "ship this PR", "PR merged", "post-merge", or pastes a `gh pr` URL / PR
+  number. Also use before any `git push` that will open or update a PR, whenever
   GitHub review comments need triage (fix / already-fixed / out-of-scope / dismiss) or
-  GraphQL reply+resolve. Do NOT use for Linear-only bookkeeping with no GitHub PR involved
+  GraphQL reply+resolve, and **after a PR merges** (do not stop at MERGED). Do NOT use for Linear-only bookkeeping with no GitHub PR involved
   (state transitions, todo.md rows, issue markdown) — that's
   [ipix-task-lifecycle](../ipix-task-lifecycle/SKILL.md) Phase 5. Do NOT use for setting up
   a worktree itself — that's [worktrees](../worktrees/SKILL.md).
@@ -16,9 +17,8 @@ description: >
 
 # PR Workflow
 
-Port of `.cursor/rules/pr-workflow.mdc` / `pr-review-loop.mdc` / `pr-fix.mdc` for Claude
-Code. Same rules, one hub instead of three overlapping files. The Cursor `.mdc` rules still
-apply to Cursor sessions — this skill is the Claude Code equivalent, not a replacement.
+Hub for Claude Code. Cursor always-on summary: `.cursor/rules/pr-workflow.mdc` (points here;
+does not duplicate procedures). Post-merge procedure: [references/post-merge.md](references/post-merge.md).
 
 ## 🚫 #1 rule — never mix concerns
 
@@ -61,7 +61,7 @@ tool in practice. If a `Skill()` call for any of the above returns "Unknown skil
 back to reading that skill's `SKILL.md` (and its reference files) directly with `Read`
 rather than skipping the domain guidance.
 
-## Order of operations — the 14 steps
+## Order of operations — the 15 steps
 
 Every PR audit/fix/merge pass follows this order. Each step has a stop condition — don't
 skip ahead to fixing while an earlier gate is still open, that's how the same issue gets
@@ -82,6 +82,7 @@ rediscovered three times in one session instead of once.
 12. Resolve threads with evidence — references/pr-review-resolve.md; never blind-resolve
 13. Commit/push only clean changes — stage allowlist, one concern per commit
 14. Recommend merge only when green — references/forensic-audit.md report, all rows backed by a fresh run
+15. After merge — references/post-merge.md (verify on origin/main, Linear, risks, docs, changelog)
 ```
 
 Full checklist template for steps 1–9 (fillable table, dependency gate, Supabase/RLS gate):
@@ -102,8 +103,10 @@ session. Enforce these:
 - Don't open a PR before its scope is already clean — cheaper to not-bundle than to un-bundle.
 - Don't merge with CI missing entirely — a check that never ran is not the same as a check
   that passed silently; confirm it actually triggered.
-- Don't mark the Linear issue Done until the PR is actually merged, or the user explicitly
-  accepts an unmerged state.
+- Don't mark the Linear issue Done until **post-merge verification** proves every AC and
+  required deploy/migration step ([references/post-merge.md](references/post-merge.md)).
+  Merge is necessary, not sufficient. The user may waive an unmerged PR; they cannot waive
+  inventing Done.
 
 ## The one clean loop
 
@@ -115,10 +118,11 @@ session. Enforce these:
 5. Push + open PR      — CI + Bugbot/CodeRabbit/Codacy start running
 6. Triage & resolve    — classify every thread, fix, reply, resolve (references/pr-review-resolve.md)
 7. Ship                — CI green + unresolved threads = 0 + sign-off comment
+8. Post-merge          — verify merge on origin/main, Linear, residual risks, docs, changelog
 ```
 
 Steps 1–5 run once per PR ("before PR" loop); steps 6–7 repeat every time new review
-feedback lands ("after PR" loop, i.e. what the old `@pr-fix` rule covered).
+feedback lands ("after PR" loop). Step 8 runs once the PR is **merged** — [references/post-merge.md](references/post-merge.md). `/pr` does not include step 8.
 
 ## Branch & PR size
 
@@ -207,8 +211,9 @@ blockers but still get forgotten if nothing checks for them:
 🟢 Typecheck / lint / test / build pass — on the commit you're recommending, not an earlier one
 🟢 Review threads resolved or explicitly waived — zero silently-skipped threads
 🟢 Security/RLS verified if Supabase touched — pr-triage-checklist.md's gate, not skipped
-🟢 Linear issue state matches reality (In Review / Done) — not left at Todo/In Progress
-🟢 docs/linear/issues/*.md and tasks/plan/todo.md updated if this PR changed the plan
+🟢 Linear issue state matches reality — **Done only after post-merge proof**, not at merge click
+🟢 Post-merge loop complete — [references/post-merge.md](references/post-merge.md)
+🟢 docs/linear/issues/*.md and tasks/plan/todo.md updated if this PR changed the plan (iPixai: skip if those paths do not exist)
 🟢 Lessons learned recorded — only if something non-obvious actually happened (see
    references/lessons-learned.md) — most PRs don't need an entry, don't force one
 🟢 Merge recommendation issued — one of 🟢/🟡/🔴, not left implicit
@@ -230,11 +235,12 @@ single-comment fix), produce the audit in the structure and grading scale define
 | Need | Go to |
 |------|-------|
 | Conditional verify scripts by changed path (root/app/edge/RLS/BI/DNA) | [references/verify-matrix.md](references/verify-matrix.md) |
-| Comment taxonomy, git safety, stage allowlist, GraphQL resolve, CI gate, per-thread tracking table | [references/pr-review-resolve.md](references/pr-review-resolve.md) |
+| Comment taxonomy, git safety, stage allowlist, GraphQL resolve, CI gate, per-thread tracking table | [references/pr-review-resolve.md](references/pr-review-resolve.md) — runnable `gh api graphql` mutations also live in `.cursor/commands/pr.md` / `.claude/commands/pr.md` (**must execute** `resolveReviewThread`; a REST reply is not resolve) |
 | Path→skill/MCP matrix, fix order (9-step) | [references/pr-fix-triage.md](references/pr-fix-triage.md) |
 | 19-item triage checklist, dependency gate, Supabase/RLS gate | [references/pr-triage-checklist.md](references/pr-triage-checklist.md) |
 | Past mistakes and reusable patterns from real PRs in this repo | [references/lessons-learned.md](references/lessons-learned.md) |
 | "I've seen this symptom before" lookup — which gate/rule owns it | [references/failure-patterns.md](references/failure-patterns.md) |
+| After merge: verify on main, Linear, residual risks, docs/, changelog | [references/post-merge.md](references/post-merge.md) |
 | PR body / sign-off / waiver templates | [references/pr-template.md](references/pr-template.md) |
 | Full forensic audit format + PR report template (findings categories + grading table) | [references/forensic-audit.md](references/forensic-audit.md) |
 | Worktree setup | [worktrees](../worktrees/SKILL.md) |

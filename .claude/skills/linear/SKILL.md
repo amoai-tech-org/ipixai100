@@ -47,7 +47,7 @@ Use this skill for any substantive Linear task:
 | Manage secrets, MCP config, API keys, CLI auth | Read [security](references/security.md) |
 | Update or maintain this skill | Read [skill maintenance](references/skill-maintenance.md) |
 
-Do not invoke this skill for generic product planning unless the output is meant for Linear, the iPix tracker, or an executable Linear issue.
+Always-on: `.cursor/rules/linear-task-format.mdc`. When creating or rewriting IPI issues, follow `docs/linear/linear-format.md` (verify-before-implement, ≤5 official URLs, every task includes task-verifier).
 
 ---
 

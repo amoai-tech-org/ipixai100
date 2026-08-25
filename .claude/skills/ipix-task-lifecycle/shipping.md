@@ -23,7 +23,7 @@ Coordinator for **closing the loop** — PR, Linear, [`tasks/plan/todo.md`](../.
 [ ]  3. Update docs/linear/issues/IPI-*-<SPEC-ID>.md — AC [x], verify evidence.
 [ ]  4. Tick Linear completion steps A–E (UI or node scripts/linear-update-issue.mjs).
 [ ]  5. pr-workflow: PR open · Bugbot clean or waived · all threads resolved.
-[ ]  6. Set Linear state Done (or In Review if waiting on human merge).
+[ ]  6. Set Linear **In Review** while waiting on human merge. **Done only after** [post-merge](../pr-workflow/references/post-merge.md) proves ACs + required deploy/migration. Merge ≠ Done.
 [ ]  7. Update tasks/plan/todo.md row → 🟢 + date.
 [ ]  8. Self-review git diff — one concern, no secrets, no console.log.
 [ ]  9. Stage explicit paths (never git add -A).
@@ -125,6 +125,7 @@ Requires `LINEAR_API_KEY` in `.env.local`. See [references/linear-issue-steps.md
 | Commit templates | [references/shipping-templates.md](references/shipping-templates.md) |
 | Forensic Done gate | [task-verifier](../task-verifier/SKILL.md) |
 | PR create, verify, threads, merge | [pr-workflow](../pr-workflow/SKILL.md) |
+| After merge (verify main, Linear, risks, docs, changelog) | [pr-workflow post-merge](../pr-workflow/references/post-merge.md) — merge ≠ Done |
 | Worktree cleanup | [worktrees](../worktrees/SKILL.md) |
 
 After Phase 5: offer next row from [`tasks/plan/todo.md`](../../../tasks/plan/todo.md) active queue.

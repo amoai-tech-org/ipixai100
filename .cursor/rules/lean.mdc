@@ -10,11 +10,14 @@ alwaysApply: true
 | Detail lives in | Role |
 |-----------------|------|
 | `ponytail.mdc` | Smallest safe change ladder |
+| `fastest.mdc` | Every step: ask for a faster path, then use it |
 | `task-naming.mdc` | **IPI-NNN · SPEC — Title** |
 | `task-accuracy.mdc` | Evidence / verification levels |
 | `ipixai-dev.mdc` | Split-dev, no prod Supabase writes |
 | `mastra-mcp.mdc` | Mastra docs MCP (`alwaysApply: false`) |
 | `linear-governance.mdc` | Live Linear |
+| `linear-task-format.mdc` | IPI issue body → `docs/linear/linear-format.md` |
+| `pr-workflow.mdc` | PR + post-merge pointer → skill `post-merge.md` |
 
 **Hard gates (never override):** never force-push to `main`/`master`; one concern per PR **and** per commit; never combined `npm run dev`; never mutate production Supabase; no client AI keys; do not copy old `/home/sk/ipix/app/src/mastra` wholesale.
 
