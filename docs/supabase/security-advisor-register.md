@@ -67,7 +67,7 @@ RLS with **no** policies means the JWT roles see **zero rows** unless GRANTed an
 
 Re-export Security Advisor and refresh this file (docs-only PR) when any of these land:
 
-- new `SECURITY DEFINER` RPC, or change to function **EXECUTE**
+- new `SECURITY DEFINER` RPC, change to function **EXECUTE**, or change to an **existing** function’s body, security mode (`DEFINER`/`INVOKER`), owner, or `search_path`
 - **default privileges** (`ALTER DEFAULT PRIVILEGES` / `pg_default_acl`)
 - **RLS policies** or JWT **table grants** (including on the five backend-only tables — a grant-only change can leave the advisor **count** unchanged while fail-closed proof goes stale)
 - public **extension** add/move / schema placement
