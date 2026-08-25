@@ -1,0 +1,149 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "iPix",
+  "description": "Architecture, product, and engineering documentation for the iPix AI-powered production platform.",
+  "colors": {
+    "primary": "#0A0A0A"
+  },
+  "navbar": {
+    "links": [
+      {
+        "href": "https://github.com/amoai-tech/ipixai",
+        "label": "GitHub"
+      }
+    ]
+  },
+  "seo": {
+    "indexing": "navigable"
+  },
+  "markdown": {
+    "instructions": [
+      "Repo check-off order is docs/todo.md. Live Linear is ticket status SSOT.",
+      "Product SSOT is docs/prd.md plus docs/sitemap.md. Do not treat HTML prototypes as shipped product.",
+      "Never combined npm run dev. Never write production Supabase during Core work."
+    ]
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "cursor",
+      "chatgpt",
+      "claude"
+    ]
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Start here",
+        "icon": "house",
+        "boost": 1.5,
+        "pages": [
+          "index",
+          "todo",
+          "README"
+        ]
+      },
+      {
+        "group": "Product",
+        "icon": "clipboard-list",
+        "pages": [
+          "prd",
+          "sitemap",
+          "ipix-plan",
+          "new-plan",
+          "roadmap",
+          "design/SITEMAP-V2",
+          "design/PAGE-MIGRATION-PLAN"
+        ]
+      },
+      {
+        "group": "Rebuild plan",
+        "icon": "route",
+        "pages": [
+          "01-current-state-audit",
+          "02-keep-rebuild-matrix",
+          "05-starter-decision",
+          "06-example-adoption",
+          "07-repo-to-task-map",
+          "08-custom-code-reduction",
+          "09-build-plan",
+          "10-core-mvp-advanced",
+          "11-product-plan",
+          "12-task-roadmap",
+          "13-mastra-rebuild",
+          "14-operating-rules"
+        ]
+      },
+      {
+        "group": "Mastra and CopilotKit",
+        "icon": "brain",
+        "pages": [
+          "mastra/10-mastra-convert",
+          "mastra/mastra-plan",
+          "mastra/09-mastra-repos",
+          "mastra/tools",
+          "mastra/supabase-mastra",
+          "mastra/agent-harness",
+          "mastra/db-001-matrix",
+          "mastra/runtime-family",
+          {
+            "group": "CopilotKit examples",
+            "expanded": false,
+            "pages": [
+              "copilotkit-mastra/copilotkit-plan",
+              "copilotkit-mastra/03-repo-review",
+              "copilotkit-mastra/04-example-catalog",
+              "copilotkit-mastra/05-copilotkit-mastra-repos"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "Data and Supabase",
+        "icon": "database",
+        "pages": [
+          "data/README",
+          "data/00-executive-report",
+          "data/01-schemas-tables",
+          "data/02-relationships-erd",
+          "data/03-indexes",
+          "data/04-rls-security",
+          "data/05-functions-rpcs",
+          "data/06-edge-functions",
+          "data/07-mastra-storage",
+          "data/08-auth-org",
+          "data/09-wiring-flows",
+          "data/10-findings",
+          "data/11-table-inventory",
+          "data/supa-fix-plan"
+        ]
+      },
+      {
+        "group": "Cloudflare",
+        "icon": "cloud",
+        "pages": [
+          "cloudflare/README",
+          "cloudflare/01-inventory",
+          "cloudflare/02-workers",
+          "cloudflare/03-env-secrets",
+          "cloudflare/04-findings-and-plan"
+        ]
+      },
+      {
+        "group": "Decisions and process",
+        "icon": "gavel",
+        "pages": [
+          "adr/README",
+          "adr/001-node-first",
+          "adr/002-mastra-owns-ai-memory",
+          "adr/003-supabase-owns-tenancy",
+          "adr/004-compatibility-bundle",
+          "linear/linear-format",
+          "cursor/linux-audit"
+        ]
+      }
+    ]
+  }
+}
