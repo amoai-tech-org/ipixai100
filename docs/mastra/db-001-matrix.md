@@ -245,9 +245,9 @@ If `init()` ran with `schemaName: "mastra"`, MemoryPG would prefix indexes with 
 
 ## Grants and roles (local Core tables only)
 
-Roles seen: `postgres` (owner-style ALL), `hyperdrive_mastra_runtime` (SELECT, INSERT, UPDATE, DELETE). **`anon` is not granted** on these four tables in the dump.
+Roles seen on Core tables in local `information_schema.table_privileges`: `postgres` (owner-style ALL), `hyperdrive_mastra_runtime` (SELECT, INSERT, UPDATE, DELETE). **No `anon`, `authenticated`, or `PUBLIC` rows** in that dump. Absence of a grant row is **not** an effective-privilege proof: `GRANT … TO PUBLIC` and role membership still need `has_schema_privilege` / `has_table_privilege` (read-only).
 
-Hosted grants: **NOT VERIFIED** (no write-capable SQL; `list_tables` has no grant list).
+Hosted grants: **NOT VERIFIED** (`list_tables` has no grant list; this ticket did not run hosted SQL). **PG-001** must run those privilege functions on a proven read-only connection for `anon`, `authenticated`, `PUBLIC`, and `hyperdrive_mastra_runtime` on schema `mastra` and the four Core tables. Required outcome: **`anon` has no effective USAGE/DML**. Any `authenticated` access must be written down and tested before NO-GO is lifted. Do **not** GRANT schema `mastra` to `anon`.
 
 ---
 
@@ -265,7 +265,7 @@ Hosted grants: **NOT VERIFIED** (no write-capable SQL; `list_tables` has no gran
 | Put `mastra` on `search_path` | **No** if adapter always qualifies; **risk** if any SQL is unqualified |
 | GRANT `mastra` to `anon` | **Forbidden** |
 
-Blocking proofs before DB-001 can unlock PG-001: (1) **import still FAILING** — repin or wait for a compatible `@mastra/core` export of `mergeWorkflowStepResult` (separate runtime ticket), (2) hosted catalog of required Core indexes/uniques (local inventory above is not hosted proof), (3) proven read-only hosted check of policy definitions, schema `USAGE`, and Core-table DML for `hyperdrive_mastra_runtime`. After those pass, PG-001 must run the schema fingerprint test on **local Docker / a future preview branch**, never production writes. Optional unused domains remain NO-GO until hosted indexes for those tables are verified.
+Blocking proofs before DB-001 can unlock PG-001: (1) **import still FAILING** — repin or wait for a compatible `@mastra/core` export of `mergeWorkflowStepResult` (separate runtime ticket), (2) hosted catalog of required Core indexes/uniques (local inventory above is not hosted proof), (3) proven read-only hosted `has_schema_privilege` / `has_table_privilege` for `hyperdrive_mastra_runtime`, `anon`, `authenticated`, and `PUBLIC` (runtime USAGE+DML; **anon none**; `authenticated` only if documented and tested). After those pass, PG-001 must run the schema fingerprint test on **local Docker / a future preview branch**, never production writes. Optional unused domains remain NO-GO until hosted indexes for those tables are verified.
 
 ---
 
@@ -275,7 +275,7 @@ Blocking proofs before DB-001 can unlock PG-001: (1) **import still FAILING** �
 
 1. The clean installed tree successfully imports `PostgresStore` from `@mastra/pg` without constructing it — **currently FAILING** on `@mastra/pg@1.13.0` + `@mastra/core@1.41.0`
 2. Required Core indexes and (`workflow_name`, `run_id`) uniqueness classified locally (done) **and** verified on the **target** catalog (hosted fashionos indexes **UNVERIFIED**; no preview branch exists)
-3. A proven read-only hosted connection verifies that `hyperdrive_mastra_runtime` has schema `USAGE` and required Core-table SELECT/INSERT/UPDATE/DELETE privileges
+3. A proven read-only hosted connection runs `has_schema_privilege` / `has_table_privilege` (or equivalent) on schema `mastra` and the four Core tables for `hyperdrive_mastra_runtime`, `anon`, `authenticated`, and `PUBLIC`. Required: runtime role has schema `USAGE` and Core SELECT/INSERT/UPDATE/DELETE; **`anon` has no effective access**; any `authenticated` access is documented and tested. Until that evidence exists, NO-GO stays.
 4. Hosted policy/role audit records `USING (true)` without calling it tenant isolation
 5. The approved constructor uses `schemaName: "mastra"`, `disableInit: true`, and an injected singleton `pool`
 6. The catalog fingerprint remains unchanged across process start
