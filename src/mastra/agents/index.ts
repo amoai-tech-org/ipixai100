@@ -4,10 +4,26 @@ import { weatherTool } from "@/mastra/tools";
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
+import {
+  getMastraPostgresStore,
+  warnIfMastraDatabaseUrlMissing,
+} from "@/mastra/pg-store";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
 });
+
+function createAgentMemoryStorage() {
+  const url = process.env.MASTRA_DATABASE_URL;
+  warnIfMastraDatabaseUrlMissing(url);
+  if (!url) {
+    return new LibSQLStore({
+      id: "weather-agent-memory",
+      url: "file::memory:",
+    });
+  }
+  return getMastraPostgresStore(url);
+}
 
 export const weatherAgent = new Agent({
   id: "weather-agent",
@@ -16,10 +32,7 @@ export const weatherAgent = new Agent({
   model: openai("gpt-4o"),
   instructions: "You are a helpful assistant.",
   memory: new Memory({
-    storage: new LibSQLStore({
-      id: "weather-agent-memory",
-      url: "file::memory:",
-    }),
+    storage: createAgentMemoryStorage(),
     options: {
       workingMemory: {
         enabled: true,
