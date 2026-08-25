@@ -13,7 +13,7 @@ This file is the **MATCH / CHANGE / MISSING** contract. It does **not** wire `Po
 
 Think of Mastra storage as a filing cabinet labeled `mastra`, not the default public drawer. Installed `@mastra/pg` will use **`public` unless you pass `schemaName`**. iPix already keeps threads, messages, resources, and workflow snapshots in schema **`mastra`**. Those four Core tables exist locally and on hosted with every **required** column from installed `@mastra/core` `TABLE_SCHEMAS`. Extra `*Z` timestamp columns are additive extras the adapter can ignore.
 
-**PG-001 may reuse this catalog with `schemaName: "mastra"` and `disableInit: true`.** No Core DDL is required for that path. This ticket **must not** construct the store. **IPI-1044 · PG-001** must prove the schema fingerprint is unchanged across startup.
+The required Core columns are compatible, but **PG-001 is only conditionally approved**. Before wiring storage, **IPI-1044 · PG-001** must use read-only catalog checks to verify hosted indexes/uniques and the runtime role's schema `USAGE` plus Core-table DML privileges. It may then reuse the catalog with `schemaName: "mastra"` and `disableInit: true`, while proving the schema fingerprint is unchanged across startup. This ticket **must not** construct the store.
 
 **Do not GRANT schema `mastra` to `anon`.**
 
@@ -130,7 +130,7 @@ Local + hosted `mastra` catalogs: **34** tables. **Local table set = hosted tabl
 
 `mastra_agent_versions`, `mastra_agents`, `mastra_ai_spans`, `mastra_background_tasks`, `mastra_channel_config`, `mastra_channel_installations`, `mastra_dataset_items`, `mastra_dataset_versions`, `mastra_datasets`, `mastra_experiment_results`, `mastra_experiments`, `mastra_favorites`, `mastra_mcp_client_versions`, `mastra_mcp_clients`, `mastra_mcp_server_versions`, `mastra_mcp_servers`, `mastra_messages`, `mastra_observational_memory`, `mastra_prompt_block_versions`, `mastra_prompt_blocks`, `mastra_resources`, `mastra_schedule_triggers`, `mastra_schedules`, `mastra_scorer_definition_versions`, `mastra_scorer_definitions`, `mastra_scorers`, `mastra_skill_blobs`, `mastra_skill_versions`, `mastra_skills`, `mastra_threads`, `mastra_workflow_definitions`, `mastra_workflow_snapshot`, `mastra_workspace_versions`, `mastra_workspaces`.
 
-RLS: **enabled** on all 34 (local `relrowsecurity`; hosted `rls_enabled`).
+RLS: **enabled** on all 34 (local `relrowsecurity`; hosted `rls_enabled`). **This does not prove tenant isolation.** The Mastra runtime role uses broad policies such as `USING (true)`; isolation depends on a server-derived `resourceId` plus application authorization. Hosted policy/role auditing and cross-resource read/write denial tests are required before any tenant-isolation claim.
 
 ---
 
@@ -192,11 +192,11 @@ Required index: `mastra_messages_thread_id_createdat_idx` on (`thread_id`, `crea
 | `createdAt` / `updatedAt` | timestamp NOT NULL | **MATCH** |
 | `createdAtZ` / `updatedAtZ` | extra | **CHANGE** (additive) |
 
-Hosted `primary_keys` on this table: **[]**. Uniqueness is the unique index (local): `public_mastra_workflow_snapshot_workflow_name_run_id_key` on (`workflow_name`, `run_id`). Adapter default base name is `mastra_workflow_snapshot_workflow_name_run_id_key`. **CHANGE** (name / `public_` prefix leftover); **MATCH** on columns. With `disableInit: true` the existing unique index is enough.
+Hosted `primary_keys` on this table: **[]**. Locally, uniqueness is provided by `public_mastra_workflow_snapshot_workflow_name_run_id_key` on (`workflow_name`, `run_id`). Adapter default base name is `mastra_workflow_snapshot_workflow_name_run_id_key`. Local status: **CHANGE** (name / `public_` prefix leftover) and **MATCH** on indexed columns. **Hosted unique-index presence is UNVERIFIED** because the hosted dump did not include indexes or unique constraints. PG-001 must verify it read-only; `disableInit: true` cannot repair missing hosted metadata.
 
 ---
 
-## Indexes (local vs adapter defaults)
+## Indexes (local vs adapter defaults; hosted unverified)
 
 | Adapter default (schemaPrefix empty / public) | Local name | Status |
 |-----------------------------------------------|------------|--------|
@@ -204,7 +204,7 @@ Hosted `primary_keys` on this table: **[]**. Uniqueness is the unique index (loc
 | `mastra_messages_thread_id_createdat_idx` | same | **MATCH** |
 | `mastra_workflow_snapshot_workflow_name_run_id_key` | `public_mastra_workflow_snapshot_workflow_name_run_id_key` | **CHANGE** (name only) |
 
-If `init()` ran with `schemaName: "mastra"`, MemoryPG would prefix indexes with `mastra_`. Live names are **unprefixed**. **Do not run `init()`** against this catalog; **PG-001** must keep `disableInit: true` and prove no DDL.
+If `init()` ran with `schemaName: "mastra"`, MemoryPG would prefix indexes with `mastra_`. Local names are **unprefixed**. Hosted index names and presence are **UNVERIFIED**. **Do not run `init()`** against this catalog; **PG-001** must keep `disableInit: true`, verify hosted metadata read-only, and prove no DDL.
 
 ---
 
@@ -222,30 +222,33 @@ Hosted grants: **NOT VERIFIED** (no write-capable SQL; `list_tables` has no gran
 |------|--------------------------------------------------|
 | Create Core four tables | **No** — they exist |
 | Add `TABLE_SCHEMAS` required columns | **No** — all present |
-| Create default thread/message indexes | **No** — present locally |
-| Unique (`workflow_name`, `run_id`) | **No** — present (name CHANGE only) |
+| Create default thread/message indexes | **No locally; hosted UNVERIFIED** — PG-001 must inspect read-only |
+| Unique (`workflow_name`, `run_id`) | **No locally; hosted UNVERIFIED** — local name CHANGE only |
 | Drop `*Z` columns | **No** — compatible extras |
 | Create `mastra_notifications` / `traces` / `tool_provider_connections` | **No** for Core Memory |
 | Create five `*_events` tables | **No** for Core Memory |
 | Put `mastra` on `search_path` | **No** if adapter always qualifies; **risk** if any SQL is unqualified |
 | GRANT `mastra` to `anon` | **Forbidden** |
 
-Follow-ups (not this ticket): optional tables above; hosted grant audit on a proven read-only connection; **PG-001** fingerprint test.
+Follow-ups (not this ticket): optional tables above. **PG-001 must first use a proven read-only connection to verify hosted indexes/uniques, policy definitions, schema `USAGE`, and Core-table DML privileges, then run the fingerprint test.**
 
 ---
 
 ## Go / no-go for PG-001
 
-**GO** to wire PostgresStore **in IPI-1044 · PG-001 only**, with:
+**CONDITIONAL GO** to wire PostgresStore **in IPI-1044 · PG-001 only**, after these gates pass:
 
-1. `schemaName: "mastra"` (never default `public`)
-2. `disableInit: true`
-3. Injected singleton `pool`
-4. Proof that catalog fingerprint is unchanged across process start
-5. No production writes from this matrix work
-6. Tenant isolation still via `resourceId` / RLS policies already on tables — storage RLS is **not** a substitute for blank org IDs
+1. Read-only hosted verification of required indexes and the (`workflow_name`, `run_id`) unique constraint
+2. Read-only hosted verification that `hyperdrive_mastra_runtime` has schema `USAGE` and required Core-table SELECT/INSERT/UPDATE/DELETE privileges
+3. Hosted policy/role audit records broad runtime policies such as `USING (true)` without calling them tenant isolation
+4. `schemaName: "mastra"` (never default `public`)
+5. `disableInit: true`
+6. Injected singleton `pool`
+7. Proof that the catalog fingerprint is unchanged across process start
+8. Tenant isolation is enforced by server-derived `resourceId` and application authorization; cross-resource read/write denial tests are required before production
+9. No production writes from this matrix work
 
-**NO-GO** if PG-001 omits `schemaName`, leaves `disableInit` false, or copies GitHub `main` instead of `@mastra/pg@1.13.0`.
+**NO-GO** if any hosted metadata or privilege gate is unverified, or if PG-001 omits `schemaName`, leaves `disableInit` false, trusts client-provided resource scope, or copies GitHub `main` instead of `@mastra/pg@1.13.0`.
 
 ---
 
