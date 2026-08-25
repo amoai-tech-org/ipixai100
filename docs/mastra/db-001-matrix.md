@@ -3,7 +3,7 @@
 **Ticket:** [IPI-1043 · DB-001 — Prove Mastra Can Use the iPix Postgres Schema Safely](https://linear.app/amo100/issue/IPI-1043/ipi-1043-db-001-prove-mastra-can-use-the-ipix-postgres-schema-safely)
 
 **Date:** 2026-08-25  
-**Git SSOT:** `origin/main` `054da4eed3eaffc988aae9325a1c3a4e069c95fd` (post-merge PR #6; dirty `/home/sk/ipixai` is not SSOT)
+**Git SSOT:** `origin/main` `054da4eed3eaffc988aae9325a1c3a4e069c95fd` — **IPI-1042 · RUNTIME-001 — Pin `@mastra/pg` 1.12.1 so it loads with Core 1.41.0** (merge of PR #6). Dirty `/home/sk/ipixai` is not SSOT.
 
 This file is the **MATCH / CHANGE / MISSING** contract. It does **not** wire `PostgresStore`, call `init()`, or write Postgres.
 
@@ -15,7 +15,7 @@ Think of Mastra storage as a filing cabinet labeled `mastra`, not the default pu
 
 The required Core columns are compatible. Installed `@mastra/pg@1.12.1` **loads** (`import` exports `PostgresStore`; no `mergeWorkflowStepResult`). Hosted Core indexes/uniques and `anon`/`authenticated` privileges were re-checked **read-only** on 2026-08-25.
 
-**Verdict: PASS / GO for local PG-001 schema contract only.** Wire **IPI-1044 · PG-001** against local Docker (`127.0.0.1:54342`) with `schemaName: "mastra"`, `disableInit: true`, and one injected singleton `pool`. Catalog fingerprint across a real process restart is **IPI-1044** (this ticket does **not** construct the store or record before/after hashes). **NO-GO for hosted/production writes** on fashionos `nvdlhrodvevgwdsneplk`.
+**Verdict: PASS / GO for the local schema contract that unlocks [IPI-1044 · PG-001 — Make iPix AI Conversations Survive Server Restarts](https://linear.app/amo100/issue/IPI-1044/ipi-1044-pg-001-make-ipix-ai-conversations-survive-server-restarts).** Wire that ticket against local Docker (`127.0.0.1:54342`) with `schemaName: "mastra"`, `disableInit: true`, and one injected singleton `pool`. Catalog fingerprint across a real process restart is **IPI-1044 · PG-001** (this **IPI-1043 · DB-001** ticket does **not** construct the store or record before/after hashes). Live Linear is SSOT: **IPI-1044 is PG-001**, not the stale `docs/` map of IPI-1044 to AI-V2-023 canvas, and not **IPI-V2-006**. **NO-GO for hosted/production writes** on fashionos `nvdlhrodvevgwdsneplk`.
 
 **Do not GRANT schema `mastra` to `anon`.**
 
@@ -59,7 +59,7 @@ new PostgresStore({
 
 `exportSchemas()` exists on the package. Column contract here uses **`TABLE_SCHEMAS` from `@mastra/core/storage/constants`** plus installed `@mastra/pg@1.12.1` types. This ticket still does **not** construct a live `PostgresStore`.
 
-**Import probe (2026-08-25, `/tmp/ipixai-verify-6` at `054da4e` + `@mastra/pg@1.12.1`):** **PASS**. Command:
+**Import probe (2026-08-25, `/tmp/ipixai-verify-6` at `054da4e` / **IPI-1042 · RUNTIME-001** pin + `@mastra/pg@1.12.1`):** **PASS**. Command:
 
 ```bash
 node --input-type=module -e "const m = await import('@mastra/pg'); console.log(typeof m.PostgresStore)"
@@ -274,18 +274,18 @@ Blocking proofs before DB-001 can unlock **local** PG-001: **cleared 2026-08-25*
 
 ---
 
-## Go / no-go for PG-001
+## Go / no-go for IPI-1044 · PG-001
 
-**PASS / GO for the local schema contract (unlocks IPI-1044 wiring).** **NO-GO for hosted/production writes.** Catalog fingerprint before/after process start is **not** collected here.
+**PASS / GO for the local schema contract (unlocks [IPI-1044 · PG-001 — Make iPix AI Conversations Survive Server Restarts](https://linear.app/amo100/issue/IPI-1044/ipi-1044-pg-001-make-ipix-ai-conversations-survive-server-restarts) wiring).** **NO-GO for hosted/production writes.** Catalog fingerprint before/after process start is **not** collected here.
 
 Gates:
 
-1. Import `PostgresStore` from `@mastra/pg@1.12.1` without constructing it — **PASS** on `054da4e`
+1. Import `PostgresStore` from `@mastra/pg@1.12.1` without constructing it — **PASS** on `054da4e` (**IPI-1042 · RUNTIME-001 — Pin `@mastra/pg` 1.12.1 so it loads with Core 1.41.0**)
 2. Required Core indexes and (`workflow_name`, `run_id`) uniqueness — **MATCH** local and hosted (name CHANGE only on snapshot unique)
 3. `has_schema_privilege` / `has_table_privilege`: **`anon` and `authenticated` have no USAGE/DML**; `postgres` has access. Local and hosted `hyperdrive_mastra_runtime` have schema USAGE plus SELECT/INSERT/UPDATE/DELETE on all four Core tables (threads, messages, resources, workflow_snapshot)
 4. Hosted RLS `USING (true)` is **not** tenant isolation
-5. Constructor (PG-001): `schemaName: "mastra"`, `disableInit: true`, injected singleton `pool` — **specified here, not constructed**
-6. Catalog fingerprint unchanged across process start — **PENDING on IPI-1044 · PG-001** (requires a live store; out of scope for this ticket)
+5. Constructor (**IPI-1044 · PG-001**): `schemaName: "mastra"`, `disableInit: true`, injected singleton `pool` — **specified here, not constructed**
+6. Catalog fingerprint unchanged across process start — **PENDING on IPI-1044 · PG-001 — Make iPix AI Conversations Survive Server Restarts** (requires a live store; out of scope for this **IPI-1043 · DB-001** ticket)
 7. Tenant isolation remains `resourceId` + app auth
 8. Do not treat fashionos as the first write target
 
