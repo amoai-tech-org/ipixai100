@@ -13,7 +13,7 @@ This file is the **MATCH / CHANGE / MISSING** contract. It does **not** wire `Po
 
 Think of Mastra storage as a filing cabinet labeled `mastra`, not the default public drawer. Installed `@mastra/pg` will use **`public` unless you pass `schemaName`**. iPix already keeps threads, messages, resources, and workflow snapshots in schema **`mastra`**. Those four Core tables exist locally and on hosted with every **required** column from installed `@mastra/core` `TABLE_SCHEMAS`. Extra `*Z` timestamp columns are additive extras the adapter can ignore.
 
-The required Core columns are compatible, but **PG-001 is only conditionally approved**. Before wiring storage, **IPI-1044 · PG-001** must use read-only catalog checks to verify hosted indexes/uniques and the runtime role's schema `USAGE` plus Core-table DML privileges. It may then reuse the catalog with `schemaName: "mastra"` and `disableInit: true`, while proving the schema fingerprint is unchanged across startup. This ticket **must not** construct the store.
+The required Core columns are compatible, but **the current verdict is BLOCKED / NO-GO for PG-001**. Three proofs are still missing: (1) a real import of the installed `PostgresStore` entrypoint, (2) classification of every required index for the storage domains PG-001 will enable, and (3) read-only hosted verification of indexes/uniques and the runtime role's schema `USAGE` plus Core-table DML privileges. Only after those gates pass may **IPI-1044 · PG-001** reuse the catalog with `schemaName: "mastra"` and `disableInit: true`, while proving the schema fingerprint is unchanged across startup. This ticket **must not** construct the store.
 
 **Do not GRANT schema `mastra` to `anon`.**
 
@@ -57,6 +57,14 @@ new PostgresStore({
 
 `exportSchemas()` exists on the package but **cannot** be imported in this tree (`@mastra/core/storage` missing `mergeWorkflowStepResult`). Column contract here uses **`TABLE_SCHEMAS` from `@mastra/core/storage/constants`** plus static parse of `@mastra/pg` dist — not a live `PostgresStore`.
 
+**Import blocker:** the existing smoke test only reads `@mastra/pg/package.json`; it does not prove that the package entrypoint loads. Before PG-001 can receive GO, run a no-database import probe against the clean installed tree and require `PostgresStore` to be a function:
+
+```bash
+node --input-type=module -e "import('@mastra/pg').then(m => { if (typeof m.PostgresStore !== 'function') process.exit(1) })"
+```
+
+This probe must not construct the store or connect to Postgres. If it fails, repin the Mastra family or select a verified compatible export before continuing.
+
 ---
 
 ## Catalog sources (read-only)
@@ -67,6 +75,8 @@ new PostgresStore({
 | Hosted | `nvdlhrodvevgwdsneplk` (fashionos, PG 17) | Supabase MCP `list_tables` schema `mastra` (verbose) | none intended |
 
 **Caveat:** this session’s Supabase MCP was **not** proven `read_only=true`. Hosted **`execute_sql` was not used** for the matrix after that finding. Hosted columns/PKs/RLS come from **`list_tables` JSON**. Hosted indexes/uniques/grants are **not** in that dump — those rows compare **local catalog** to installed types, then hosted **table/column/PK/RLS** to local.
+
+**Environment SSOT:** live Linear **IPI-1043 · DB-001** requires local first, then read-only comparison with the existing hosted project `nvdlhrodvevgwdsneplk`, and explicitly forbids creating a second hosted preview/staging project. The older `docs/12-task-roadmap.md` preview wording is stale and must not override the live task. Reconcile that roadmap in a separate docs change.
 
 Local `search_path`: `"$user", public, extensions` — **`mastra` is not in the path**. Unqualified `mastra_threads` would miss the iPix tables. Adapter with `schemaName: "mastra"` qualifies names — **required**.
 
@@ -198,6 +208,8 @@ Hosted `primary_keys` on this table: **[]**. Locally, uniqueness is provided by 
 
 ## Indexes (local vs adapter defaults; hosted unverified)
 
+**Scope gap:** the table below classifies only the three Core-memory indexes already extracted. It does **not** classify every required index for every installed storage domain. Therefore this document does not approve observability, datasets, scores, schedules, workspaces, or other domains. PG-001 remains NO-GO until the exact `@mastra/pg@1.13.0` index definitions for the domains it will enable are enumerated and compared with local plus hosted catalog evidence.
+
 | Adapter default (schemaPrefix empty / public) | Local name | Status |
 |-----------------------------------------------|------------|--------|
 | `mastra_threads_resourceid_createdat_idx` | same | **MATCH** |
@@ -230,25 +242,25 @@ Hosted grants: **NOT VERIFIED** (no write-capable SQL; `list_tables` has no gran
 | Put `mastra` on `search_path` | **No** if adapter always qualifies; **risk** if any SQL is unqualified |
 | GRANT `mastra` to `anon` | **Forbidden** |
 
-Follow-ups (not this ticket): optional tables above. **PG-001 must first use a proven read-only connection to verify hosted indexes/uniques, policy definitions, schema `USAGE`, and Core-table DML privileges, then run the fingerprint test.**
+Blocking proofs before DB-001 can unlock PG-001: (1) the no-database `PostgresStore` import probe, (2) the complete required-index inventory for every domain PG-001 will enable, and (3) a proven read-only hosted check of indexes/uniques, policy definitions, schema `USAGE`, and Core-table DML privileges. After those pass, PG-001 must run the schema fingerprint test. Optional unused domains remain NO-GO until separately classified.
 
 ---
 
 ## Go / no-go for PG-001
 
-**CONDITIONAL GO** to wire PostgresStore **in IPI-1044 · PG-001 only**, after these gates pass:
+**BLOCKED / NO-GO** to wire PostgresStore in **IPI-1044 · PG-001** until all gates below pass:
 
-1. Read-only hosted verification of required indexes and the (`workflow_name`, `run_id`) unique constraint
-2. Read-only hosted verification that `hyperdrive_mastra_runtime` has schema `USAGE` and required Core-table SELECT/INSERT/UPDATE/DELETE privileges
-3. Hosted policy/role audit records broad runtime policies such as `USING (true)` without calling them tenant isolation
-4. `schemaName: "mastra"` (never default `public`)
-5. `disableInit: true`
-6. Injected singleton `pool`
-7. Proof that the catalog fingerprint is unchanged across process start
-8. Tenant isolation is enforced by server-derived `resourceId` and application authorization; cross-resource read/write denial tests are required before production
-9. No production writes from this matrix work
+1. The clean installed tree successfully imports `PostgresStore` from `@mastra/pg@1.13.0` without constructing it
+2. Every required index for every storage domain PG-001 will enable is classified against installed source, local catalog, and hosted catalog
+3. A proven read-only hosted connection verifies required indexes and the (`workflow_name`, `run_id`) unique constraint
+4. A proven read-only hosted connection verifies that `hyperdrive_mastra_runtime` has schema `USAGE` and required Core-table SELECT/INSERT/UPDATE/DELETE privileges
+5. Hosted policy/role audit records broad runtime policies such as `USING (true)` without calling them tenant isolation
+6. The approved constructor uses `schemaName: "mastra"`, `disableInit: true`, and an injected singleton `pool`
+7. The catalog fingerprint remains unchanged across process start
+8. Tenant isolation is enforced by server-derived `resourceId` and application authorization; cross-resource read/write denial tests pass before production
+9. No production writes occur during DB-001
 
-**NO-GO** if any hosted metadata or privilege gate is unverified, or if PG-001 omits `schemaName`, leaves `disableInit` false, trusts client-provided resource scope, or copies GitHub `main` instead of `@mastra/pg@1.13.0`.
+Live Linear authorizes the existing hosted project for read-only catalog comparison and forbids a second hosted preview/staging project. **NO-GO** also applies if implementation follows the stale preview wording in `docs/12-task-roadmap.md`, trusts client-provided resource scope, or copies GitHub `main` instead of the installed `@mastra/pg@1.13.0`.
 
 ---
 
