@@ -21,17 +21,11 @@
     "instructions": [
       "Repo check-off order is docs/todo.md. Live Linear is ticket status SSOT.",
       "Product SSOT is docs/prd.md plus docs/sitemap.md. Do not treat HTML prototypes as shipped product.",
-      "Never combined npm run dev. Never write production Supabase during Core work."
+      "Never combine npm run dev. Never write production Supabase during Core work."
     ]
   },
   "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "cursor",
-      "chatgpt",
-      "claude"
-    ]
+    "options": ["copy", "view"]
   },
   "navigation": {
     "groups": [
