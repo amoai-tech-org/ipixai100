@@ -15,7 +15,7 @@ Think of Mastra storage as a filing cabinet labeled `mastra`, not the default pu
 
 The required Core columns are compatible. Installed `@mastra/pg@1.12.1` **loads** (`import` exports `PostgresStore`; no `mergeWorkflowStepResult`). Hosted Core indexes/uniques and `anon`/`authenticated` privileges were re-checked **read-only** on 2026-08-25.
 
-**Verdict: PASS / GO for local PG-001 only.** Wire **IPI-1044 · PG-001** against local Docker (`127.0.0.1:54342`) with `schemaName: "mastra"`, `disableInit: true`, and one injected singleton `pool`. Prove the schema fingerprint is unchanged across a real process restart. This ticket still **must not** construct the store. **NO-GO for hosted/production writes** on fashionos `nvdlhrodvevgwdsneplk`.
+**Verdict: PASS / GO for local PG-001 schema contract only.** Wire **IPI-1044 · PG-001** against local Docker (`127.0.0.1:54342`) with `schemaName: "mastra"`, `disableInit: true`, and one injected singleton `pool`. Catalog fingerprint across a real process restart is **IPI-1044** (this ticket does **not** construct the store or record before/after hashes). **NO-GO for hosted/production writes** on fashionos `nvdlhrodvevgwdsneplk`.
 
 **Do not GRANT schema `mastra` to `anon`.**
 
@@ -276,7 +276,7 @@ Blocking proofs before DB-001 can unlock **local** PG-001: **cleared 2026-08-25*
 
 ## Go / no-go for PG-001
 
-**PASS / GO for local Docker PG-001.** **NO-GO for hosted/production writes.**
+**PASS / GO for the local schema contract (unlocks IPI-1044 wiring).** **NO-GO for hosted/production writes.** Catalog fingerprint before/after process start is **not** collected here.
 
 Gates:
 
@@ -284,8 +284,8 @@ Gates:
 2. Required Core indexes and (`workflow_name`, `run_id`) uniqueness — **MATCH** local and hosted (name CHANGE only on snapshot unique)
 3. `has_schema_privilege` / `has_table_privilege`: **`anon` and `authenticated` have no USAGE/DML**; `postgres` has access. Local and hosted `hyperdrive_mastra_runtime` have schema USAGE plus SELECT/INSERT/UPDATE/DELETE on all four Core tables (threads, messages, resources, workflow_snapshot)
 4. Hosted RLS `USING (true)` is **not** tenant isolation
-5. Constructor: `schemaName: "mastra"`, `disableInit: true`, injected singleton `pool`
-6. PG-001 must prove catalog fingerprint unchanged across process start **locally**
+5. Constructor (PG-001): `schemaName: "mastra"`, `disableInit: true`, injected singleton `pool` — **specified here, not constructed**
+6. Catalog fingerprint unchanged across process start — **PENDING on IPI-1044 · PG-001** (requires a live store; out of scope for this ticket)
 7. Tenant isolation remains `resourceId` + app auth
 8. Do not treat fashionos as the first write target
 
