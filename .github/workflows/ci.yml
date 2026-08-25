@@ -81,15 +81,17 @@ jobs:
           -- Reproduce hosted leak so REVOKE is exercised (stock Postgres grants nothing).
           -- Applies only to objects created after these statements.
           alter default privileges for role postgres in schema planner
-            grant all on tables to anon, authenticated;
+            grant all on tables to anon, authenticated, public;
           alter default privileges for role postgres in schema planner
-            grant all on sequences to anon, authenticated;
+            grant all on sequences to anon, authenticated, public;
           -- Pre-migration: the leak must exist or REVOKE is untested.
           do $pre$
           begin
             create table planner._ipi897_pre (id int primary key);
-            if not has_table_privilege('authenticated', 'planner._ipi897_pre', 'insert') then
-              raise exception 'CI seed failed: authenticated should inherit INSERT before migration';
+            if not has_table_privilege('anon', 'planner._ipi897_pre', 'insert')
+               or not has_table_privilege('authenticated', 'planner._ipi897_pre', 'insert')
+               or not has_table_privilege('public', 'planner._ipi897_pre', 'insert') then
+              raise exception 'CI seed failed: anon/authenticated/public should inherit INSERT before migration';
             end if;
             drop table planner._ipi897_pre;
           end
