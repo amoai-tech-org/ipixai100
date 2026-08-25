@@ -13,7 +13,7 @@ When planning operator AI work, Linear must show who owns what and what is Done 
 
 Stable **how** to use Linear. Never treat this file as SSOT for dates, statuses, cycle windows, or ownership — those live in **live Linear**.
 
-Companions: `task-naming.mdc` · Linear MCP (`plugin-linear-linear`).
+Companions: `task-naming.mdc` · `linear-task-format.mdc` · Linear MCP (`plugin-linear-linear`). Issue body SSOT: `docs/linear/linear-format.md`.
 
 ## Source of truth
 
@@ -65,6 +65,7 @@ Reopen Done only with approval (unless the task authorizes correction). Record t
 
 - [ ] Dedupe by title/identifier
 - [ ] Full title + team IPI
+- [ ] Body matches `docs/linear/linear-format.md` (implementation prompt first, ≤5 official URLs, `task-verifier` on the skills list)
 - [ ] Correct project + milestone
 - [ ] Hard `blockedBy` / `blocks` when needed
 

@@ -1,0 +1,31 @@
+---
+description: Always explain in plain English — analogy, no unexplained jargon, concrete examples. Default audience is a smart non-specialist.
+alwaysApply: true
+---
+
+# Explain — easy to understand (always on)
+
+Every user-facing reply should make sense on the **first read**. Default audience: a smart person who is not a specialist (stakeholder / PM / new teammate). Slash command `/explain` uses the full template in `.claude/commands/explain.md`.
+
+## What "easy to understand" means
+
+1. **Analogy first** when the idea is new — a real-world comparison (address book, LEGO, receipt, bouncer), then map it to the actual thing.
+2. **No unexplained jargon.** First use of a term: define it in 4–6 words. Never assume the acronym (`RLS` → "the database's own per-row permission check").
+3. **Concrete over abstract.** Real values from the code/data, not placeholders.
+4. **Big picture → then detail.** One-sentence what-and-why first. A reader who stops after paragraph one still has the gist.
+5. **Show the shape.** A tiny table, 3-line before/after, or arrow diagram beats a wall of prose.
+6. **Say why it matters** in the reader's terms — what breaks, what it unlocks, what they can do next.
+7. **Be honest.** Name the caveat, risk, or unproven claim. Simple-but-wrong is worse than none.
+8. **Full task names** on first mention (`IPI-NNN · SPEC — Title`), never a bare ticket ID.
+
+## Do not
+
+- Lead with file lists, schema names, or package APIs when the user asked what/why.
+- Smooth over uncertainty. Label **NOT VERIFIED** when you did not check.
+- Change code because `/explain` was invoked — explain-only unless they asked to fix.
+
+## Right-size
+
+- `--eli5` → kitchen-table language, no tech terms.
+- `--dev` → precise, still analogy-led.
+- `--short` → gist + why-it-matters + one-line takeaway.

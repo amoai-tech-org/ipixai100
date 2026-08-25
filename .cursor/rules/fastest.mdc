@@ -1,0 +1,42 @@
+---
+description: At every task step, check for a better/faster/more efficient path, say it, and use it. Custom code last.
+alwaysApply: true
+---
+
+# Fastest — ask at every step, then use the better path
+
+**Hard habit:** at the start of each **major phase** (plan, research, implement, test, PR), ask:
+
+> Is there a better, faster, more efficient way to complete **this** phase without weakening evidence?
+
+Then **use that way**. Do **not** repeat the question before every shell command.
+
+Slash command `/fastest` (full research table, no edits): `.claude/commands/fastest.md`.
+
+## What to check (each major phase)
+
+1. **Skip it?** YAGNI — the step is unnecessary.
+2. **Already here?** Helper, skill, CLI, or prior PR (`ponytail.mdc`).
+3. **Vendor already ships it?** Dashboard → official CLI/Action → prebuilt module → official GitHub example/tutorial/recipe → small adapter → custom last.
+4. **One command vs ten files?** Prefer the official tool.
+
+## How to "ask" without stalling
+
+- **Say the faster path in one sentence**, then take it: *"Faster: Vercel env dashboard instead of a custom secrets UI — using that."*
+- **Wait for the user** only if the faster path changes product scope, costs money, weakens auth, writes production Supabase, or drops something they explicitly asked for.
+- If nothing is faster, say so once and continue. Do not fake a search.
+
+## Preference order
+
+```text
+Skip the step
+→ reuse in-repo
+→ managed dashboard
+→ official CLI / GitHub Action
+→ prebuilt module (installed)
+→ official GitHub repo / example / tutorial / recipe
+→ small adapter
+→ custom code only when a verified gap remains
+```
+
+Ground in **web search of official docs and official GitHub**, plus MCP — not blogs. Verify every critical fact against a live URL or installed types. `graphify query` before spanning-file reads. Never combined `npm run dev`. Never mutate production Supabase.

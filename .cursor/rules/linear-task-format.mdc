@@ -1,0 +1,31 @@
+---
+description: Linear IPI issue format — verify-before-implement, max 5 official URLs, task-verifier + graphify + ponytail + fastest on every task. Details in docs/linear/linear-format.md.
+alwaysApply: true
+---
+
+# Linear task format (Cursor)
+
+Canonical: [`docs/linear/linear-format.md`](../../docs/linear/linear-format.md). Do not duplicate that file. Companion: `task-naming.mdc`, `fastest.mdc`, `ponytail.mdc`, `linear-governance.mdc`.
+
+When **creating or rewriting** a Linear IPI issue, the description **must** match that doc.
+
+## Title
+
+`IPI-NNN · SPEC — Plain-English outcome`
+
+## Description order
+
+1. Paste **Implementation prompt** (verify first — no product code until the gate passes).
+2. Then Purpose → journey → evidence → reuse → scope → skills/MCP → ACs.
+
+## Every issue must include
+
+- **Official references:** at most **5** official docs/GitHub URLs, each tied to one critical fact. Agent **must fetch/MCP-check** them (Context7, Mastra MCP, CopilotKit MCP, Supabase `search_docs`). No blogs.
+- **Official GitHub repo** when the work depends on a vendor example — verify not archived.
+- **Skills:** always `task-verifier` (`.claude/skills/task-verifier/SKILL.md`), `graphify`, ponytail, fastest, plus domain skills from `.claude/skills/index-skills.md`.
+- **MCP:** Mastra, CopilotKit, Supabase **read-only/preview**, Context7, Linear — when that layer is in scope. Never production Supabase writes.
+- **Verify-before-implement:** graphify + live code + Supabase preview + **task-verifier Quick**. Any 🔴 → stop.
+- **Each step:** better/faster/more efficient path → **use it**.
+- **Done:** task-verifier **Full** + proven ACs. Merge ≠ Done.
+
+UI / cross-system tasks: Mermaid journey (`mermaid-diagrams` skill). Hosting for this repo is Vercel/Next, not Cloudflare Workers.
