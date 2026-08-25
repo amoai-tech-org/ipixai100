@@ -4,6 +4,7 @@ import {
   getMastraPgPool,
   getMastraPostgresStore,
   isAllowedLocalMastraDatabaseHost,
+  MASTRA_SCHEMA_FINGERPRINT_SQL,
 } from "../src/mastra/pg-store";
 
 describe("IPI-1044 local URL guard", () => {
@@ -58,5 +59,11 @@ describe("IPI-1044 local URL guard", () => {
     ]);
     expect(first.rows[0].n).toBe(1);
     expect(second.rows[0].n).toBe(1);
+  });
+
+  it("fingerprints mastra timestamp function and trigger catalogs", () => {
+    expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/trigger_set_timestamps/);
+    expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_functiondef/);
+    expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_triggerdef/);
   });
 });

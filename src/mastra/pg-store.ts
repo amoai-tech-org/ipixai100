@@ -85,6 +85,40 @@ SELECT json_build_object(
     ) ORDER BY table_name, grantee, privilege_type), '[]'::json)
     FROM information_schema.role_table_grants
     WHERE table_schema = 'mastra'
+  ),
+  'functions', (
+    SELECT coalesce(json_agg(json_build_object(
+      'schema', n.nspname,
+      'name', p.proname,
+      'identity', pg_get_function_identity_arguments(p.oid),
+      'language', l.lanname,
+      'volatile', p.provolatile,
+      'def', pg_get_functiondef(p.oid)
+    ) ORDER BY n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)), '[]'::json)
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    JOIN pg_language l ON l.oid = p.prolang
+    WHERE n.nspname = 'mastra'
+      AND p.proname = 'trigger_set_timestamps'
+  ),
+  'triggers', (
+    SELECT coalesce(json_agg(json_build_object(
+      'schema', n.nspname,
+      'table', c.relname,
+      'name', t.tgname,
+      'enabled', t.tgenabled,
+      'type', t.tgtype,
+      'def', pg_get_triggerdef(t.oid)
+    ) ORDER BY c.relname, t.tgname), '[]'::json)
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_proc p ON p.oid = t.tgfoid
+    JOIN pg_namespace pn ON pn.oid = p.pronamespace
+    WHERE n.nspname = 'mastra'
+      AND NOT t.tgisinternal
+      AND pn.nspname = 'mastra'
+      AND p.proname = 'trigger_set_timestamps'
   )
 )::text AS fp
 `;
@@ -126,10 +160,14 @@ export function assertSafeMastraDatabaseUrl(url: string): URL {
 export function getMastraPgPool(connectionString: string): PostgresStore["pool"] {
   assertSafeMastraDatabaseUrl(connectionString);
   if (!globalThis.__ipixMastraPgPool) {
-    globalThis.__ipixMastraPgPool = new Pool({
+    const pool = new Pool({
       connectionString,
       max: 8,
     });
+    pool.on("error", (err: Error) => {
+      console.error("Mastra pg pool idle client error", err.message);
+    });
+    globalThis.__ipixMastraPgPool = pool;
   }
   return globalThis.__ipixMastraPgPool;
 }
