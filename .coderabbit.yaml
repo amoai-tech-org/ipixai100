@@ -1,0 +1,216 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# iPixai repository rules. Merges with amoai-tech organization settings.
+# Without inheritance: true, this file would replace org defaults entirely.
+# Official: https://docs.coderabbit.ai/configuration/configuration-inheritance
+#
+# Org keeps: profile, request-changes, labels, auto-review, tools, post-merge.
+# This file keeps: Supabase, Mastra, CopilotKit, tenant isolation, Linear titles.
+
+inheritance: true
+
+knowledge_base:
+  linear:
+    usage: enabled
+    team_keys:
+      - IPI
+
+chat:
+  integrations:
+    linear:
+      usage: enabled
+
+reviews:
+  path_filters:
+    - "!graphify-out/**"
+    - "!**/.obsidian/**"
+    - "!Universal-design-prompt-4/**"
+    - "!**/playwright-report/**"
+    - "!**/test-results/**"
+    - "!**/coverage/**"
+    - "!supabase/.temp/**"
+
+  path_instructions:
+    - path: "supabase/migrations/**"
+      instructions: |
+        Treat migrations as high risk. Check destructive changes, rollback safety,
+        RLS policies, grants, tenant isolation and production impact. Flag local-only
+        prerequisites or remote baseline dumps that could accidentally be applied to
+        production. Never recommend supabase db push against production.
+    - path: "supabase/functions/**"
+      instructions: |
+        Check authentication, authorization, organization membership, input validation,
+        secrets and error handling. Flag any client-provided organization ID that is
+        trusted without server-side membership verification.
+    - path: "src/mastra/**"
+      instructions: |
+        Mastra tools stay compute-only until a HITL RPC exists. Do not use Mastra as
+        postgres on shoot.* tables. Memory keys must be org-scoped
+        (org:{orgId}::user:{userId}), never resourceId "default". Do not copy the old
+        iPix Worker/Hyperdrive/ALS/DurableAgent stack. Combined npm run dev is blocked.
+    - path: "src/app/api/copilotkit/**"
+      instructions: |
+        Pass a real signed-in resourceId, not "default". Fail closed when the user JWT
+        or organization membership is missing. Org B must not read Org A CopilotKit
+        threads.
+    - path: "src/**/*.{ts,tsx}"
+      instructions: |
+        Check TypeScript safety, async errors, Next.js server/client boundaries,
+        authentication and tenant isolation. UI changes must handle loading, empty,
+        error and recovery states and preserve accessibility.
+    - path: ".github/workflows/**"
+      instructions: |
+        Check least-privilege permissions, secret exposure, shell quoting, pinned
+        actions and production deployment safeguards. Flag workflows that can mutate
+        production without a protected gate.
+    - path: "**/*.{test,spec}.{ts,tsx}"
+      instructions: |
+        Verify tests assert observable results, failure paths and security boundaries.
+        Auth and organization changes need negative tests proving unauthorized and
+        cross-organization access fails.
+    - path: "docs/**/*.md"
+      instructions: |
+        Check clarity, accuracy, working links and agreement with the implemented code.
+        Flag claims such as complete, verified or production-ready when evidence is missing.
+
+  pre_merge_checks:
+    docstrings:
+      mode: off
+      threshold: 80
+    title:
+      mode: error
+      requirements: |
+        Title must follow: IPI-#### · TASK-ID — Plain-English outcome.
+
+        It must identify the Linear task and clearly describe the observable user or
+        system outcome. Reject vague titles such as "update", "changes", "fix", or
+        technology-only titles. Automated dependency PRs may keep their generated titles.
+
+        Example:
+        IPI-1420 · AUTH-03 — Organization members can sign in securely
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+    custom_checks:
+      - name: Tenant isolation and authorization
+        mode: warning
+        instructions: |
+          Applicability: Run when the PR changes authentication, authorization, server
+          or API code, database queries, RLS policies, grants, RPCs, Supabase functions,
+          organization membership, CopilotKit, Mastra memory keys, or tenant-owned data.
+          Otherwise pass.
+
+          Fail when changed code:
+          - Accesses tenant-owned data without server-side user and organization authorization.
+          - Trusts client-provided organization_id, user_id, role, or ownership without verification.
+          - Permits cross-organization access.
+          - Broadens RLS, grants, RPC, or function permissions without justification.
+          - Exposes service-role or administrator credentials to client code.
+          - Uses only client-side restrictions for authorization.
+          - Uses CopilotKit or Mastra resourceId "default" for a signed-in operator.
+
+          Pass when tenant operations fail closed and relevant negative tests prove
+          unauthenticated, unauthorized, and cross-organization access is denied.
+
+          Review only changed behavior. Do not require unrelated refactoring.
+      - name: Database migration safety
+        mode: warning
+        instructions: |
+          Applicability: Run when the PR changes Supabase migrations, schema SQL, RLS,
+          grants, RPCs, database functions, seed behavior, or generated database types.
+          Otherwise pass.
+
+          Fail when:
+          - A destructive change lacks a safe rollout and recovery plan.
+          - A local baseline, dump, or prerequisite could accidentally run in production.
+          - Migration ordering could produce different schemas between environments.
+          - RLS or grants become broader without justification.
+          - Required constraints, indexes, backfills, or compatibility steps are missing.
+          - Application and database deployment order is unsafe.
+          - High-risk changes lack targeted verification.
+
+          Pass when migrations are deterministic, safely ordered, production effects are
+          documented, and relevant database behavior is verified.
+
+          Never recommend applying a baseline dump to production merely for testing.
+          Never recommend supabase db push, db reset, or production writes.
+      - name: Secrets and production safety
+        mode: warning
+        instructions: |
+          Applicability: Run for every PR.
+
+          Fail when changed content:
+          - Commits a real password, token, API key, private key, webhook secret,
+            service-role credential, or database secret.
+          - Logs or returns credentials or sensitive personal data.
+          - Exposes server-only secrets to browser code.
+          - Adds real values to environment example files.
+          - Allows workflows or deployments to mutate production without appropriate
+            environment, branch, permission, or approval safeguards.
+          - Grants broader production access than required.
+
+          Do not fail for environment-variable names, fake examples, redacted values,
+          or placeholders in .env.example.
+
+          Pass when secret handling uses least privilege and fails safely.
+      - name: Verification evidence
+        mode: warning
+        instructions: |
+          Applicability: Run for code, configuration, workflow, schema, migration, or
+          executable behavior changes. Pass documentation-only PRs that change no
+          executable behavior.
+
+          Fail when:
+          - The PR claims fixed, complete, verified, safe, or production-ready without
+            relevant evidence.
+          - New business, authorization, tenant-isolation, migration, or failure-handling
+            behavior lacks targeted verification.
+          - Failed, skipped, or unavailable checks are hidden.
+          - Evidence does not test the changed behavior.
+
+          Pass when the PR lists relevant commands, tests, checks, or manual workflows
+          and their results.
+
+          Do not require unrelated full test suites when targeted checks are sufficient.
+          If necessary evidence is unavailable to CodeRabbit, return Inconclusive rather
+          than Failed. Merge is not Done.
+
+code_generation:
+  docstrings:
+    path_instructions:
+      - path: "**/*.{ts,tsx}"
+        instructions: |
+          Document only exported, public, security-sensitive, or non-obvious functions,
+          classes, hooks, and APIs. Explain purpose, inputs, output, errors, side
+          effects, and auth or tenant requirements when relevant. Do not restate the
+          code, invent behavior, expose secrets, or add docstrings to tests, generated
+          files, simple React components, or self-explanatory utilities.
+  unit_tests:
+    path_instructions:
+      - path: "src/**/*.{ts,tsx}"
+        instructions: |
+          Use the repository's existing Vitest and React Testing Library patterns.
+          Test observable behavior, important edge cases, and failure paths. Prefer
+          targeted tests over broad snapshots. Mock only external boundaries and do
+          not rewrite production code merely to make tests pass.
+      - path: "src/**/{api,actions,server}/**/*"
+        instructions: |
+          Test successful, invalid, unauthenticated, unauthorized, and
+          cross-organization requests. Verify status codes, response shape, validation,
+          and that tenant-owned data cannot cross organization boundaries. Mock
+          external services without bypassing authorization logic.
+      - path: "src/mastra/**"
+        instructions: |
+          Test org-scoped resourceId construction and fail-closed auth. Do not require
+          production Supabase. Do not start combined npm run dev.
+      - path: "supabase/functions/**/*.ts"
+        instructions: |
+          Test input validation, authentication, organization authorization, success
+          results, external-service failures, and safe error responses. Never use
+          production credentials or production data.
+      - path: "supabase/migrations/**/*.sql"
+        instructions: |
+          Do not generate ordinary TypeScript unit tests. Add SQL, migration, RLS, and
+          cross-organization verification only when the repository already has a safe
+          local test pattern. Never connect to or modify production.
