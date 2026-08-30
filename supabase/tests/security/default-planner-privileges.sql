@@ -1,9 +1,18 @@
 -- IPI-897 · SB-SEC-009 standing guard.
--- New planner tables/sequences must not inherit anon/authenticated/public privileges.
+-- New planner tables/sequences must not inherit anon/authenticated/PUBLIC privileges.
+-- Probe PUBLIC via real role ci_acl_probe (has_*_privilege('public', ...) is invalid).
 -- Always rolls back. Finding 2 (supabase_admin) is NOTICE-only.
 -- Runner: .github/workflows/ci.yml job planner-default-acl (psql). Not npm run build.
 
 begin;
+
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'ci_acl_probe') then
+    create role ci_acl_probe nologin nosuperuser;
+  end if;
+end
+$$;
 
 create table planner._ipi897_guard (id int primary key);
 create sequence planner._ipi897_guard_seq;
@@ -18,7 +27,7 @@ declare
   p text;
   jwt text;
 begin
-  foreach jwt in array array['anon', 'authenticated', 'public'] loop
+  foreach jwt in array array['anon', 'authenticated', 'ci_acl_probe'] loop
     foreach p in array table_privs loop
       if has_table_privilege(jwt, 'planner._ipi897_guard', p) then
         raise exception '% must not have % on new planner tables', jwt, p;
@@ -41,8 +50,8 @@ begin
   if current_setting('server_version_num')::int >= 170000 then
     if has_table_privilege('anon', 'planner._ipi897_guard', 'maintain')
        or has_table_privilege('authenticated', 'planner._ipi897_guard', 'maintain')
-       or has_table_privilege('public', 'planner._ipi897_guard', 'maintain') then
-      raise exception 'anon/authenticated/public must not have maintain on new planner tables';
+       or has_table_privilege('ci_acl_probe', 'planner._ipi897_guard', 'maintain') then
+      raise exception 'anon/authenticated/PUBLIC (via ci_acl_probe) must not have maintain on new planner tables';
     end if;
     if not has_table_privilege('service_role', 'planner._ipi897_guard', 'maintain') then
       raise exception 'service_role must have maintain on new planner tables';
