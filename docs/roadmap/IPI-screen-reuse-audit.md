@@ -403,7 +403,7 @@ The “not mutated yet” table is **obsolete**. Live v2-ipix now has scope lock
 
 ### Suggested improvements (priority) — remaining only
 
-1. Do **not** create STUDIO-001 until both are proven: a saved booking with **non-null `shoot_id`**, and the linked talent readable. That gate is **NOT VERIFIED** here. CHANNEL-PREVIEW / CAMPAIGN / POSTIZ only when the preceding journey needs them (parent: [IPI-1101 · TALENT & BOOKING](https://linear.app/amo100/issue/IPI-1101) or [IPI-1105 · CAMPAIGNS & PUBLISHING](https://linear.app/amo100/issue/IPI-1105)).  
+1. Do **not** create STUDIO-001 until both are proven: a saved booking with **non-null `shoot_id`**, and the linked talent readable. That gate is **NOT VERIFIED** here. CHANNEL-PREVIEW-001 / CAMPAIGN-001 / PUBLISH-001 / POSTIZ-001 only when the preceding journey needs them (parent: [IPI-1105 · CAMPAIGNS & PUBLISHING](https://linear.app/amo100/issue/IPI-1105) only).  
 2. In luminaai, only **talent profile URL** is a justified source-repo change before port.  
 3. Port Command Center **without** skip fixtures.  
 4. Do not restore 13-step onboarding or 10-step wizard HTML unless IPI-1085 still wants those extra HTML rooms.
