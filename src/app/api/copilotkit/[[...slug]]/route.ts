@@ -5,10 +5,12 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createLocalAgents } from "@/agent";
+import { copilotAuthHooks, identifyOperator } from "@/lib/auth/copilot-hooks";
 import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: createLocalAgents(),
+  identifyUser: identifyOperator,
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.COPILOTKIT_LICENSE_TOKEN
     ? {
@@ -18,9 +20,6 @@ const runtime = new CopilotRuntime({
           wsUrl:
             process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
         }),
-        // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-        // before any multi-user deployment, or all users share one thread history.
-        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
         licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       }
     : { runner: new InMemoryAgentRunner() }),
@@ -30,6 +29,7 @@ const runtime = new CopilotRuntime({
 const app = createCopilotEndpoint({
   runtime,
   basePath: "/api/copilotkit",
+  hooks: copilotAuthHooks,
 });
 
 export const GET = handle(app);

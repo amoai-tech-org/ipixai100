@@ -30,6 +30,8 @@
     "@mastra/libsql": "1.1.0-alpha.2",
     "@mastra/memory": "1.26.1",
     "@mastra/pg": "1.12.1",
+    "@supabase/ssr": "0.12.5",
+    "@supabase/supabase-js": "2.112.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",

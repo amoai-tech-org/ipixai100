@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
-import { CopilotKit } from "@copilotkit/react-core/v2";
 import "./globals.css";
 import "@copilotkit/react-core/v2/styles.css";
 
@@ -38,10 +37,7 @@ export default function RootLayout({
         className={`${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        {/* Force REST transport so runtime-info + threads both hit the multi-route endpoint (auto-detect races the lazily-compiled API route in next dev). */}
-        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
-          {children}
-        </CopilotKit>
+        {children}
       </body>
     </html>
   );

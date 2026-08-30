@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { getVerifiedOperatorFromCookies } from "@/lib/auth/copilot-hooks";
 import { plannerSurfaceFor } from "@/lib/auth/verified-operator";
 
-import { PlannerApp } from "./planner-app";
+import { LoginForm } from "@/app/login/login-form";
 
-export default async function Page() {
+export default async function LoginPage() {
   const operator = await getVerifiedOperatorFromCookies();
-  if (plannerSurfaceFor(operator) === "login") {
-    redirect("/login");
+  if (plannerSurfaceFor(operator) === "planner") {
+    redirect("/");
   }
-  return <PlannerApp />;
+  return <LoginForm />;
 }
