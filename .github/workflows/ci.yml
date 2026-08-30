@@ -33,3 +33,71 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
+
+  # Standing guard for IPI-897 planner default ACLs. Files are required on this
+  # branch — missing migration/test fails the job instead of skipping.
+  planner-default-acl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Seed insecure planner defaults, apply migration, run guard
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          do $roles$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              create role anon nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              create role authenticated nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then
+              create role service_role nologin;
+            end if;
+            -- PUBLIC is a pseudo-role; has_*_privilege('public', ...) errors.
+            -- ci_acl_probe is a real nologin role that only inherits PUBLIC grants.
+            if not exists (select 1 from pg_roles where rolname = 'ci_acl_probe') then
+              create role ci_acl_probe nologin nosuperuser;
+            end if;
+          end
+          $roles$;
+          create schema if not exists planner;
+          create table if not exists planner.assignments (id int primary key);
+          grant select on planner.assignments to authenticated;
+          alter default privileges for role postgres in schema planner
+            grant all on tables to anon, authenticated, public;
+          alter default privileges for role postgres in schema planner
+            grant all on sequences to anon, authenticated, public;
+          do $pre$
+          begin
+            create table planner._ipi897_pre (id int primary key);
+            if not has_table_privilege('anon', 'planner._ipi897_pre', 'insert')
+               or not has_table_privilege('authenticated', 'planner._ipi897_pre', 'insert')
+               or not has_table_privilege('ci_acl_probe', 'planner._ipi897_pre', 'insert') then
+              raise exception 'CI seed failed: anon/authenticated/PUBLIC (via ci_acl_probe) should inherit INSERT before migration';
+            end if;
+            drop table planner._ipi897_pre;
+          end
+          $pre$;
+          SQL
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260825095051_ipi897_revoke_planner_default_privileges.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/default-planner-privileges.sql
