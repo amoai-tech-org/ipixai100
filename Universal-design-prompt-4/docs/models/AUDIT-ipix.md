@@ -62,9 +62,9 @@
 
 **All cross-file links resolve to real files** (grep-verified):
 - SCR-24 → `SCR-20-Talent-Profile.dc.html` ✅
-- SCR-09 Send → `../../../Shoot Wizard…?flow=booking&talent=<id>` ✅
-- SCR-20 Request booking → `../../../Shoot Wizard…?flow=booking` ✅
-- SCR-25 Accept → `../../../Shoot Detail…?flow=booking&…status=approved` ✅ · Details → `…status=requested` ✅
+- SCR-09 Send → `Shoot Wizard…?flow=booking&talent=<id>` ✅
+- SCR-20 Request booking → `Shoot Wizard…?flow=booking` ✅
+- SCR-25 Accept → `Shoot Detail…?flow=booking&…status=approved` ✅ · Details → `…status=requested` ✅
 - SCR-15 rows → Booking Detail (5 statuses) · SCR-09 · SCR-20 ✅
 - Shoot Detail crew "Booked ▸" → `…?flow=booking&…status=confirmed` ✅
 

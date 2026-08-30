@@ -425,7 +425,7 @@ class Component extends DCLogic {
       isReviews: this.state.tab === 'reviews',
       portfolio, details, weekdays, calendar, reviews, pillars,
       chips: mode==='model' ? ['Review offers','Edit availability','Improve profile','Preview as brand'] : ['Add to shortlist','Request booking','Compare with shortlist','Explain fit'],
-      onBook: () => { window.location.href = '../../../Shoot Wizard.v2.image-first.dc.html?flow=booking&talent='+talentId; },
+      onBook: () => { window.location.href = 'Shoot Wizard.v2.image-first.dc.html?flow=booking&talent='+talentId; },
       onEvidence: () => this.setState({ tab:'details' })
     };
   }

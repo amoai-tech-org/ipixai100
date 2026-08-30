@@ -485,7 +485,7 @@ class Component extends DCLogic {
       brandPillars:[['Brand tone',88],['Visual style',91],['Audience fit',84],['Commerce',79]].map(p=>({label:p[0],score:p[1],pct:p[1]+'%'})),
       shortlist, shortlistCount:slCount, shortlistEmpty:slCount===0,
       drawerOpen:this.state.drawerOpen, toggleDrawer:()=>this.setState(s=>({drawerOpen:!s.drawerOpen})),
-      onSend:()=>{ if(slCount>0){ window.location.href='../../../Shoot Wizard.v2.image-first.dc.html?flow=booking&talent='+shortlist[0].id; } },
+      onSend:()=>{ if(slCount>0){ window.location.href='Shoot Wizard.v2.image-first.dc.html?flow=booking&talent='+shortlist[0].id; } },
       sendStyle:'width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;border-radius:var(--radius-md);border:none;font-family:var(--font-sans);font-size:13px;font-weight:600;'+(slCount>0?'background:var(--color-action);color:#fff;cursor:pointer;':'background:var(--color-bg-muted);color:var(--color-text-muted);cursor:not-allowed;')
     };
   }

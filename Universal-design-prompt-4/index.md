@@ -267,7 +267,7 @@ Two different kinds of "handoff" live in this tree — don't confuse them:
 
 | File | Description |
 |------|-------------|
-| `prompt-efficienct.md` | Planner task efficiency review prompt |
+| `prompt-efficient.md` | Planner task efficiency review prompt |
 
 ---
 
