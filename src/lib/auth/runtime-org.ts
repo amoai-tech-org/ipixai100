@@ -1,9 +1,10 @@
-import { forbiddenResponse } from "./unauthorized";
+import { forbiddenResponse, membershipLookupFailedResponse } from "./unauthorized";
 
 export type RuntimeOrgResolution =
   | { status: "ok"; orgId: string }
   | { status: "needs_onboarding" }
-  | { status: "needs_org_selection" };
+  | { status: "needs_org_selection" }
+  | { status: "lookup_failed" };
 
 export type ProductBootstrap = "app" | "onboarding" | "org_selection";
 
@@ -34,9 +35,11 @@ export function resolveTrustedRuntimeOrg(options: {
 }
 
 export function productBootstrapFor(
-  resolution: RuntimeOrgResolution,
+  resolution: Extract<
+    RuntimeOrgResolution,
+    { status: "needs_onboarding" } | { status: "needs_org_selection" }
+  >,
 ): ProductBootstrap {
-  if (resolution.status === "ok") return "app";
   if (resolution.status === "needs_org_selection") return "org_selection";
   return "onboarding";
 }
@@ -55,31 +58,40 @@ type OrgMembersClient = {
 export async function listMembershipOrgIds(
   supabase: OrgMembersClient,
   userId: string,
-): Promise<string[]> {
+): Promise<{ ok: true; orgIds: string[] } | { ok: false }> {
   const { data, error } = await supabase
     .from("org_members")
     .select("org_id")
     .eq("user_id", userId);
-  if (error || !data) return [];
-  return data.map((row) => row.org_id);
+  if (error || !data) return { ok: false };
+  return { ok: true, orgIds: data.map((row) => row.org_id) };
 }
 
 /** AUTH-002: never pass client orgId / user_metadata into this lookup. */
 export async function listMembershipOrgIdsFromServerClient(
   supabase: unknown,
   userId: string,
-): Promise<string[]> {
+): Promise<{ ok: true; orgIds: string[] } | { ok: false }> {
   return listMembershipOrgIds(supabase as OrgMembersClient, userId);
 }
 
 export async function resolveRuntimeTenant(options: {
-  listOrgIds: () => Promise<string[]>;
+  listOrgIds: () => Promise<{ ok: true; orgIds: string[] } | { ok: false }>;
 }): Promise<RuntimeOrgResolution> {
-  return resolveTrustedRuntimeOrg({
-    membershipOrgIds: await options.listOrgIds(),
-  });
+  try {
+    const listed = await options.listOrgIds();
+    if (!listed.ok) return { status: "lookup_failed" };
+    return resolveTrustedRuntimeOrg({ membershipOrgIds: listed.orgIds });
+  } catch {
+    return { status: "lookup_failed" };
+  }
 }
 
-export function runtimeForbidden(resolution: Exclude<RuntimeOrgResolution, { status: "ok" }>) {
+export function runtimeTenantDenied(
+  resolution: Exclude<RuntimeOrgResolution, { status: "ok" }>,
+): Response {
+  if (resolution.status === "lookup_failed") {
+    return membershipLookupFailedResponse();
+  }
   return forbiddenResponse(resolution.status);
 }

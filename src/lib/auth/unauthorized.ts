@@ -13,3 +13,13 @@ export function forbiddenResponse(
     headers: { "content-type": "application/json" },
   });
 }
+
+export function membershipLookupFailedResponse(): Response {
+  return new Response(
+    JSON.stringify({ error: "unavailable", reason: "membership_lookup_failed" }),
+    {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    },
+  );
+}

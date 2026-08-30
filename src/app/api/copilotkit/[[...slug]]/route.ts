@@ -14,7 +14,7 @@ import { memoryResourceId } from "@/lib/auth/verified-operator";
 import {
   listMembershipOrgIdsFromServerClient,
   resolveRuntimeTenant,
-  runtimeForbidden,
+  runtimeTenantDenied,
 } from "@/lib/auth/runtime-org";
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { createClientFromRequest } from "@/lib/supabase/server";
@@ -30,7 +30,7 @@ async function handleCopilot(request: Request) {
   const tenant = await resolveRuntimeTenant({
     listOrgIds: () => listMembershipOrgIdsFromServerClient(supabase, operator.id),
   });
-  if (tenant.status !== "ok") return runtimeForbidden(tenant);
+  if (tenant.status !== "ok") return runtimeTenantDenied(tenant);
 
   const app = createCopilotEndpoint({
     runtime: new CopilotRuntime({

@@ -110,8 +110,10 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
       membershipOrgIds: [ORG_A, ORG_B],
       clientOrgId: ORG_A,
     });
-    expect(resolution).toEqual({ status: "needs_org_selection" });
-    expect(productBootstrapFor(resolution)).toBe("org_selection");
+    expect(resolution.status).toBe("needs_org_selection");
+    if (resolution.status === "needs_org_selection") {
+      expect(productBootstrapFor(resolution)).toBe("org_selection");
+    }
   });
 
   it("maps zero memberships to onboarding for product bootstrap, not a fake org", () => {
@@ -119,8 +121,10 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
       membershipOrgIds: [],
       userMetadataOrgId: ORG_A,
     });
-    expect(resolution).toEqual({ status: "needs_onboarding" });
-    expect(productBootstrapFor(resolution)).toBe("onboarding");
+    expect(resolution.status).toBe("needs_onboarding");
+    if (resolution.status === "needs_onboarding") {
+      expect(productBootstrapFor(resolution)).toBe("onboarding");
+    }
   });
 
   it("returns 403 on CopilotKit runtime before creating agents when membership is missing", async () => {
@@ -183,6 +187,18 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
     });
     await POST(request);
     expect(spy).toHaveBeenCalledWith(`org:${ORG_A}::user:${USER_A}`);
+  });
+
+  it("returns 503 instead of onboarding when membership lookup fails", async () => {
+    const spy = vi.spyOn(agent, "createLocalAgents");
+    memberships.error = { message: "db unavailable" };
+    const response = await GET(jsonRequest("GET"));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "unavailable",
+      reason: "membership_lookup_failed",
+    });
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it("still 401s a stale JWT through AUTH-001 before tenant resolution", async () => {
