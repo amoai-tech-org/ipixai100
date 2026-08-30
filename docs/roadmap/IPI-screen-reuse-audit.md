@@ -1,10 +1,10 @@
 # iPix Screen + Feature Reuse Audit
 
 **Date:** 2026-08-30  
-**Status:** Audit + Linear aligned (no product code). Cleanup **2026-08-30d**: journey epics **IPI-1098–1107** created; feature tasks reparented off IPI-1076.  
-**Verification:** Re-checked against `/home/sk/ipix` HEAD `b2d3de8e5` ([amoai-tech/luminaai](https://github.com/amoai-tech/luminaai)), live Linear, and this worktree.
+**Status:** Audit + Linear aligned (no product code). Cleanup **2026-08-30d**: journey epics IPI-1098–1107 created; feature tasks reparented off **IPI-1076 · DASHBOARD DESIGN — Operator Workspace Migration Sequence**.  
+**Verification:** Re-checked against `/home/sk/ipix` HEAD `b2d3de8e5` ([amoai-tech/luminaai](https://github.com/amoai-tech/luminaai) `main` — **reproducible SHA**). Live Linear in this file is a **2026-08-30 snapshot**; live Linear is the SSOT and may have drifted — **NOT VERIFIED** after that date.
 
-**Independent review of the correction notes: 90/100 — PASS.** Reuse working React; re-prove queries/RPCs/auth/agents. Catalog **69/100** is a **migration-effort estimate**.
+**Independent review of the correction notes: 90/100 — PASS** is **author judgment**, not a checked-in scoring script — **NOT VERIFIED** as an independent grade. Reuse working React; re-prove queries/RPCs/auth/agents. Catalog **69/100** is a **migration-effort estimate** (same caveat).
 
 | Score | Meaning |
 |-------|---------|
@@ -12,7 +12,20 @@
 | **96/100** | Linear consistency after 2026-08-30d journey epics |
 | **69/100** | luminaai catalog **estimated** UI coverage only |
 
-**Organize as:** Milestone (when) → journey epic (what) → feature task → screen. [IPI-1076](https://linear.app/amo100/issue/IPI-1076) stays a **migration coordinator** (APP-001 / DESIGN-001). Domain journeys live on **IPI-1098–1107**.
+**Organize as:** Milestone (when) → journey epic (what) → feature task → screen. [IPI-1076 · DASHBOARD DESIGN — Operator Workspace Migration Sequence](https://linear.app/amo100/issue/IPI-1076) stays a **migration coordinator** (APP-001 / DESIGN-001). Domain journeys (full Linear names; also §7):
+
+| Epic | Linear title |
+|------|-------------|
+| [IPI-1098 · HOME — Give Operators One Command Center for the Org](https://linear.app/amo100/issue/IPI-1098) | Command Center |
+| [IPI-1099 · BRAND — Browse Brands and Approve Brand DNA](https://linear.app/amo100/issue/IPI-1099) | Brands + DNA |
+| [IPI-1100 · SHOOT PLANNING — Keep Shoot Records Browsable and Complete](https://linear.app/amo100/issue/IPI-1100) | Shoot list/detail |
+| [IPI-1101 · TALENT & BOOKING — Book Talent Against a Saved Shoot](https://linear.app/amo100/issue/IPI-1101) | Talent + booking |
+| [IPI-1102 · PRODUCTION & MEDIA — Browse Assets and Deliver Shoot Files](https://linear.app/amo100/issue/IPI-1102) | Assets + delivery |
+| [IPI-1103 · CRM — Run the Relationship Hub in the New App](https://linear.app/amo100/issue/IPI-1103) | Relationship Hub |
+| [IPI-1104 · OPERATIONS — Operator Inbox and Coordination](https://linear.app/amo100/issue/IPI-1104) | Inbox |
+| [IPI-1105 · CAMPAIGNS & PUBLISHING — Campaigns, Preview, and Publish](https://linear.app/amo100/issue/IPI-1105) | Campaigns (tickets later) |
+| [IPI-1106 · ANALYTICS — Show Real Metrics Without Invented Numbers](https://linear.app/amo100/issue/IPI-1106) | Honest metrics |
+| [IPI-1107 · PLANS — Saved Production Plans, Not a Second Planner](https://linear.app/amo100/issue/IPI-1107) | Saved plans workspace |
 
 **Primary implementation gate:** [IPI-1037 · AUTH-001](https://linear.app/amo100/issue/IPI-1037) → [IPI-1065 · APP-001](https://linear.app/amo100/issue/IPI-1065) → BRAND-001 ∥ SHOOT-001 → HOME-001.
 
@@ -173,7 +186,7 @@ Foundation Linear (do **not** expand into product screens): **IPI-1037, 1046, 10
 | Brand URL → approved DNA | BRAND-INTEL-001 | MVP M2 |
 | Booking data contract | BOOKING-DATA-001 | MVP M3 |
 | Booking Coordinator | BOOKING-AI-001 | MVP M3 |
-| Studio/location | STUDIO-001 | MVP M3 |
+| Studio/location | STUDIO-001 (**do not create yet**) | MVP M3 **gated**: not until **IPI-1094 · BOOKING-DATA-001** proves booking-to-shoot/talent linkage |
 | Stripe deposit | PAYMENT-001 (then 002) | MVP M3 |
 | Cloudinary delivery layer | MEDIA-CLOUDINARY-001 | Late MVP |
 | Upload/review/deliver | MEDIA-001 | Late MVP |
@@ -247,7 +260,7 @@ Foundation **unchanged:** IPI-1037, 1046, 1045, 1047, 1048, 1049, 1050, 1088, 10
 
 | Issue | Status |
 |-------|--------|
-| [IPI-1076](https://linear.app/amo100/issue/IPI-1076) **single journey map**; D-tables/historical peer-port **removed**; migration coordinator; journey epics IPI-1098–1107 | ✅ |
+| [IPI-1076 · DASHBOARD DESIGN — Operator Workspace Migration Sequence](https://linear.app/amo100/issue/IPI-1076) **single journey map**; D-tables/historical peer-port **removed**; migration coordinator; journey epics IPI-1098–1107 | ✅ |
 | [IPI-1065](https://linear.app/amo100/issue/IPI-1065) shell + rail + route-context slots | ✅ |
 | [IPI-1066](https://linear.app/amo100/issue/IPI-1066) COPY UI; adapt org queries; no Home Agent | ✅ |
 | [IPI-1068](https://linear.app/amo100/issue/IPI-1068) display approved DNA only | ✅ |
@@ -279,18 +292,18 @@ Foundation **unchanged:** IPI-1037, 1046, 1045, 1047, 1048, 1049, 1050, 1088, 10
 
 | Epic | Children (reparented) |
 |------|------------------------|
-| [IPI-1098 · HOME](https://linear.app/amo100/issue/IPI-1098) | IPI-1066 |
-| [IPI-1099 · BRAND](https://linear.app/amo100/issue/IPI-1099) | IPI-1068, IPI-1093 |
-| [IPI-1100 · SHOOT PLANNING](https://linear.app/amo100/issue/IPI-1100) | IPI-1067 (wizard stays [IPI-1079](https://linear.app/amo100/issue/IPI-1079)) |
-| [IPI-1101 · TALENT & BOOKING](https://linear.app/amo100/issue/IPI-1101) | IPI-1094, IPI-1071, IPI-1095, IPI-1096 |
-| [IPI-1102 · PRODUCTION & MEDIA](https://linear.app/amo100/issue/IPI-1102) | IPI-1069, IPI-1097 |
-| [IPI-1103 · CRM](https://linear.app/amo100/issue/IPI-1103) | IPI-1070 |
-| [IPI-1104 · OPERATIONS](https://linear.app/amo100/issue/IPI-1104) | IPI-1072 |
-| [IPI-1105 · CAMPAIGNS & PUBLISHING](https://linear.app/amo100/issue/IPI-1105) | none yet (CAMPAIGN / CHANNEL-PREVIEW / PUBLISH / POSTIZ still uncreated) |
-| [IPI-1106 · ANALYTICS](https://linear.app/amo100/issue/IPI-1106) | IPI-1073 |
-| [IPI-1107 · PLANS](https://linear.app/amo100/issue/IPI-1107) | IPI-1074 |
+| [IPI-1098 · HOME — Give Operators One Command Center for the Org](https://linear.app/amo100/issue/IPI-1098) | IPI-1066 |
+| [IPI-1099 · BRAND — Browse Brands and Approve Brand DNA](https://linear.app/amo100/issue/IPI-1099) | IPI-1068, IPI-1093 |
+| [IPI-1100 · SHOOT PLANNING — Keep Shoot Records Browsable and Complete](https://linear.app/amo100/issue/IPI-1100) | IPI-1067 (wizard stays [IPI-1079](https://linear.app/amo100/issue/IPI-1079)) |
+| [IPI-1101 · TALENT & BOOKING — Book Talent Against a Saved Shoot](https://linear.app/amo100/issue/IPI-1101) | IPI-1094, IPI-1071, IPI-1095, IPI-1096 |
+| [IPI-1102 · PRODUCTION & MEDIA — Browse Assets and Deliver Shoot Files](https://linear.app/amo100/issue/IPI-1102) | IPI-1069, IPI-1097 |
+| [IPI-1103 · CRM — Run the Relationship Hub in the New App](https://linear.app/amo100/issue/IPI-1103) | IPI-1070 |
+| [IPI-1104 · OPERATIONS — Operator Inbox and Coordination](https://linear.app/amo100/issue/IPI-1104) | IPI-1072 |
+| [IPI-1105 · CAMPAIGNS & PUBLISHING — Campaigns, Preview, and Publish](https://linear.app/amo100/issue/IPI-1105) | none yet (CAMPAIGN / CHANNEL-PREVIEW / PUBLISH / POSTIZ still uncreated) |
+| [IPI-1106 · ANALYTICS — Show Real Metrics Without Invented Numbers](https://linear.app/amo100/issue/IPI-1106) | IPI-1073 |
+| [IPI-1107 · PLANS — Saved Production Plans, Not a Second Planner](https://linear.app/amo100/issue/IPI-1107) | IPI-1074 |
 
-Already existed: [IPI-1092 · AUTH](https://linear.app/amo100/issue/IPI-1092), [IPI-1079 · LAUNCH](https://linear.app/amo100/issue/IPI-1079), [IPI-1076](https://linear.app/amo100/issue/IPI-1076) shell coordinator, [IPI-1077](https://linear.app/amo100/issue/IPI-1077) marketing, [IPI-1078](https://linear.app/amo100/issue/IPI-1078) Mastra/CopilotKit.
+Already existed: [IPI-1092 · AUTH](https://linear.app/amo100/issue/IPI-1092), [IPI-1079 · LAUNCH](https://linear.app/amo100/issue/IPI-1079), [IPI-1076 · DASHBOARD DESIGN — Operator Workspace Migration Sequence](https://linear.app/amo100/issue/IPI-1076) shell coordinator, [IPI-1077](https://linear.app/amo100/issue/IPI-1077) marketing, [IPI-1078](https://linear.app/amo100/issue/IPI-1078) Mastra/CopilotKit.
 
 ### Remaining (do not create yet)
 
@@ -397,7 +410,7 @@ The “not mutated yet” table is **obsolete**. Live v2-ipix now has scope lock
 
 ## Related canvas
 
-Interactive table and phase map: [screen reuse canvas](/home/sk/.cursor/projects/home-sk-wt-ipi-897-sb-sec-009/canvases/ipix-screen-reuse-audit.canvas.tsx).
+**Local-only** (not in this repository; not a shared SSOT). An interactive table/phase map may exist as a Cursor canvas on the author’s machine. Do not link machine paths here; this markdown file is the checked-in audit.
 
 ---
 
