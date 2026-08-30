@@ -12,7 +12,7 @@ Think of production’s migration table as a **receipt book**: stamps already pa
 
    ```bash
    supabase link --project-ref nvdlhrodvevgwdsneplk
-   test "$(cat supabase/.temp/project-ref)" = nvdlhrodvevgwdsneplk
+   test "$(cat supabase/.temp/project-ref)" = nvdlhrodvevgwdsneplk && echo "PROJECT REF OK" || { echo "WRONG PROJECT REF — STOP, DO NOT PUSH"; exit 1; }
    ```
 
    Copying `supabase/.temp` from another machine is a local shortcut, not the supported path. Do not run this in a dirty tree that still has dump files `20260824115900` / `20260824120000`.
@@ -60,7 +60,7 @@ Snapshot ledger after dry-run (MCP `list_migrations`): **309** rows, latest `202
 - `supabase db reset --linked`
 - Real `supabase db push --linked` without explicit human approval
 - Commit the fetched history files
-- Push local dump pair `20260824115900` / `20260824120000` (that would replay a full schema dump onto hosted, not a Postgres “cluster rebuild”)
+- Push local dump pair `20260824115900` / `20260824120000` (replays a full schema dump onto hosted)
 
 ## History files are not a local Docker baseline
 
@@ -78,31 +78,24 @@ This ticket therefore **did not** run local reset/pgTAP on the fetched history-f
 After explicit approval:
 
 1. Disposable worktree from the commit that contains the new SQL (today: the planner default-privileges file only).
-2. `supabase link --project-ref nvdlhrodvevgwdsneplk` and `test "$(cat supabase/.temp/project-ref)" = nvdlhrodvevgwdsneplk` — **stop** if it does not match.
-3. Fetch + list + dry-run as above. Confirm the queue is **only** the intended newer file(s). Repeat the project-ref test immediately before a non-dry-run push.
+2. `supabase link --project-ref nvdlhrodvevgwdsneplk` and the same project-ref `test` as step 1 (must print `PROJECT REF OK`). **Stop** on mismatch.
+3. Fetch + list + dry-run as above. If any history, checksum, or queue check fails, record **BLOCKED**, retain the evidence, and stop; do not continue to step 4. Otherwise confirm the queue is **only** the intended newer file(s). Repeat the project-ref `test` immediately before a non-dry-run push; **stop** if it is not `PROJECT REF OK`.
 4. Then `supabase db push --linked` **without** `--dry-run`.
 5. Re-read MCP ledger: after this snapshot’s pending file, count should become 310, latest `20260825095051`.
 
-Rollback if that file is later applied: do **not** edit the applied SQL. This ticket never applied it, so there is no captured pre-apply `pg_default_acl` dump here — snapshot that catalog **before** any future apply. A compensating **new** forward migration would restore default table and sequence privileges for `anon`, `authenticated`, and `public` while leaving `service_role` granted, for example:
+Rollback if that file is later applied: do **not** edit the applied SQL. Snapshot `pg_default_acl` **before** any apply — that dump is a hard prerequisite for rollback. Derive the compensating **new** forward migration from the snapshot, not from a guessed `GRANT ALL`. Never roll back with `GRANT ALL … TO public` on a PostgREST-exposed schema. If an example is needed after a snapshot shows `authenticated` table `arwd` only, scope it to what was revoked (`INSERT, SELECT, UPDATE, DELETE` on tables; `USAGE, SELECT` on sequences) and omit `anon` / `public` unless the snapshot proves they were present.
 
-```sql
-alter default privileges for role postgres in schema planner
-  grant all on tables to anon, authenticated, public;
-alter default privileges for role postgres in schema planner
-  grant all on sequences to anon, authenticated, public;
-```
-
-After that compensating file, verify with:
+After a compensating file, verify planner **and** schema-less (`defaclnamespace = 0`) rows. `supabase_admin` grantor rows can still appear and `postgres` cannot change them:
 
 ```sql
 SELECT defaclrole::regrole, defaclnamespace::regnamespace, defaclobjtype, defaclacl
 FROM pg_default_acl
-WHERE defaclnamespace = 'planner'::regnamespace;
+WHERE defaclnamespace IN ('planner'::regnamespace, 0::oid);
 ```
 
 ## CLI semantics verified (2026-08-30; `supabase --version` was 2.111.0)
 
 - `supabase migration fetch --linked` — default `--linked` true
-- `supabase db push --linked --dry-run` — non-mutating; output is the block in step 6 above, not a second conflicting quote
+- `supabase db push --linked --dry-run` — non-mutating; output is the block in step 6 above
 
 Official: [migration fetch](https://supabase.com/docs/reference/cli/supabase-migration-fetch), [database migrations](https://supabase.com/docs/guides/local-development/database-migrations), [CLI link](https://supabase.com/docs/reference/cli/supabase-link).
