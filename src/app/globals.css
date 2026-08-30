@@ -48,10 +48,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
+  /* Radius lives in tokens.css. Do not redeclare --radius-* here as
+     var(--radius-*) — that cycle makes computed radius invalid. */
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }

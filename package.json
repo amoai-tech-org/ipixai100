@@ -2,6 +2,9 @@
   "name": "starter",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.22.2"
+  },
   "scripts": {
     "dev": "echo 'DEV-STAB-001: run npm run dev:ui and npm run dev:agent separately until the combined watcher storm is fixed' && exit 1",
     "dev:agent": "node scripts/dev-guard.mjs --port 4111 -- mastra dev",

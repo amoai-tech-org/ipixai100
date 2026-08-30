@@ -22,14 +22,15 @@ type Props = {
 };
 
 export function EmptyState({ heading, body, icon, preview, action, hint }: Props) {
+  const visual = preview ? "preview" : icon ? "icon" : "none";
   return (
-    <div className={styles.root} data-testid="empty-state">
+    <div className={styles.root} data-testid="empty-state" data-visual={visual}>
       {preview ? (
-        <div className={styles.previewFan} aria-hidden>
+        <div className={styles.previewFan} aria-hidden data-testid="empty-state-preview">
           {preview}
         </div>
       ) : icon ? (
-        <div className={styles.iconCircle} aria-hidden>
+        <div className={styles.iconCircle} aria-hidden data-testid="empty-state-icon">
           {icon}
         </div>
       ) : null}

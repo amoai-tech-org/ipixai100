@@ -14,9 +14,10 @@ type Props = {
 };
 
 export function StatusChip({ dot, label, bare = false, onImage = false }: Props) {
+  const variant = bare ? "bare" : onImage ? "onImage" : "pill";
   const modeClass = bare ? styles.bare : onImage ? styles.onImage : styles.pill;
   return (
-    <span className={`${styles.wrap} ${modeClass}`}>
+    <span className={`${styles.wrap} ${modeClass}`} data-variant={variant}>
       <span className={styles.dot} style={{ backgroundColor: dot }} aria-hidden />
       {label}
     </span>

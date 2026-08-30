@@ -27,19 +27,19 @@ describe("EmptyState", () => {
   });
 
   it("renders the icon variant when given an icon and no preview", () => {
-    const { container } = render(
-      <EmptyState heading="Empty" icon={<svg data-testid="the-icon" />} />,
-    );
-    expect(container.querySelector(".iconCircle")).not.toBeNull();
-    expect(container.querySelector(".previewFan")).toBeNull();
+    render(<EmptyState heading="Empty" icon={<svg data-testid="the-icon" />} />);
+    expect(screen.getByTestId("empty-state").getAttribute("data-visual")).toBe("icon");
+    expect(screen.getByTestId("the-icon")).toBeDefined();
+    expect(screen.queryByTestId("empty-state-preview")).toBeNull();
   });
 
   it("prefers the preview fan over the icon when both are supplied", () => {
-    const { container } = render(
-      <EmptyState heading="Empty" preview={<div>photos</div>} icon={<svg />} />,
+    render(
+      <EmptyState heading="Empty" preview={<div>photos</div>} icon={<svg data-testid="the-icon" />} />,
     );
-    expect(container.querySelector(".previewFan")).not.toBeNull();
-    expect(container.querySelector(".iconCircle")).toBeNull();
+    expect(screen.getByTestId("empty-state").getAttribute("data-visual")).toBe("preview");
+    expect(screen.getByText("photos")).toBeDefined();
+    expect(screen.queryByTestId("the-icon")).toBeNull();
   });
 
   it("omits optional slots when not provided", () => {
