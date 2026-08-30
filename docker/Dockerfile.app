@@ -1,6 +1,6 @@
 # Dockerfile for the Mastra + Next.js monolith.
 # Mastra runs in-process with Next.js — no separate agent service needed.
-FROM node:22-slim AS builder
+FROM node:22.23.2-slim AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:22-slim AS runner
+FROM node:22.23.2-slim AS runner
 
 WORKDIR /app
 
