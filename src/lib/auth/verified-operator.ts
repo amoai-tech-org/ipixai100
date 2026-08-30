@@ -15,12 +15,12 @@ export type VerifiedOperator = {
   name: string;
 };
 
-/** AUTH-002 will replace `unscoped` with a verified org_members org id. */
-export const AUTH_001_ORG_PLACEHOLDER = "unscoped";
-
-/** Live Mastra/CopilotKit memory key: `org:{orgId}::user:{userId}`. */
-export function memoryResourceId(userId: string): string {
-  return `org:${AUTH_001_ORG_PLACEHOLDER}::user:${userId}`;
+/** Live Mastra/CopilotKit memory key after AUTH-002 membership proof. */
+export function memoryResourceId(input: {
+  userId: string;
+  orgId: string;
+}): string {
+  return `org:${input.orgId}::user:${input.userId}`;
 }
 
 export function claimsFromSupabaseResult(result: {

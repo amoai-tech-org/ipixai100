@@ -11,16 +11,32 @@ import {
   identifyOperator,
 } from "@/lib/auth/copilot-hooks";
 import { memoryResourceId } from "@/lib/auth/verified-operator";
+import {
+  listMembershipOrgIdsFromServerClient,
+  resolveRuntimeTenant,
+  runtimeForbidden,
+} from "@/lib/auth/runtime-org";
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
+import { createClientFromRequest } from "@/lib/supabase/server";
 import { handle } from "hono/vercel";
 
 async function handleCopilot(request: Request) {
   const operator = await getVerifiedOperatorForRequest(request);
   if (!operator) return unauthorizedResponse();
 
+  const supabase = createClientFromRequest(request);
+  if (!supabase) return unauthorizedResponse();
+
+  const tenant = await resolveRuntimeTenant({
+    listOrgIds: () => listMembershipOrgIdsFromServerClient(supabase, operator.id),
+  });
+  if (tenant.status !== "ok") return runtimeForbidden(tenant);
+
   const app = createCopilotEndpoint({
     runtime: new CopilotRuntime({
-      agents: createLocalAgents(memoryResourceId(operator.id)),
+      agents: createLocalAgents(
+        memoryResourceId({ userId: operator.id, orgId: tenant.orgId }),
+      ),
       identifyUser: identifyOperator,
       // --- copilotkit:intelligence (remove this block to opt out) ---
       ...(process.env.COPILOTKIT_LICENSE_TOKEN

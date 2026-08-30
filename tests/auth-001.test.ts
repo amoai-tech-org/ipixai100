@@ -102,8 +102,13 @@ describe("IPI-1037 · AUTH-001 identity", () => {
     expect(operator?.id).not.toBe(USER_B);
   });
 
-  it("uses the org::user memory key until AUTH-002 supplies an org", () => {
-    expect(memoryResourceId(USER_A)).toBe(`org:unscoped::user:${USER_A}`);
+  it("requires a verified org id before building the memory key", () => {
+    expect(
+      memoryResourceId({
+        userId: USER_A,
+        orgId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }),
+    ).toBe(`org:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa::user:${USER_A}`);
   });
 
   it("keeps the same user across a refresh-shaped second claims read", async () => {
