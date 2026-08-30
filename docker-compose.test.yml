@@ -13,6 +13,9 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.app
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
     environment:
       - OPENAI_API_KEY=test-key-for-aimock
       - OPENAI_BASE_URL=http://aimock:4010/v1
