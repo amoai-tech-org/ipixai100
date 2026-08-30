@@ -121,11 +121,11 @@ Reuse % below is **estimated UI coverage**, not a verified query/auth score. Re-
 | 18 | Talent profile / matching | Yes — matching, profile, onboarding | Cards, Cloudinary avatars | Availability + studio/location in one coordinator | model-match, booking | MVP | Reuse; extend BOOKING-AI-001 |
 | 19 | Booking wizard `/app/matching/talent/[id]/book` | Yes UI; **`shoot_id: null`** (“real shoot picker not wired yet”) | Availability + create request | Shared contract, shoot linkage, Stripe | Booking Coordinator | MVP | IPI-1094 BOOKING-DATA (`booking.shoot_id`) + IPI-1095 AI; IPI-1071 is screens only |
 | 20 | Booking detail `/app/bookings/[id]` | Yes UI | Status display | Call times, conflicts, deposit state | Booking Coordinator | MVP | Extend, don’t rebuild |
-| 21 | Studio / location booking | Partial (shoot location fields; no dedicated studio marketplace) | Location on shoot | Indoor/outdoor, light, power, load-in, price, availability | Booking Coordinator | Later | **Not created yet** — STUDIO-001 after BOOKING-DATA proves talent/shoot linkage |
+| 21 | Studio / location booking | Partial (shoot location fields; no dedicated studio marketplace) | Location on shoot | Indoor/outdoor, light, power, load-in, price, availability | Booking Coordinator | MVP M3 **gated** (after BOOKING-DATA) | **Not created yet** — STUDIO-001 after BOOKING-DATA proves talent/shoot linkage |
 | 22 | Availability / call times | Partial — SCR-23 proto, batch RPC 🔴 | Talent available/blocked UI | Shared contract across talent, studio, crew | Deterministic + AI compare | MVP | BOOKING-DATA-001 |
 | 23 | Stripe deposit | **No** | — | Checkout, webhook, confirm booking | No agent for charge; HITL confirm | MVP M3 | **IPI-1096** PAYMENT-001 created |
 | 24 | Production-day coordination | Partial — inbox, shoot detail | Notifications proto | Call sheets, who hasn’t confirmed | Planner + Booking (no Supervisor yet) | MVP thin / Advanced Supervisor | Inbox stays OPERATIONS; don’t wait for Production Supervisor |
-| 25 | Assets list/detail | Yes + Cloudinary URLs | Browse, DNA tools on Creative Director | Upload → Cloudinary → Supabase → approve → deliver as MVP end | visual-identity + CD tools | **Late MVP** | Move IPI-1069 to M3; add MEDIA-001 |
+| 25 | Assets list/detail | Yes + Cloudinary URLs | Browse, DNA tools on Creative Director | Upload → Cloudinary → Supabase → approve → deliver as MVP end | **Creative Director** (preview = visual-identity) | **Late MVP** | Move IPI-1069 to M3; add MEDIA-001 |
 | 26 | Channel preview `/app/preview` | Yes — `channel-preview-studio` | IG/TikTok-style crops via Cloudinary | Formal channel matrix + Postiz | visual-identity | Post-MVP | CHANNEL-PREVIEW-001; don’t block MVP delivery |
 | 27 | Content calendar / Postiz | **No** | — | Schedule, captions, publish | Publishing Agent | Post-MVP | PUBLISH-001 + POSTIZ-001 |
 | 28 | Operations inbox `/app/inbox` | Yes | Notification center proto | Split from campaigns | Optional later | Post-MVP | Keep IPI-1072 as inbox/coordination |
@@ -187,7 +187,7 @@ Foundation Linear (do **not** expand into product screens): **IPI-1037, 1046, 10
 | Booking data contract | BOOKING-DATA-001 | MVP M3 |
 | Booking Coordinator | BOOKING-AI-001 | MVP M3 |
 | Studio/location | STUDIO-001 (**do not create yet**) | MVP M3 **gated**: not until **IPI-1094 · BOOKING-DATA-001** proves booking-to-shoot/talent linkage |
-| Stripe deposit | PAYMENT-001 (then 002) | MVP M3 |
+| Stripe deposit | PAYMENT-001 ([IPI-1096](https://linear.app/amo100/issue/IPI-1096); no PAYMENT-002) | MVP M3 |
 | Cloudinary delivery layer | MEDIA-CLOUDINARY-001 | Late MVP |
 | Upload/review/deliver | MEDIA-001 | Late MVP |
 | Channel preview product | CHANNEL-PREVIEW-001 | Post-MVP |
@@ -207,8 +207,8 @@ Foundation Linear (do **not** expand into product screens): **IPI-1037, 1046, 10
 | **Brand Intelligence** | Onboarding, Brand profile, URL intake | MVP M2 |
 | **Booking Coordinator** (evolve old `booking`) | Talent, bookings, studio, calendar | MVP M3 |
 | **model-match** | Matching / talent search | MVP with talent screens |
-| **visual-identity** | Assets, Cloudinary, previews | Late MVP / Post-MVP preview |
-| **Creative Director** | Campaigns; asset DNA tools on Assets | Post-MVP campaigns; tools OK earlier |
+| **Creative Director** | `/app/assets` (screen owner) + campaigns | MVP assets keep this agent; campaigns Post-MVP |
+| **visual-identity** | `/app/preview` + Cloudinary transforms | Late MVP / Post-MVP preview — not the Assets screen agent |
 | **Publishing Agent** | Calendar / Postiz | Post-MVP |
 | **Analytics Agent** | Analytics | After metrics port |
 | **Marketing Concierge** | Public site | Post-MVP |
@@ -224,14 +224,14 @@ Foundation Linear (do **not** expand into product screens): **IPI-1037, 1046, 10
 ```text
 CORE
   AUTH-001 → org (AUTH-002) → APP-001 shell + rail + L1–L5 slots → Planner foundation
-  CORE-001 = exam later, not start gate
+  [IPI-1041 · CORE-001](https://linear.app/amo100/issue/IPI-1041) = Planner **exam** (refresh/restart/Org A vs Org B). Live Linear: it does **not** block starting M2 pages. `docs/todo.md` still saying “no dashboard until CORE-001” is **stale** vs that issue.
 
 MVP PRODUCT (M2)
   Marketing classify/reposition (1057/1060/1063)
   → Onboarding
-  → HOME-001 (org-scoped KPIs; no Home Agent)
   → BRAND-001 display → BRAND-INTEL-001 (IPI-1093)
   → SHOOT-001 list/detail + tab shell
+  → HOME-001 (org-scoped KPIs; no Home Agent)
 
 M3A SHOOT LAUNCH (IPI-1079 — do not swallow fulfillment)
   PLAN-001 (IPI-1081) → APPROVAL → SAVE → WIZARD (IPI-1085 handoff only)
@@ -307,7 +307,7 @@ Already existed: [IPI-1092 · AUTH](https://linear.app/amo100/issue/IPI-1092), [
 
 ### Remaining (do not create yet)
 
-STUDIO-001 · CHANNEL-PREVIEW-001 · CAMPAIGN-001 · PUBLISH-001 · POSTIZ-001 · ANALYTICS-AI-001 · CF-HOST-001 · AI-GATEWAY-001 · Photography/Video Expert · Production Supervisor.
+STUDIO-001 · MEDIA-CLOUDINARY-001 (Node signing / delivery layer — **do not create yet**; until then treat as scope on [IPI-1097 · MEDIA-001](https://linear.app/amo100/issue/IPI-1097), not a missing owner) · CHANNEL-PREVIEW-001 · CAMPAIGN-001 · PUBLISH-001 · POSTIZ-001 · ANALYTICS-AI-001 · CF-HOST-001 · AI-GATEWAY-001 · Photography/Video Expert · Production Supervisor.
 
 ### Build next (implementation, not more Linear cleanup)
 
@@ -331,11 +331,11 @@ AUTH-001 → APP-001 → (BRAND-001 ∥ SHOOT-001) → HOME-001
 | Cloudinary | URLs, upload agent, channel studio | Not in v2 Linear |
 | Stripe / Postiz | Absent | Absent |
 
-**Faster path:** COPY+CLEAN operator screens from `/home/sk/ipix/app/src` onto ipixai tokens after AUTH-001 is on `main`. Do not re-implement Command Center from HTML.
+**Faster path:** COPY+CLEAN operator screens from the permitted GitHub source [amoai-tech/luminaai](https://github.com/amoai-tech/luminaai) at SHA `b2d3de8e5` (same tree as a local `/home/sk/ipix` checkout). **Do not implement from a private `/home/sk/ipix` path** (`AGENTS.md`). Drop Worker/secrets/fixtures as listed below. Do not re-implement Command Center from HTML.
 
 ## Caveats
 
-- `Universal-design-prompt-4/progress-tracker.md` (2026-07-12) is **stale** — it still calls Campaigns/Assets/Planner “placeholders.” Current React has real workspaces. Trust files dated 2026-08-30, not that tracker.
+- `Universal-design-prompt-4/progress-tracker.md` (2026-07-12) is **stale** — it still calls Campaigns/Assets/Planner “placeholders.” Current React has real workspaces. Trust [amoai-tech/luminaai](https://github.com/amoai-tech/luminaai) SHA `b2d3de8e5` and live Linear, not that tracker and not “whatever is dated 2026-08-30.”
 - Booking **RPCs** (`check_talent_availability`, `create_booking_request`, `get_booking`, `transition_booking`) **are wired** in current React. Design registry “RPC 🔴” is outdated. Stripe deposit is still missing.
 - HTML `.dc.html` is a clickable prototype with `support.js`, not production. Matching it 100% was never the bar; **production-usable React** is.
 - Do not copy old Cloudflare Workers Mastra into Core.
@@ -370,11 +370,11 @@ These are **not** screen rebuilds. They are runtime/secrets/fixtures that must b
 | DurableAgent, ALS, Hyperdrive, OpenNext, custom SSE | Old Worker Mastra path | Keep Node Mastra in ipixai |
 | `resourceId: "default"` | Cross-org thread leak | AUTH / STREAM tickets |
 | Service-role in the browser | RLS bypass | APP-001 / data tickets |
-| Disabled Matching tabs as live | No backend | TALENT-001 (already: leave off) |
+| Disabled Matching tabs as live | No backend | [IPI-1071 · TALENT-BOOKING-001](https://linear.app/amo100/issue/IPI-1071) (already: leave off) |
 | HTML `.dc.html` as implementation source | Rebuild tax | IPI-1076 reuse rule (keep) |
 | `/app/planner*` as the Core AI Planner | Second brain | PLANS-001 stays M4 workspace |
 | Invented analytics KPIs | Linear already forbids | ANALYTICS-001 |
-| Talent self-serve onboarding inside TALENT-001 | Ticket correctly excludes it | Post-MVP / ONBOARD split |
+| Talent self-serve onboarding inside [IPI-1071 · TALENT-BOOKING-001](https://linear.app/amo100/issue/IPI-1071) | Ticket correctly excludes it | Post-MVP / ONBOARD split |
 
 ### What to change on **luminaai** screens (`amoai-tech/luminaai` / `/home/sk/ipix`)
 
@@ -459,13 +459,15 @@ Think of **complete** as “how much of the brochure room was built” and **cor
 - **Portfolio estimate /100** = (Complete × 5) + (Correct × 5)  
 - **Estimated migration gap** (`Still to do %`) = 100 − Score/100. Not “delete and rebuild.”
 
-**Catalog average (31 product screens, excluding galleries/DEMO):** **69/100 estimated migration coverage**. **Estimated gap:** **31%**. These are **planning estimates**, not verified implementation completeness. A browser + DB + user-flow audit would be required for true readiness.
+**Catalog average (31 product screens, excluding galleries/DEMO):** **69/100 composite** ((Complete+Correct)/2). Mean **% complete** (UI coverage) is **~64%**; mean **% correct** is **~74%**. Do not use 69 as UI-coverage. **Composite gap vs 100:** **31%**; **UI-coverage gap:** **~36%**. These are **planning estimates**, not verified implementation completeness. A browser + DB + user-flow audit would be required for true readiness.
 
 **NOT VERIFIED:** live click-through of every HITL gate; visual pixel match.
 
 ### Scores — each screen
 
 **Already in React** = what to reuse (do not rebuild). **Remaining work** = the next honest gap. **Still to do %** = size of that gap.
+
+**Design-registry IDs not scored here (no dedicated luminaai product route):** SCR-12 Product Catalog (`/app/catalog`), SCR-13 Collections/Seasons (`/app/collections`), SCR-14 Asset→PDP crops (`/app/assets/pdp`), SCR-19 Event Management (`/app/events`). Treat as **out of scope for this port** — do not invent tickets from the HTML registry alone.
 
 | SCR | Screen | Complete /10 | Correct /10 | Score /100 | % complete | % correct | Still to do % | Already in React (reuse) | Remaining work |
 |-----|--------|:---:|:---:|:---:|:---:|:---:|:---:|---|---|
