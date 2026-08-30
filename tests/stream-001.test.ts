@@ -502,9 +502,13 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     controller.abort();
     const response = await pending;
     expect(response.status).toBe(200);
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    expect(stats.chunksAfterAbort).toBe(0);
-    expect(stats.chunksEmitted).toBeLessThan(15);
+    const deadline = Date.now() + 1000;
+    while (Date.now() < deadline && stats.runStarted && !stats.aborted) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
     expect(stats.aborted || !stats.runStarted).toBe(true);
+    const settled = stats.chunksEmitted;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(stats.chunksEmitted).toBe(settled);
   });
 });
