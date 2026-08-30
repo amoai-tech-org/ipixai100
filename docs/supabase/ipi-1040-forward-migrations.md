@@ -80,8 +80,19 @@ After explicit approval:
 1. Disposable worktree from the commit that contains the new SQL (today: the planner default-privileges file only).
 2. `supabase link --project-ref nvdlhrodvevgwdsneplk` and the same project-ref `test` as step 1 (must print `PROJECT REF OK`). **Stop** on mismatch.
 3. Fetch + list + dry-run as above. If any history, checksum, or queue check fails, record **BLOCKED**, retain the evidence, and stop; do not continue to step 4. Otherwise confirm the queue is **only** the intended newer file(s). Repeat the project-ref `test` immediately before a non-dry-run push; **stop** if it is not `PROJECT REF OK`.
-4. Then `supabase db push --linked` **without** `--dry-run`.
-5. Re-read MCP ledger: after this snapshot’s pending file, count should become 310, latest `20260825095051`.
+4. Save the full pre-push MCP ledger (all 309 `version` values). Then `supabase db push --linked` **without** `--dry-run`.
+5. Re-read the full MCP ledger. **BLOCKED** unless all of: count is 310; latest is `20260825095051`; the version set equals the saved 309-row set plus `20260825095051` (file `20260825095051_ipi897_revoke_planner_default_privileges.sql`); no prior version is missing or changed. Count-plus-latest alone is not enough (a dropped old row plus a new row would still be 310).
+6. Hosted read-only ACL check (MCP SQL; **do not** `CREATE` tables or roles). **BLOCKED** if this query returns no planner `postgres` rows, if `defaclacl` still names `anon`, `authenticated`, or PUBLIC (`=` with empty grantee), or if `service_role` is missing from those planner table/sequence defaults:
+
+```sql
+SELECT defaclobjtype, defaclacl::text AS acl
+FROM pg_default_acl
+WHERE defaclrole = 'postgres'::regrole
+  AND defaclnamespace = 'planner'::regnamespace
+  AND defaclobjtype IN ('r', 'S');
+```
+
+`supabase/tests/security/default-planner-privileges.sql` is CI-local (creates a probe table). Do not run it on hosted. Schema-less (`defaclnamespace = 0`) `supabase_admin` rows can still appear; they are out of this pass/fail.
 
 Rollback if that file is later applied: do **not** edit the applied SQL. Snapshot `pg_default_acl` **before** any apply — that dump is a hard prerequisite for rollback. Derive the compensating **new** forward migration from the snapshot, not from a guessed `GRANT ALL`. Never roll back with `GRANT ALL … TO public` on a PostgREST-exposed schema. If an example is needed after a snapshot shows `authenticated` table `arwd` only, scope it to what was revoked (`INSERT, SELECT, UPDATE, DELETE` on tables; `USAGE, SELECT` on sequences) and omit `anon` / `public` unless the snapshot proves they were present.
 
