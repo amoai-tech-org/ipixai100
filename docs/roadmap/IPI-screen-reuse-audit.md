@@ -459,7 +459,7 @@ Think of **complete** as “how much of the brochure room was built” and **cor
 - **Portfolio estimate /100** = (Complete × 5) + (Correct × 5)  
 - **Estimated migration gap** (`Still to do %`) = 100 − Score/100. Not “delete and rebuild.”
 
-**Catalog average (31 product screens, excluding galleries/DEMO):** **69/100 composite** ((Complete+Correct)/2). Mean **% complete** (UI coverage) is **~64%**; mean **% correct** is **~74%**. Do not use 69 as UI-coverage. **Composite gap vs 100:** **31%**; **UI-coverage gap:** **~36%**. These are **planning estimates**, not verified implementation completeness. A browser + DB + user-flow audit would be required for true readiness.
+**Catalog average (31 product screens, excluding galleries/DEMO):** **69/100 composite** ((Complete+Correct)/2). Mean **% complete** (UI coverage) is **~64%**; mean **% correct** is **74.84% (rounded to ~75%)**. Do not use 69 as UI-coverage. **Composite gap vs 100:** **31%**; **UI-coverage gap:** **~36%**. These are **planning estimates**, not verified implementation completeness. A browser + DB + user-flow audit would be required for true readiness.
 
 **NOT VERIFIED:** live click-through of every HITL gate; visual pixel match.
 
