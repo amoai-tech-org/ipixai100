@@ -94,9 +94,9 @@ function PlannerSurface() {
   return (
     <CopilotChatConfigurationProvider agentId="default">
       <div className={`${styles.layout} threadsLayout`}>
-        <AuthBar />
         <CopilotThreadsDrawer agentId="default" />
         <div className={styles.mainPanel}>
+          <AuthBar />
           <main
             style={
               {

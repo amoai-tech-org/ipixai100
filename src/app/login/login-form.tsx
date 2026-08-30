@@ -18,19 +18,24 @@ export function LoginForm() {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (signInError) {
-      setSubmitting(false);
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        setError("Sign in failed");
+        return;
+      }
+      await supabase.auth.getClaims();
+      router.push("/");
+      router.refresh();
+    } catch {
       setError("Sign in failed");
-      return;
+    } finally {
+      setSubmitting(false);
     }
-    await supabase.auth.getClaims();
-    router.push("/");
-    router.refresh();
   }
 
   return (

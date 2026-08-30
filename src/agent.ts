@@ -8,13 +8,15 @@ import { mastra } from "@/mastra";
  * Unlike the HTTP-backed starters there is no agent server here: the agents run
  * in this process.
  */
-export function createLocalAgents(): Record<string, AbstractAgent> {
+export function createLocalAgents(
+  resourceId: string,
+): Record<string, AbstractAgent> {
   // resourceId is required when the Mastra agent has Memory enabled.
   // Without it, CopilotKit seeds working memory onto a frontend-minted
   // threadId that does not exist in LibSQL yet ("Thread … not found").
   return MastraAgent.getLocalAgents({
     mastra,
-    resourceId: "default",
+    resourceId,
   }) as Record<string, AbstractAgent>;
 }
 
@@ -26,7 +28,7 @@ export function createLocalAgents(): Record<string, AbstractAgent> {
  * worth failing loudly on rather than starting a Channel that answers nothing.
  */
 export function createDefaultAgent(): AbstractAgent {
-  const agents = createLocalAgents();
+  const agents = createLocalAgents("default");
   const first = Object.values(agents)[0];
   if (!first) {
     throw new Error(

@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as agent from "../src/agent";
+import {
+  DELETE,
+  GET,
+  PATCH,
+  POST,
+} from "../src/app/api/copilotkit/[[...slug]]/route";
 import { unauthorizedResponse } from "../src/lib/auth/unauthorized";
 import {
   copilotHandshake,
@@ -7,9 +14,19 @@ import {
 } from "../src/lib/auth/copilot-mount";
 import {
   getVerifiedOperatorFromClaims,
+  memoryResourceId,
   plannerSurfaceFor,
   requireVerifiedOperator,
 } from "../src/lib/auth/verified-operator";
+
+vi.mock("../src/lib/supabase/server", () => ({
+  createClientFromRequest: () => ({
+    auth: {
+      getClaims: async () => ({ data: { claims: null }, error: null }),
+    },
+  }),
+  createClient: async () => null,
+}));
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -85,19 +102,8 @@ describe("IPI-1037 · AUTH-001 identity", () => {
     expect(operator?.id).not.toBe(USER_B);
   });
 
-  it("rejects before a downstream agent would run", async () => {
-    let agentInvoked = false;
-    try {
-      await requireVerifiedOperator({
-        request: jsonRequest("POST"),
-        getClaims: async () => ({ data: { claims: null }, error: null }),
-      });
-    } catch (err) {
-      expect(err).toBeInstanceOf(Response);
-      expect((err as Response).status).toBe(401);
-      agentInvoked = false;
-    }
-    expect(agentInvoked).toBe(false);
+  it("uses the org::user memory key until AUTH-002 supplies an org", () => {
+    expect(memoryResourceId(USER_A)).toBe(`org:unscoped::user:${USER_A}`);
   });
 
   it("keeps the same user across a refresh-shaped second claims read", async () => {
@@ -136,15 +142,24 @@ describe("IPI-1037 · AUTH-001 identity", () => {
     expect(copilotHandshake("signed-out").expectedInfoStatus).toBe(401);
   });
 
-  it("protects GET, POST, PATCH, and DELETE the same way", async () => {
+  it("returns 401 from every CopilotKit handler before creating agents", async () => {
+    const spy = vi.spyOn(agent, "createLocalAgents");
+    const handlers = { GET, POST, PATCH, DELETE };
     for (const method of ["GET", "POST", "PATCH", "DELETE"] as const) {
-      await expect(
-        requireVerifiedOperator({
-          request: jsonRequest(method),
-          getClaims: async () => ({ data: { claims: null }, error: null }),
-        }),
-      ).rejects.toSatisfy((err: unknown) => err instanceof Response && err.status === 401);
+      const info = await handlers[method](
+        new Request("http://localhost/api/copilotkit/info", { method }),
+      );
+      expect(info.status).toBe(401);
+
+      const agentReq = new Request("http://localhost/api/copilotkit", {
+        method,
+        headers: { "content-type": "application/json" },
+        body: method === "GET" || method === "DELETE" ? undefined : "{}",
+      });
+      const agentRes = await handlers[method](agentReq);
+      expect(agentRes.status).toBe(401);
     }
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it("does not serialize cookies, JWTs, or keys into the 401 body", async () => {
