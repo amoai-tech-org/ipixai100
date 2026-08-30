@@ -22,9 +22,14 @@ const USER_B = "22222222-2222-4222-8222-222222222222";
 const ORG_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ORG_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
-const memberships: { rows: { org_id: string }[]; error: unknown } = {
+const memberships: {
+  rows: { org_id: string }[];
+  error: unknown;
+  throwEq: boolean;
+} = {
   rows: [],
   error: null,
+  throwEq: false,
 };
 const claims: { sub?: string; email?: string } = {
   sub: USER_A,
@@ -45,6 +50,9 @@ vi.mock("../src/lib/supabase/server", () => ({
           if (table !== "org_members") {
             return { data: null, error: { message: "unexpected table" } };
           }
+          if (memberships.throwEq) {
+            throw new Error("membership lookup threw");
+          }
           return { data: memberships.rows, error: memberships.error };
         },
       }),
@@ -56,6 +64,7 @@ vi.mock("../src/lib/supabase/server", () => ({
 afterEach(() => {
   memberships.rows = [];
   memberships.error = null;
+  memberships.throwEq = false;
   claims.sub = USER_A;
   claims.email = "operator@example.com";
   vi.restoreAllMocks();
@@ -192,6 +201,18 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
   it("returns 503 instead of onboarding when membership lookup fails", async () => {
     const spy = vi.spyOn(agent, "createLocalAgents");
     memberships.error = { message: "db unavailable" };
+    const response = await GET(jsonRequest("GET"));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "unavailable",
+      reason: "membership_lookup_failed",
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when membership lookup throws instead of returning an error object", async () => {
+    const spy = vi.spyOn(agent, "createLocalAgents");
+    memberships.throwEq = true;
     const response = await GET(jsonRequest("GET"));
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
