@@ -1,9 +1,11 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -20,10 +22,96 @@ jobs:
       OPENAI_API_KEY: placeholder
       COPILOTKIT_TELEMETRY_DISABLED: "true"
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
       - run: npm run build
+
+  detect-planner-acl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - id: check
+        run: |
+          if [ -f supabase/tests/security/default-planner-privileges.sql ] && \
+             [ -f supabase/migrations/20260825095051_ipi897_revoke_planner_default_privileges.sql ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Standing guard for IPI-897 planner default ACLs. Skipped until those files exist on the branch.
+  planner-default-acl:
+    needs: detect-planner-acl
+    if: needs.detect-planner-acl.outputs.present == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Seed insecure planner defaults, apply migration, run guard
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          do $roles$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              create role anon nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              create role authenticated nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then
+              create role service_role nologin;
+            end if;
+          end
+          $roles$;
+          create schema if not exists planner;
+          create table if not exists planner.assignments (id int primary key);
+          grant select on planner.assignments to authenticated;
+          alter default privileges for role postgres in schema planner
+            grant all on tables to anon, authenticated, public;
+          alter default privileges for role postgres in schema planner
+            grant all on sequences to anon, authenticated, public;
+          do $pre$
+          begin
+            create table planner._ipi897_pre (id int primary key);
+            if not has_table_privilege('anon', 'planner._ipi897_pre', 'insert')
+               or not has_table_privilege('authenticated', 'planner._ipi897_pre', 'insert')
+               or not has_table_privilege('public', 'planner._ipi897_pre', 'insert') then
+              raise exception 'CI seed failed: anon/authenticated/public should inherit INSERT before migration';
+            end if;
+            drop table planner._ipi897_pre;
+          end
+          $pre$;
+          SQL
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260825095051_ipi897_revoke_planner_default_privileges.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/default-planner-privileges.sql
