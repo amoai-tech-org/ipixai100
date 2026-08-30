@@ -10,7 +10,7 @@
 - **Image-first.** Editorial fashion photography (female models in apparel) leads every content object. Galleries are masonry/justified grids, never icon tables.
 - **Calm, editorial, premium.** Borders over shadows, generous whitespace, monospaced numerals, no decorative gradients.
 
-## Zeely Editorial v3 (visual system — see `DESIGN.md` + `tokens.css`)
+## Zeely Editorial v3 (visual system — see `DESIGN.md` + `design-patched/tokens.css`)
 - **Colour:** pure white `#FFFFFF` page, light-grey `#FAFAFA` surfaces, `#E5E7EB` hairlines, `#111` primary text / `#6B7280` secondary. **Black** primary actions (`--color-action:#111`). No beige, no orange chrome (orange retired). Amber reserved for HITL/attention only.
 - **Type:** **Inter** for all UI; mono numerals (`font-feature-settings:'tnum'`) for scores/IDs/dates.
 - **Radii:** ~20px cards & images (`--card-radius`), ~10px controls (`--radius-md`).

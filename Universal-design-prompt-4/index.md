@@ -13,7 +13,7 @@ Two different kinds of "handoff" live in this tree — don't confuse them:
 
 | Doc | Scope | Use when |
 |---|---|---|
-| `docs/handoff/` (16 docs, `01-overview.md` → `14-ai-runtime-contract.md` + `handoff.md` index + `SCREEN-REGISTRY.md`) | **Canonical, cross-screen** — screen map, component map, journeys, state map, React implementation map, AI runtime contract | Building/verifying any screen against the full spec |
+| `docs/handoff/` (16 docs, `01-overview.md` → `14-ai-runtime-contract.md` + `handoff.md` index + `SCREEN-REGISTRY.md`) | **Canonical for the original operator / onboarding / shoot surface only.** `09-react-implementation-map.md` and `11-screen-checklists.md` do **not** cover CRM (SCR-26–31) or Planner (SCR-32–35). | Building those original screens. For CRM use `crm/CRM-HANDOFF.md`; for Planner use `planner/` |
 | `docs/CLAUDE-CODE-HANDOFF.md` | Main implementation handoff — prototype → React/Supabase mapping, single-file entry point | Quick orientation before diving into `docs/handoff/`'s numbered set |
 | `crm/CRM-HANDOFF.md` | CRM/Relationship Hub engineering handoff, Phase 1-5 checklist | CRM-specific work only |
 | `planner/planner-qa-handoff.md` | Planner QA → engineering handoff | Planner QA findings only |
@@ -48,9 +48,9 @@ Two different kinds of "handoff" live in this tree — don't confuse them:
 | `lessons.md` | 141 | Lessons learned — 16 guards from IPI-404 forensic review + CRM PRs |
 | `design-audit.md` | 249 | Design audit — Planner focus, Linear validation (IPI-476-484), doc integrity |
 | `design-audit-2026-06-28-rev2.md` | 174 | Design audit rev 2 — plan.md + todo.md vs. live codebase (scores: 90/100, 92/100) |
-| `html.md` | 91 | HTML file inventory — all `.dc.html` prototype files in `Pages/` and `components/` |
-| `HTML.md` | 123 | ⚠️ Separate file, different content from `html.md` (case-differing name — a filesystem hazard on case-insensitive systems). Not yet reconciled; check both before assuming either is stale. |
-| `tokens.css` | — | CSS design tokens (parent-level; canonical copy in `design-patched/`) |
+| `html-inventory.md` | 91 | HTML file inventory — all `.dc.html` prototype files in `Pages/` and `components/` (renamed from `html.md` so it does not collide with `HTML.md` on case-insensitive filesystems) |
+| `HTML.md` | 123 | Screen/component index with status chips (kept; this is the file most task docs already link) |
+| `design-patched/tokens.css` | — | Canonical CSS design tokens (there is no root `tokens.css` in this archive) |
 | `support.js` | — | Shared JavaScript runtime for all `.dc.html` prototypes |
 | `index.md` | — | **This file** — master document index |
 
@@ -430,7 +430,7 @@ Per-screen wireframe documents for SCR-01 through SCR-31 (plus README).
 
 **Open items from this review (2026-07-18), not auto-resolved:**
 1. `plan/planner/` vs `planner/` — full parallel doc trees, no canonical marked. Needs a decision before merging.
-2. `html.md` vs `HTML.md` — different content, case-differing names. Needs a decision.
+2. ~~`html.md` vs `HTML.md`~~ — resolved: inventory is `html-inventory.md`; `HTML.md` remains the linked status index.
 3. `plan/planner/tasks/prompt-` (empty) and `plan/planner/design-prompts/Untitled` — likely stray saves, candidates for deletion once confirmed.
 4. `tasks/AUDIT/crm-337=341-audt.md` vs `crm/tasks/crm-337=341-audt.md` — possible duplicate, not diffed.
 5. `tasks/prime/` and `tasks/todo/` are untracked — commit if they should be shared/preserved, per this folder's file-safety convention.

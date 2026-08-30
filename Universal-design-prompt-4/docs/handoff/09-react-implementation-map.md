@@ -3,7 +3,7 @@
 > Per screen: page, components, APIs, agent, Supabase, Cloudinary, CopilotKit, Mastra, Gemini, acceptance. Stack assumptions are **proposals** — confirm against the live repo (`route-agent-map.ts`, `mastra/`, Supabase schema). Order → [10](10-implementation-order.md). Checklists → [11](11-screen-checklists.md).
 
 ## Stack (target)
-Next.js (App Router) · Supabase (Postgres + Auth + Realtime + RLS) · Cloudinary (images) · CopilotKit (dock runtime) · Mastra (agents) · Gemini (generation/scoring). Tokens from `tokens.css` → Tailwind/CSS vars. Icons → Lucide.
+Next.js (App Router) · Supabase (Postgres + Auth + Realtime + RLS) · Cloudinary (images) · CopilotKit (dock runtime) · Mastra (agents) · Gemini (generation/scoring). Tokens from `design-patched/tokens.css` → Tailwind/CSS vars. Icons → Lucide.
 
 ## Design → React mapping matrix (D-DS18)
 > One row per screen: DC prototype → React page → route → agent → owner → Linear → status. **Owner/Linear** are for Claude Code to fill in the code repo; **Design** is ✅ for the 13 built screens (see `DESIGN-TASKS.md §0` completion matrix). Keep this table as the single index; per-screen detail is below.

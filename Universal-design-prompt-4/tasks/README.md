@@ -46,16 +46,18 @@
 
 ### Track B — Backend / Supabase (verified gaps)
 
-| ID | Task | Pri | Deps | Cx | Status | Task file |
+This archive ships **one** backend task file: [`BE-RT2-extend-get-shoot-detail-rpc-to-include-resource-type.md`](./backend/BE-RT2-extend-get-shoot-detail-rpc-to-include-resource-type.md). The BE-* files named below were never committed here — IDs are a backlog label, not an executable spec in this tree.
+
+| ID | Task | Pri | Deps | Cx | Status | Task file in this archive |
 |---|---|:--:|---|:--:|:--:|---|
-| **B0b** | **Booking Mastra agent** | **P2** | — | M | 🔴 | [BE-B0b-booking-mastra-agent.md](./backend/BE-B0b-booking-mastra-agent.md) |
-| **D1** | **Campaigns schema (IPI-268)** | **P2** | — | M | 🔴 | [BE-D1-campaigns-schema-IPI-268.md](./backend/BE-D1-campaigns-schema-IPI-268.md) |
-| **D2** | **Analytics views + RPCs** | P3 | D1 | M | ⚪ | [BE-D2-analytics-views-rpcs.md](./backend/BE-D2-analytics-views-rpcs.md) |
-| **RT1** | **Realtime: notifications + bookings** | P3 | N1, B3 | M | ⚪ | [BE-RT1-realtime-notifications-bookings.md](./backend/BE-RT1-realtime-notifications-bookings.md) |
-| **ST1** | **Storage buckets** | P2 | C2 upload | S | ⚪ | [BE-ST1-storage-buckets.md](./backend/BE-ST1-storage-buckets.md) |
-| **B4-RPC** | **set_availability_batch** | P3 | — | S | ⚪ | [BE-B4-set-availability-batch.md](./backend/BE-B4-set-availability-batch.md) |
-| **CRM-OPT** | **CRM convenience RPCs** | P3 | CRM1 | M | ⚪ | [BE-CRM-opt-convenience-rpcs.md](./backend/BE-CRM-opt-convenience-rpcs.md) |
-| **ACT1** | **Org activity log + list RPC** | P3 | — | M | ⚪ | [BE-ACT1-org-activity-log.md](./backend/BE-ACT1-org-activity-log.md) |
+| **B0b** | **Booking Mastra agent** | **P2** | — | M | 🔴 | missing — `BE-B0b-booking-mastra-agent.md` |
+| **D1** | **Campaigns schema (IPI-268)** | **P2** | — | M | 🔴 | missing — `BE-D1-campaigns-schema-IPI-268.md` |
+| **D2** | **Analytics views + RPCs** | P3 | D1 | M | ⚪ | missing — `BE-D2-analytics-views-rpcs.md` |
+| **RT1** | **Realtime: notifications + bookings** | P3 | N1, B3 | M | ⚪ | missing — `BE-RT1-realtime-notifications-bookings.md` |
+| **ST1** | **Storage buckets** | P2 | C2 upload | S | ⚪ | missing — `BE-ST1-storage-buckets.md` |
+| **B4-RPC** | **set_availability_batch** | P3 | — | S | ⚪ | missing — `BE-B4-set-availability-batch.md` |
+| **CRM-OPT** | **CRM convenience RPCs** | P3 | CRM1 | M | ⚪ | missing — `BE-CRM-opt-convenience-rpcs.md` |
+| **ACT1** | **Org activity log + list RPC** | P3 | — | M | ⚪ | missing — `BE-ACT1-org-activity-log.md` |
 
 ### Track B — Done (do not recreate)
 

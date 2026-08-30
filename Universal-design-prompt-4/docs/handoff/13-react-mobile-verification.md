@@ -50,7 +50,7 @@ For each of the 13 screens (Command Center, Brand List, Brand Detail, Shoots Lis
 - [ ] **Focus trap** on every modal + bottom sheet (EvidenceBlock, upload, publish, edit, confirm, More sheet); focus restored to the trigger on close.
 - [ ] **Keyboard**: all actions reachable; Esc closes overlays; visible focus ring.
 - [ ] **`aria-live="polite"`** on toasts *(already in the DC prototypes)* and on the **AI streaming step list** (add on the `chatThinking` region wrapper).
-- [ ] **`prefers-reduced-motion`** honored *(already in DC via `tokens.css` + per-screen `@media`)* — keep in the Tailwind config (`motion-reduce:` variants).
+- [ ] **`prefers-reduced-motion`** honored *(already in DC via `design-patched/tokens.css` + per-screen `@media`)* — keep in the Tailwind config (`motion-reduce:` variants).
 - [ ] **Screen-reader labels**: every icon-only control has `aria-label`; close buttons announce ("Close"); images carry meaningful `alt`.
 - [ ] Sheets announced as dialogs (`role="dialog"` + `aria-modal="true"` + labelled).
 

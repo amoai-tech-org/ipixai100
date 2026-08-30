@@ -1,3 +1,5 @@
+> **Archive warning — do not execute.** This prompt is a historical snapshot. It names `/home/sk/ipix`, which is not this repository. iPixai work is `amoai-tech/ipixai`. Do not `cd` to the old checkout, fetch, or run audits from these paths.
+
 Use this prompt in OpenCode or Claude Code:
 
 Act as a **senior Supabase engineer, TypeScript architect, and QA forensic auditor**.

@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-  T[tokens.css → Tailwind/CSS vars] --> OS[OperatorShell + NavSidebar + IntelligencePanel + ChatDock]
+  T[design-patched/tokens.css → Tailwind/CSS vars] --> OS[OperatorShell + NavSidebar + IntelligencePanel + ChatDock]
   OS --> SC[Shared components: StatusChip · SkeletonLoader · EmptyState · cards · FilterBar · SearchBar · ApprovalCard · AgentStatusIndicator · BottomNav · BottomSheet]
   SC --> CC[Command Center]
   CC --> BL[Brand List]
@@ -24,7 +24,7 @@ flowchart TD
 
 ## Phased plan
 **Phase 0 — Foundation**
-1. Port `tokens.css` → design tokens (CSS vars / Tailwind theme). Lucide icons.
+1. Port `design-patched/tokens.css` → design tokens (CSS vars / Tailwind theme). Lucide icons.
 2. `OperatorShell` (nav · workspace · intelligence) + mobile tab bar + sheet + auth/role gate.
 3. Shared components (build once, reuse): StatusChip, SkeletonLoader, EmptyState, BrandCard, ShootCard, CampaignCard, AssetCard, ApprovalCard, AgentStatusIndicator, FilterBar, SearchBar, PageHeader, WizardStep, BottomNavigation, BottomSheet, PersistentChatDock.
 

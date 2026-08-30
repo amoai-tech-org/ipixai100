@@ -4,7 +4,7 @@
 
 **Canonical reuse (do not fork):** **EvidenceBlock** is the one AI-explainability surface (reused on 7 screens — Brand Detail, Assets, Matching, Campaigns, Channel Preview, Analytics Overview, Campaign Performance — see row below + `AI-EXPLAINABILITY.md`). **Selectable/draggable cards** (D-DS5) are driven through each card's `onSelect`/`selected`/`border` props plus a host-owned checkbox overlay + bulk bar + drop dock (`PATTERNS.md#selection`) — the card components are NOT duplicated.
 
-**Reuse rule:** build a component once and reuse via `dc-import` (prototype) / a React component (production). Cards drive selection → IntelligencePanel. All visuals are inline-styled from `tokens.css` values. React target = a typed function component with the listed props.
+**Reuse rule:** build a component once and reuse via `dc-import` (prototype) / a React component (production). Cards drive selection → IntelligencePanel. All visuals are inline-styled from `design-patched/tokens.css` values. React target = a typed function component with the listed props.
 
 ## Composite / shell
 | Component | Purpose | Key props | Variants/States | Used on | React target | Depends on |

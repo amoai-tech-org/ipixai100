@@ -3,13 +3,13 @@
 > Read **second** (after [handoff.md](handoff.md)). The single source of truth for implementing FashionOS / iPix.
 
 ## How to read the design files
-1. **Prototypes are the spec.** The canonical `*.v2.image-first.dc.html` files render the exact UI, states, and interactions. Open them; the markup is inline-styled from `tokens.css` values — copy literal values into your token system.
+1. **Prototypes are the spec.** The canonical `*.v2.image-first.dc.html` files render the exact UI, states, and interactions. Open them; the markup is inline-styled from `design-patched/tokens.css` values — copy literal values into your token system.
 2. **A `.dc.html` is one screen** = a `<x-dc>` template (markup) + a `Component extends DCLogic` class (state/handlers in `renderVals()`). Treat the class as the component's state machine; port it to React state/hooks.
 3. **Ignore the DC runtime** (`support.js`, `<sc-if>`, `<sc-for>`, `dc-import`) — they map to React `{cond && …}`, `.map()`, and child components.
 4. Pre-v2 files live in `archive/` — **do not use them**.
 
 ## Files to read first (in order)
-`handoff.md` → `01-overview` → `02-screen-map` → `03-component-map` → `10-implementation-order` → then per-screen: `09-react-implementation-map` + `11-screen-checklists`. Companion: `DESIGN.md`, `tokens.css`, `components/COMPONENTS.md`, `MOBILE-PLAN.md`.
+`handoff.md` → `01-overview` → `02-screen-map` → `03-component-map` → `10-implementation-order` → then per-screen: `09-react-implementation-map` + `11-screen-checklists`. Companion: `DESIGN.md`, `design-patched/tokens.css`, `components/COMPONENTS.md`, `MOBILE-PLAN.md`.
 
 ## Implementation order
 Foundation (tokens → OperatorShell → shared components) → MVP (Command Center · Brand List · Brand Detail · Onboarding) → Core (Shoots · Wizard · Shoot Detail · Assets) → Growth (Campaigns · Matching · Channel Preview) → AI + cross-cutting. Full graph in [10](10-implementation-order.md).
@@ -18,7 +18,7 @@ Foundation (tokens → OperatorShell → shared components) → MVP (Command Cen
 Build the 20 components in [03](03-component-map.md) **once**. Cards drive selection → IntelligencePanel. Never re-implement a card/chip/skeleton per screen. Bespoke screen-local pieces (swipe deck, publish modal, shortlist drawer, realtime strip) are explicitly noted — keep them local.
 
 ## Design tokens
-Port `tokens.css`: colours (white/grey/black; `--color-action:#111`; amber for HITL only), Inter + mono numerals, radii (~20px card/image, ~10px control), 1px hairlines, `--nav-width-collapsed:3.5rem` / `--nav-width-expanded:14rem`, shadows only for overlays. **Zero hardcoded hex in components** — tokens only.
+Port `design-patched/tokens.css`: colours (white/grey/black; `--color-action:#111`; amber for HITL only), Inter + mono numerals, radii (~20px card/image, ~10px control), 1px hairlines, `--nav-width-collapsed:3.5rem` / `--nav-width-expanded:14rem`, shadows only for overlays. **Zero hardcoded hex in components** — tokens only.
 
 ## Responsive behavior
 Breakpoint **`max-width:1024px`**: NavSidebar → BottomNavigation + More sheet; IntelligencePanel → bottom sheet (trigger pill); chat dock pinned above tab bar; wizards/onboarding full-screen. Mobile nav + sheets are first-class (see `MOBILE-PLAN.md`), not a reactive shrink.
