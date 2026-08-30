@@ -121,7 +121,7 @@ Reuse % below is **estimated UI coverage**, not a verified query/auth score. Re-
 | 18 | Talent profile / matching | Yes — matching, profile, onboarding | Cards, Cloudinary avatars | Availability + studio/location in one coordinator | model-match, booking | MVP | Reuse; extend BOOKING-AI-001 |
 | 19 | Booking wizard `/app/matching/talent/[id]/book` | Yes UI; **`shoot_id: null`** (“real shoot picker not wired yet”) | Availability + create request | Shared contract, shoot linkage, Stripe | Booking Coordinator | MVP | IPI-1094 BOOKING-DATA (`booking.shoot_id`) + IPI-1095 AI; IPI-1071 is screens only |
 | 20 | Booking detail `/app/bookings/[id]` | Yes UI | Status display | Call times, conflicts, deposit state | Booking Coordinator | MVP | Extend, don’t rebuild |
-| 21 | Studio / location booking | Partial (shoot location fields; no dedicated studio marketplace) | Location on shoot | Indoor/outdoor, light, power, load-in, price, availability | Booking Coordinator | MVP M3 **gated** (after BOOKING-DATA) | **Not created yet** — STUDIO-001 after BOOKING-DATA proves talent/shoot linkage |
+| 21 | Studio / location booking | Partial (shoot location fields; no dedicated studio marketplace) | Location on shoot | Indoor/outdoor, light, power, load-in, price, availability | Booking Coordinator | MVP M3 **gated · NOT VERIFIED** | **Do not create STUDIO-001** until both proofs exist (saved booking `shoot_id` not null **and** linked talent readable). Neither proof is in this audit. |
 | 22 | Availability / call times | Partial — SCR-23 proto, batch RPC 🔴 | Talent available/blocked UI | Shared contract across talent, studio, crew | Deterministic + AI compare | MVP | BOOKING-DATA-001 |
 | 23 | Stripe deposit | **No** | — | Checkout, webhook, confirm booking | No agent for charge; HITL confirm | MVP M3 | **IPI-1096** PAYMENT-001 created |
 | 24 | Production-day coordination | Partial — inbox, shoot detail | Notifications proto | Call sheets, who hasn’t confirmed | Planner + Booking (no Supervisor yet) | MVP thin / Advanced Supervisor | Inbox stays OPERATIONS; don’t wait for Production Supervisor |
@@ -186,7 +186,7 @@ Foundation Linear (do **not** expand into product screens): **IPI-1037, 1046, 10
 | Brand URL → approved DNA | BRAND-INTEL-001 | MVP M2 |
 | Booking data contract | BOOKING-DATA-001 | MVP M3 |
 | Booking Coordinator | BOOKING-AI-001 | MVP M3 |
-| Studio/location | STUDIO-001 (**do not create yet**) | MVP M3 **gated**: not until **IPI-1094 · BOOKING-DATA-001** proves booking-to-shoot/talent linkage |
+| Studio/location | STUDIO-001 (**do not create yet**) | MVP M3 **gated · NOT VERIFIED**: unlock only after (1) a saved booking with **non-null `shoot_id`** and (2) that booking’s linked talent can be **read back**. This audit has neither proof. |
 | Stripe deposit | PAYMENT-001 ([IPI-1096](https://linear.app/amo100/issue/IPI-1096); no PAYMENT-002) | MVP M3 |
 | Cloudinary delivery layer | MEDIA-CLOUDINARY-001 | Late MVP |
 | Upload/review/deliver | MEDIA-001 | Late MVP |
@@ -242,7 +242,7 @@ M3B FULFILLMENT (same milestone, separate tickets)
   → BOOKING-AI-001 (IPI-1095, blocked by 1094)
   → PAYMENT-001 (IPI-1096)
   → ASSETS-001 list/detail (IPI-1069) → MEDIA-001 upload/review/approve/deliver (IPI-1097)
-  STUDIO-001 not created yet
+  STUDIO-001 not created — gate **NOT VERIFIED** (needs saved booking with non-null shoot_id + talent readable)
 
 POST-MVP M4
   Inbox (IPI-1072) · CRM · Analytics · Plans workspace
@@ -307,7 +307,7 @@ Already existed: [IPI-1092 · AUTH](https://linear.app/amo100/issue/IPI-1092), [
 
 ### Remaining (do not create yet)
 
-STUDIO-001 · MEDIA-CLOUDINARY-001 (Node signing / delivery layer — **do not create yet**; until then treat as scope on [IPI-1097 · MEDIA-001](https://linear.app/amo100/issue/IPI-1097), not a missing owner) · CHANNEL-PREVIEW-001 · CAMPAIGN-001 · PUBLISH-001 · POSTIZ-001 · ANALYTICS-AI-001 · CF-HOST-001 · AI-GATEWAY-001 · Photography/Video Expert · Production Supervisor.
+STUDIO-001 (**NOT VERIFIED** unlock: saved booking with non-null `shoot_id` **and** linked talent readable; do not create until both are proven) · MEDIA-CLOUDINARY-001 (Node signing / delivery layer — **do not create yet**; until then treat as scope on [IPI-1097 · MEDIA-001](https://linear.app/amo100/issue/IPI-1097), not a missing owner) · CHANNEL-PREVIEW-001 · CAMPAIGN-001 · PUBLISH-001 · POSTIZ-001 · ANALYTICS-AI-001 · CF-HOST-001 · AI-GATEWAY-001 · Photography/Video Expert · Production Supervisor.
 
 ### Build next (implementation, not more Linear cleanup)
 
@@ -403,7 +403,7 @@ The “not mutated yet” table is **obsolete**. Live v2-ipix now has scope lock
 
 ### Suggested improvements (priority) — remaining only
 
-1. Create STUDIO / CHANNEL-PREVIEW / CAMPAIGN / POSTIZ **feature tickets** only when the preceding journey needs them (parent: IPI-1101 or IPI-1105).  
+1. Do **not** create STUDIO-001 until both are proven: a saved booking with **non-null `shoot_id`**, and the linked talent readable. That gate is **NOT VERIFIED** here. CHANNEL-PREVIEW / CAMPAIGN / POSTIZ only when the preceding journey needs them (parent: [IPI-1101 · TALENT & BOOKING](https://linear.app/amo100/issue/IPI-1101) or [IPI-1105 · CAMPAIGNS & PUBLISHING](https://linear.app/amo100/issue/IPI-1105)).  
 2. In luminaai, only **talent profile URL** is a justified source-repo change before port.  
 3. Port Command Center **without** skip fixtures.  
 4. Do not restore 13-step onboarding or 10-step wizard HTML unless IPI-1085 still wants those extra HTML rooms.
