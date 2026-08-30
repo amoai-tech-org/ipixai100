@@ -11,8 +11,10 @@ import { infoListsDefaultAgent } from "../src/lib/auth/copilot-mount";
 import { memoryResourceId } from "../src/lib/auth/verified-operator";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
+const USER_B = "22222222-2222-4222-8222-222222222222";
 const ORG_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ORG_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const RUN_STORE_SEP = "\u001f";
 
 const memberships: { rows: { org_id: string }[] } = { rows: [] };
 const claims: { sub?: string; email?: string } = {
@@ -419,7 +421,9 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     expect(await stopResponse.json()).toMatchObject({ stopped: true });
     expect(stopSpy).toHaveBeenCalledTimes(1);
     expect(stopSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: body.threadId }),
+      expect.objectContaining({
+        threadId: `${memoryResourceId({ userId: USER_A, orgId: ORG_A })}${RUN_STORE_SEP}${body.threadId}`,
+      }),
     );
     expect(detachSpy).toHaveBeenCalled();
 
@@ -437,5 +441,70 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
       seen.some((event) => event.type === EventType.RUN_STARTED),
     );
     expect(events.map((event) => event.type)).toContain(EventType.RUN_STARTED);
+  });
+
+  it("does not stop another organization's in-flight run", async () => {
+    const { agent: streamAgent, stats } = createStreamHarness({
+      finiteChunks: 0,
+    });
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: streamAgent,
+    });
+    memberships.rows = [{ org_id: ORG_A }];
+    const body = runBody();
+
+    const runResponse = await POST(
+      copilotRequest("/api/copilotkit/agent/default/run", { body }),
+    );
+    expect(runResponse.status).toBe(200);
+    await readSseUntil(runResponse, (seen) =>
+      seen.some((event) => event.type === EventType.TEXT_MESSAGE_CONTENT),
+    );
+
+    claims.sub = USER_B;
+    memberships.rows = [{ org_id: ORG_B }];
+    const stopResponse = await POST(
+      copilotRequest(
+        `/api/copilotkit/agent/default/stop/${encodeURIComponent(body.threadId)}`,
+        { method: "POST" },
+      ),
+    );
+    expect(stopResponse.status).toBe(200);
+    expect(await stopResponse.json()).toMatchObject({ stopped: false });
+    expect(stats.aborted).toBe(false);
+
+    claims.sub = USER_A;
+    memberships.rows = [{ org_id: ORG_A }];
+    const ownerStop = await POST(
+      copilotRequest(
+        `/api/copilotkit/agent/default/stop/${encodeURIComponent(body.threadId)}`,
+        { method: "POST" },
+      ),
+    );
+    expect(await ownerStop.json()).toMatchObject({ stopped: true });
+  });
+
+  it("stops a run even when abort arrives before runner registration", async () => {
+    const { agent: streamAgent, stats } = createStreamHarness({
+      finiteChunks: 0,
+    });
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: streamAgent,
+    });
+    memberships.rows = [{ org_id: ORG_A }];
+    const controller = new AbortController();
+    const pending = POST(
+      copilotRequest("/api/copilotkit/agent/default/run", {
+        body: runBody(),
+        signal: controller.signal,
+      }),
+    );
+    controller.abort();
+    const response = await pending;
+    expect(response.status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(stats.chunksAfterAbort).toBe(0);
+    expect(stats.chunksEmitted).toBeLessThan(15);
+    expect(stats.aborted || !stats.runStarted).toBe(true);
   });
 });

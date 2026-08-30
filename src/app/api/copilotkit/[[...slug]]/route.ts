@@ -21,6 +21,12 @@ import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { createClientFromRequest } from "@/lib/supabase/server";
 import { handle } from "hono/vercel";
 
+const RUN_STORE_SEP = "\u001f";
+
+function scopedThreadId(resourceId: string, threadId: string) {
+  return `${resourceId}${RUN_STORE_SEP}${threadId}`;
+}
+
 /**
  * Mastra local agents inherit AbstractAgent.abortRun() as a no-op.
  * CopilotKit clones the registered agent per /run (`cloneAgentForRequest`);
@@ -46,29 +52,81 @@ function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
   return agents;
 }
 
-/** CopilotKit already drops SSE writes on `request.signal`, but InMemoryAgentRunner keeps generating until `runner.stop`. */
-function stopRunnerOnAbort(request: Request, runner: InMemoryAgentRunner) {
-  const peek = request.clone();
-  const stop = () => {
-    void peek
-      .json()
-      .then((body: unknown) => {
-        if (!body || typeof body !== "object") return;
-        const threadId = (body as { threadId?: unknown }).threadId;
-        const runId = (body as { runId?: unknown }).runId;
-        if (typeof threadId !== "string") return;
-        return runner.stop({
-          threadId,
-          ...(typeof runId === "string" ? { runId } : {}),
-        });
-      })
-      .catch(() => undefined);
-  };
-  if (request.signal.aborted) {
-    stop();
-    return;
+/**
+ * Process-global InMemoryAgentRunner is keyed by threadId only. Prefix with the
+ * AUTH-002 resourceId so /stop cannot cancel another org/user's run.
+ * Bind abort on run() after the store registers the thread (not a one-shot body peek).
+ */
+class TenantAbortRunner extends InMemoryAgentRunner {
+  constructor(
+    private readonly resourceId: string,
+    private readonly signal: AbortSignal,
+  ) {
+    super();
   }
-  request.signal.addEventListener("abort", stop, { once: true });
+
+  private scope(threadId: string) {
+    return scopedThreadId(this.resourceId, threadId);
+  }
+
+  override run(request: Parameters<InMemoryAgentRunner["run"]>[0]) {
+    const threadId = this.scope(request.threadId);
+    const input = request.input
+      ? { ...request.input, threadId }
+      : request.input;
+    const agent = request.agent;
+    const runAgent = agent.runAgent.bind(agent);
+    agent.runAgent = (runInput, subscribers) => {
+      if (this.signal.aborted) {
+        agent.abortRun();
+        return Promise.resolve({ result: undefined, newMessages: [] });
+      }
+      this.signal.addEventListener(
+        "abort",
+        () => {
+          agent.abortRun();
+        },
+        { once: true },
+      );
+      return runAgent(runInput, subscribers);
+    };
+    return super.run({ ...request, threadId, input });
+  }
+
+  override stop(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
+    return super.stop({ ...request, threadId: this.scope(request.threadId) });
+  }
+
+  override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]) {
+    return super.connect({
+      ...request,
+      threadId: this.scope(request.threadId),
+    });
+  }
+
+  override isRunning(request: Parameters<InMemoryAgentRunner["isRunning"]>[0]) {
+    return super.isRunning({ threadId: this.scope(request.threadId) });
+  }
+
+  override getThreadMessages(threadId: string) {
+    return super.getThreadMessages(this.scope(threadId));
+  }
+
+  override getThreadEvents(threadId: string) {
+    return super.getThreadEvents(this.scope(threadId));
+  }
+
+  override getThreadState(threadId: string) {
+    return super.getThreadState(this.scope(threadId));
+  }
+
+  override listThreads() {
+    const prefix = `${this.resourceId}${RUN_STORE_SEP}`;
+    return super
+      .listThreads()
+      .filter((thread) => thread.id.startsWith(prefix))
+      .map((thread) => ({ ...thread, id: thread.id.slice(prefix.length) }));
+  }
 }
 
 async function handleCopilot(request: Request) {
@@ -83,11 +141,11 @@ async function handleCopilot(request: Request) {
   });
   if (tenant.status !== "ok") return runtimeTenantDenied(tenant);
 
-  const agents = attachRunnerAbort(
-    createLocalAgents(
-      memoryResourceId({ userId: operator.id, orgId: tenant.orgId }),
-    ),
-  );
+  const resourceId = memoryResourceId({
+    userId: operator.id,
+    orgId: tenant.orgId,
+  });
+  const agents = attachRunnerAbort(createLocalAgents(resourceId));
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN;
   const runtime = licenseToken
     ? new CopilotRuntime({
@@ -103,15 +161,11 @@ async function handleCopilot(request: Request) {
         licenseToken,
         // --- /copilotkit:intelligence ---
       })
-    : (() => {
-        const runner = new InMemoryAgentRunner();
-        stopRunnerOnAbort(request, runner);
-        return new CopilotRuntime({
-          agents,
-          identifyUser: identifyOperator,
-          runner,
-        });
-      })();
+    : new CopilotRuntime({
+        agents,
+        identifyUser: identifyOperator,
+        runner: new TenantAbortRunner(resourceId, request.signal),
+      });
 
   const app = createCopilotEndpoint({
     runtime,
