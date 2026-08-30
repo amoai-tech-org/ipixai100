@@ -4,8 +4,8 @@
 # Without inheritance: true, this file would replace org defaults entirely.
 # Official: https://docs.coderabbit.ai/configuration/configuration-inheritance
 #
-# Org keeps: profile, request-changes, labels, auto-review, tools, post-merge.
-# This file keeps: Supabase, Mastra, CopilotKit, tenant isolation, Linear titles.
+# Repo YAML also pins Assertive, request-changes, and iPix post-merge actions.
+# Repository UI currently stops the inheritance chain before Organization UI.
 
 inheritance: true
 
@@ -21,6 +21,9 @@ chat:
       usage: enabled
 
 reviews:
+  profile: assertive
+  request_changes_workflow: true
+
   path_filters:
     - "!graphify-out/**"
     - "!**/.obsidian/**"
@@ -53,7 +56,7 @@ reviews:
         Pass a real signed-in resourceId, not "default". Fail closed when the user JWT
         or organization membership is missing. Org B must not read Org A CopilotKit
         threads.
-    - path: "src/**/*.{ts,tsx}"
+    - path: "**/*.{ts,tsx,mts,cts}"
       instructions: |
         Check TypeScript safety, async errors, Next.js server/client boundaries,
         authentication and tenant isolation. UI changes must handle loading, empty,
@@ -68,7 +71,7 @@ reviews:
         Verify tests assert observable results, failure paths and security boundaries.
         Auth and organization changes need negative tests proving unauthorized and
         cross-organization access fails.
-    - path: "docs/**/*.md"
+    - path: "docs/**/*.{md,mdx}"
       instructions: |
         Check clarity, accuracy, working links and agreement with the implemented code.
         Flag claims such as complete, verified or production-ready when evidence is missing.
@@ -80,14 +83,18 @@ reviews:
     title:
       mode: error
       requirements: |
-        Title must follow: IPI-#### · TASK-ID — Plain-English outcome.
+        Title must follow: IPI-<number> · SPEC — Plain-English outcome.
 
-        It must identify the Linear task and clearly describe the observable user or
-        system outcome. Reject vague titles such as "update", "changes", "fix", or
-        technology-only titles. Automated dependency PRs may keep their generated titles.
+        Use a middle dot, not square brackets. IPI-<number> is variable length
+        (IPI-863 and IPI-1042 are both valid). It must identify the Linear task and
+        clearly describe the observable user or system outcome. Reject vague titles
+        such as "update", "changes", "fix", or technology-only titles.
+        Automated dependency PRs may keep their generated titles.
+        A PR that changes only .coderabbit.yaml may use a descriptive title without
+        a Linear ID.
 
         Example:
-        IPI-1420 · AUTH-03 — Organization members can sign in securely
+        IPI-935 · COPILOT-AUTHZ-LOCAL-001 — Fix Signed-In Operator /info 403
     description:
       mode: warning
     issue_assessment:
@@ -176,10 +183,43 @@ reviews:
           If necessary evidence is unavailable to CodeRabbit, return Inconclusive rather
           than Failed. Merge is not Done.
 
+  post_merge_actions:
+    - name: Verify production deployment
+      prompt: |
+        Run for executable, configuration, dependency, or deployment changes.
+        Check deployment and GitHub Actions for the merged commit. Confirm that
+        https://ipix.co is serving the merged version when applicable. Do not claim
+        live unless the hosted version includes the merged commit. Do not trigger
+        deployments or modify production. If evidence is unavailable, report Unverified.
+    - name: Test hosted iPix workflow
+      prompt: |
+        Run when the merge changes user-visible behavior, routes, APIs, authentication,
+        or application workflows. Test https://ipix.co with the smallest safe workflow.
+        Use only public routes or an existing designated test account. Never access real
+        customer data. If authentication is unavailable, report Blocked rather than Passed.
+    - name: Verify live Supabase state
+      prompt: |
+        Run when the merge changes supabase/migrations, schema SQL, RLS, grants, RPCs,
+        functions, or database-dependent behavior. Use read-only access only. Never run
+        db push, db reset, or production writes. Classify Verified, Drift detected,
+        Migration pending, or Unverified.
+    - name: Verify live tenant isolation
+      prompt: |
+        Run when the merge changes authentication, authorization, organization membership,
+        tenant queries, RLS, RPCs, APIs, or tenant-owned data. Prove unauthenticated,
+        unauthorized, and Org B versus Org A denial. Never access real customer records.
+        If safe test identities are unavailable, report Blocked.
+    - name: Record release proof in Linear
+      prompt: |
+        Find the linked IPI issue. Comment shipped outcome, PR URL, merge commit,
+        deployment and hosted-workflow results, and remaining blockers. Move to Done
+        only when acceptance criteria and applicable production checks have direct
+        passing evidence. Merge alone is not Done.
+
 code_generation:
   docstrings:
     path_instructions:
-      - path: "**/*.{ts,tsx}"
+      - path: "**/*.{ts,tsx,mts,cts}"
         instructions: |
           Document only exported, public, security-sensitive, or non-obvious functions,
           classes, hooks, and APIs. Explain purpose, inputs, output, errors, side
@@ -188,9 +228,10 @@ code_generation:
           files, simple React components, or self-explanatory utilities.
   unit_tests:
     path_instructions:
-      - path: "src/**/*.{ts,tsx}"
+      - path: "**/*.{ts,tsx,mts,cts}"
         instructions: |
-          Use the repository's existing Vitest and React Testing Library patterns.
+          Use the repository's existing Vitest patterns. Do not import
+          @testing-library/react unless that package is already a dependency.
           Test observable behavior, important edge cases, and failure paths. Prefer
           targeted tests over broad snapshots. Mock only external boundaries and do
           not rewrite production code merely to make tests pass.
