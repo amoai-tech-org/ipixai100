@@ -82,20 +82,26 @@ After explicit approval:
 3. Fetch + list + dry-run as above. If any history, checksum, or queue check fails, record **BLOCKED**, retain the evidence, and stop; do not continue to step 4. Otherwise confirm the queue is **only** the intended newer file(s). Repeat the project-ref `test` immediately before a non-dry-run push; **stop** if it is not `PROJECT REF OK`.
 4. MCP ledger and SQL must use `project_id` `nvdlhrodvevgwdsneplk` (or a project-scoped MCP with `project_ref` set to that value) — the same project as `supabase db push --linked`. **BLOCKED** if the tool is bound to a different project. Save the full pre-push MCP `list_migrations` version set (309 rows). **BLOCKED** unless that set equals the Step 3 validated remote ledger (same 309 versions, latest `20260824104900`). Rerun `supabase db push --linked --dry-run`; **BLOCKED** unless the queue is still only `20260825095051_ipi897_revoke_planner_default_privileges.sql`. Then `supabase db push --linked` **without** `--dry-run`.
 5. Re-read MCP `list_migrations` with the same `project_id`. **BLOCKED** unless all of: count is 310; latest is `20260825095051`; the version set equals the saved 309-row set plus `20260825095051` (file `20260825095051_ipi897_revoke_planner_default_privileges.sql`); no prior version is missing or changed. Count-plus-latest alone is not enough (a dropped old row plus a new row would still be 310).
-6. Hosted read-only ACL check (`execute_sql` with that `project_id`; **do not** `CREATE` tables or roles). **BLOCKED** if there is no `r` row and no `S` row for `postgres` in `planner`; if any exploded ACE is `anon`, `authenticated`, or PUBLIC (`grantee` oid 0); or if `service_role` lacks the full `GRANT ALL` set (tables: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER; sequences: USAGE, SELECT, UPDATE):
+6. Hosted read-only ACL check (`execute_sql` with that `project_id`; **do not** `CREATE` tables or roles). Query **both** `planner` and schema-less (`0::oid`) defaults. Score **postgres** grantor rows only:
+
+- **BLOCKED** if planner has no `r` row or no `S` row for `postgres`.
+- **BLOCKED** if any postgres ACE on `r`/`S` in **either** namespace is `anon`, `authenticated`, or PUBLIC (`grantee` oid 0).
+- **BLOCKED** if `service_role` lacks the full `GRANT ALL` set on those postgres `r`/`S` rows that exist (tables: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER; sequences: USAGE, SELECT, UPDATE). Planner must have both object types. Schema-less postgres `r`/`S` rows get the same privilege checks **when present**; a missing global table/sequence row is not **BLOCKED** (hosted 2026-08-25 snapshot was functions-only at namespace 0).
+- List `supabase_admin` grantor rows from the same query separately. They are **not** pass/fail — `postgres` cannot change them.
 
 ```sql
-SELECT d.defaclobjtype,
+SELECT d.defaclrole::regrole AS grantor,
+       CASE WHEN d.defaclnamespace = 0 THEN '0' ELSE d.defaclnamespace::regnamespace::text END AS nsp,
+       d.defaclobjtype,
        CASE WHEN e.grantee = 0 THEN 'public' ELSE e.grantee::regrole::text END AS grantee,
        e.privilege_type
 FROM pg_default_acl d
 CROSS JOIN LATERAL aclexplode(d.defaclacl) AS e
-WHERE d.defaclrole = 'postgres'::regrole
-  AND d.defaclnamespace = 'planner'::regnamespace
+WHERE d.defaclnamespace IN ('planner'::regnamespace, 0::oid)
   AND d.defaclobjtype IN ('r', 'S');
 ```
 
-`supabase/tests/security/default-planner-privileges.sql` is CI-local (creates a probe table). Do not run it on hosted. Schema-less (`defaclnamespace = 0`) `supabase_admin` rows can still appear; they are out of this pass/fail. MAINTAIN (PG17+) is extra; do not **BLOCKED** solely on it unless hosted is PG17+ and `GRANT ALL` includes it.
+`supabase/tests/security/default-planner-privileges.sql` is CI-local (creates a probe table). Do not run it on hosted. MAINTAIN (PG17+) is extra; do not **BLOCKED** solely on it unless hosted is PG17+ and `GRANT ALL` includes it.
 
 Rollback if that file is later applied: do **not** edit the applied SQL. Snapshot `pg_default_acl` **before** any apply — that dump is a hard prerequisite for rollback. Derive the compensating **new** forward migration from the snapshot, not from a guessed `GRANT ALL`. Never roll back with `GRANT ALL … TO public` on a PostgREST-exposed schema. If an example is needed after a snapshot shows `authenticated` table `arwd` only, scope it to what was revoked (`INSERT, SELECT, UPDATE, DELETE` on tables; `USAGE, SELECT` on sequences) and omit `anon` / `public` unless the snapshot proves they were present.
 
