@@ -1,0 +1,121 @@
+# Forward V2 migrations vs production history
+
+**Task:** **IPI-1040 · MIGRATION-001 — Prove New iPix Database Changes Can Be Added Without Replaying Old Migrations**
+
+Hosted proof ran **2026-08-30** against project `nvdlhrodvevgwdsneplk`. Nothing was applied to production. Durable notes: Linear [**IPI-1040 · MIGRATION-001 — Prove New iPix Database Changes Can Be Added Without Replaying Old Migrations**](https://linear.app/amo100/issue/IPI-1040/ipi-1040-migration-001-prove-new-ipix-database-changes-can-be-added) (proof comment) and [PR #22](https://github.com/amoai-tech/ipixai/pull/22). Counts, CLI version, and hashes below are a **snapshot from that date** — re-verify before any later apply.
+
+Think of production’s migration table as a **receipt book**: stamps already paid. Git `origin/main` currently keeps only the **next unpaid receipt** (**IPI-897 · SB-SEC-009 — Lock Down Default Planner Privileges for New Tables**, file `20260825095051_ipi897_revoke_planner_default_privileges.sql`). You do not rewrite the old receipts. You also must not check the two local Docker dump files into a linked push.
+
+## Proven linked path (disposable worktree only)
+
+1. Work from a **clean** `origin/main` worktree. Link the hosted project with the official CLI, then fail closed if the ref is wrong:
+
+   ```bash
+   supabase link --project-ref nvdlhrodvevgwdsneplk
+   test "$(cat supabase/.temp/project-ref)" = nvdlhrodvevgwdsneplk && echo "PROJECT REF OK" || { echo "WRONG PROJECT REF — STOP, DO NOT PUSH"; exit 1; }
+   ```
+
+   Copying `supabase/.temp` from another machine is a local shortcut, not the supported path. Do not run this in a dirty tree that still has dump files `20260824115900` / `20260824120000`.
+
+2. Keep a copy of `20260825095051_ipi897_*.sql` (fetch overwrites *same names* only; the planner default-privileges file is not on the remote ledger, so it stayed).
+
+3. `supabase migration fetch --linked --yes` — **read remote history, write local files**. Production schema and `schema_migrations` do not change.
+
+4. Snapshot **2026-08-30**: 309 history files + the planner default-privileges file = 310 SQL files. A second worktree matched filenames and SHA-256. Re-verify later:
+
+   ```bash
+   supabase --version
+   supabase migration list --linked
+   sha256sum supabase/migrations/20250125000000_extensions_and_enums.sql \
+     supabase/migrations/20260824104900_ipi_v2_000_sb_fix_010_restore_media_size_specs_comment.sql \
+     supabase/migrations/20260825095051_ipi897_revoke_planner_default_privileges.sql
+   ```
+
+5. `supabase migration list --linked` — snapshot: all 309 versions had matching `local` and `remote`; `20260825095051` was `local` only (`remote` empty).
+
+6. `supabase db push --linked --dry-run` is non-mutating. Snapshot **2026-08-30** printed this once (queue is only the planner default-privileges file):
+
+   ```text
+   DRY RUN: migrations will *not* be pushed to the database.
+   Connecting to remote database...
+   Would push these migrations:
+    • 20260825095051_ipi897_revoke_planner_default_privileges.sql
+   ```
+
+7. Delete the fetched history files. **Do not commit them.** They are a CLI alignment aid, not the git source of truth.
+
+### Snapshot checksums (2026-08-30; recompute with `sha256sum` before trusting)
+
+| File | SHA-256 |
+|------|---------|
+| First remote `20250125000000_extensions_and_enums.sql` | `86d8507eb89b2f1b4a01dcbf271345fda545813b3aed06255dea51032d9583d1` |
+| Latest remote `20260824104900_ipi_v2_000_sb_fix_010_restore_media_size_specs_comment.sql` | `e045c5568a2fab6c1a018585b7fbd115b2b36bd4d9598606df64e4d4cd7df235` |
+| Planner default-privileges file (unchanged by fetch) | `6e23a48696177f49587807a7749a9a50c8cd6ab61e9a4d107b77d0e8abd90c7e` |
+
+Snapshot ledger after dry-run (MCP `list_migrations`): **309** rows, latest `20260824104900`. Re-read that API or `migration list --linked` before a later apply.
+
+## Never
+
+- `supabase migration repair` to fake alignment
+- `supabase db reset --linked`
+- Real `supabase db push --linked` without explicit human approval
+- Commit the fetched history files
+- Push local dump pair `20260824115900` / `20260824120000` (replays a full schema dump onto hosted)
+
+## History files are not a local Docker baseline
+
+Fetch reconstructs **statements stored in the remote history table**. Two rows are effectively empty (`;\n` only):
+
+- `20260627180000_media_spec_tables.sql`
+- `20260703223000_.sql` (remote `name` is **null**)
+
+Replaying those history files with `supabase db reset` is **not** a valid local schema build. Local Docker stays on the dump-replay path documented in skills (`ipix-supabase`); the planner default-privileges file is already the first **forward** V2 file on `origin/main` (CI/staging, not this ticket).
+
+This ticket therefore **did not** run local reset/pgTAP on the fetched history-file set. That is an honest gap, not a reason to repair production.
+
+## Future production apply (approval required)
+
+After explicit approval:
+
+1. Disposable worktree from the commit that contains the new SQL (today: the planner default-privileges file only).
+2. `supabase link --project-ref nvdlhrodvevgwdsneplk` and the same project-ref `test` as step 1 (must print `PROJECT REF OK`). **Stop** on mismatch.
+3. Fetch + list + dry-run as above. If any history, checksum, or queue check fails, record **BLOCKED**, retain the evidence, and stop; do not continue to step 4. Otherwise confirm the queue is **only** the intended newer file(s). Repeat the project-ref `test` immediately before a non-dry-run push; **stop** if it is not `PROJECT REF OK`.
+4. MCP ledger and SQL must use `project_id` `nvdlhrodvevgwdsneplk` (or a project-scoped MCP with `project_ref` set to that value) — the same project as `supabase db push --linked`. **BLOCKED** if the tool is bound to a different project. Save the full pre-push MCP `list_migrations` version set (309 rows). **BLOCKED** unless that set equals the Step 3 validated remote ledger (same 309 versions, latest `20260824104900`). Rerun `supabase db push --linked --dry-run`; **BLOCKED** unless the queue is still only `20260825095051_ipi897_revoke_planner_default_privileges.sql`. Then `supabase db push --linked` **without** `--dry-run`.
+5. Re-read MCP `list_migrations` with the same `project_id`. **BLOCKED** unless all of: count is 310; latest is `20260825095051`; the version set equals the saved 309-row set plus `20260825095051` (file `20260825095051_ipi897_revoke_planner_default_privileges.sql`); no prior version is missing or changed. Count-plus-latest alone is not enough (a dropped old row plus a new row would still be 310).
+6. Hosted read-only ACL check (`execute_sql` with that `project_id`; **do not** `CREATE` tables or roles). Query **both** `planner` and schema-less (`0::oid`) defaults. Score **postgres** grantor rows only:
+
+- **BLOCKED** if planner has no `r` row or no `S` row for `postgres`.
+- **BLOCKED** if any postgres ACE on `r`/`S` in **either** namespace is `anon`, `authenticated`, or PUBLIC (`grantee` oid 0).
+- **BLOCKED** if `service_role` lacks the full `GRANT ALL` set on those postgres `r`/`S` rows that exist (tables: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER; sequences: USAGE, SELECT, UPDATE). Planner must have both object types. Schema-less postgres `r`/`S` rows get the same privilege checks **when present**; a missing global table/sequence row is not **BLOCKED** (hosted 2026-08-25 snapshot was functions-only at namespace 0).
+- List `supabase_admin` grantor rows from the same query separately. They are **not** pass/fail — `postgres` cannot change them.
+
+```sql
+SELECT d.defaclrole::regrole AS grantor,
+       CASE WHEN d.defaclnamespace = 0 THEN '0' ELSE d.defaclnamespace::regnamespace::text END AS nsp,
+       d.defaclobjtype,
+       CASE WHEN e.grantee = 0 THEN 'public' ELSE e.grantee::regrole::text END AS grantee,
+       e.privilege_type
+FROM pg_default_acl d
+CROSS JOIN LATERAL aclexplode(d.defaclacl) AS e
+WHERE d.defaclnamespace IN ('planner'::regnamespace, 0::oid)
+  AND d.defaclobjtype IN ('r', 'S');
+```
+
+`supabase/tests/security/default-planner-privileges.sql` is CI-local (creates a probe table). Do not run it on hosted. MAINTAIN (PG17+) is extra; do not **BLOCKED** solely on it unless hosted is PG17+ and `GRANT ALL` includes it.
+
+Rollback if that file is later applied: do **not** edit the applied SQL. Snapshot `pg_default_acl` **before** any apply — that dump is a hard prerequisite for rollback. Derive the compensating **new** forward migration from the snapshot, not from a guessed `GRANT ALL`. Never roll back with `GRANT ALL … TO public` on a PostgREST-exposed schema. If an example is needed after a snapshot shows `authenticated` table `arwd` only, scope it to what was revoked (`INSERT, SELECT, UPDATE, DELETE` on tables; `USAGE, SELECT` on sequences) and omit `anon` / `public` unless the snapshot proves they were present.
+
+After a compensating file, verify planner **and** schema-less (`defaclnamespace = 0`) rows. `supabase_admin` grantor rows can still appear and `postgres` cannot change them:
+
+```sql
+SELECT defaclrole::regrole, defaclnamespace::regnamespace, defaclobjtype, defaclacl
+FROM pg_default_acl
+WHERE defaclnamespace IN ('planner'::regnamespace, 0::oid);
+```
+
+## CLI semantics verified (2026-08-30; `supabase --version` was 2.111.0)
+
+- `supabase migration fetch --linked` — default `--linked` true
+- `supabase db push --linked --dry-run` — non-mutating; output is the block in step 6 above
+
+Official: [migration fetch](https://supabase.com/docs/reference/cli/supabase-migration-fetch), [database migrations](https://supabase.com/docs/guides/local-development/database-migrations), [CLI link](https://supabase.com/docs/reference/cli/supabase-link).
