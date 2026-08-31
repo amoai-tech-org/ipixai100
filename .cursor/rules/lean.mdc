@@ -10,7 +10,8 @@ alwaysApply: true
 | Detail lives in | Role |
 |-----------------|------|
 | `ponytail.mdc` | Smallest safe change ladder |
-| `fastest.mdc` | Every step: ask for a faster path, then use it |
+| `verified-fast-path.mdc` | Hard gate: dashboard/CLI/SDK/docs+GitHub/examples before custom |
+| `fastest.mdc` | Once per phase: if a faster path exists, **use it** |
 | `task-naming.mdc` | **IPI-NNN · SPEC — Title** |
 | `task-accuracy.mdc` | Evidence / verification levels |
 | `ipixai-dev.mdc` | Split-dev, no prod Supabase writes |
@@ -33,7 +34,7 @@ Set explicitly (`lean-strict`, `lean-relaxed`) or default to **lean-standard**.
 
 ## Decision ladder (reuse → create)
 
-Canonical rung order lives in **`ponytail.mdc` only**.
+Which solution to use: **`verified-fast-path.mdc`**. Smallest diff after that: **`ponytail.mdc`**.
 
 | Decision | Choose when | Avoid when |
 |----------|-------------|------------|

@@ -1,0 +1,78 @@
+---
+description: HARD GATE — dashboard, CLI, installed SDK, official docs+GitHub, examples/recipes before any custom code. Verify critical facts. If a faster path exists, use it.
+alwaysApply: true
+---
+
+# Verified fast path (hard gate)
+
+**Do not write or propose custom code until this gate passes.**
+
+Ask, then **use the answer**:
+
+> Is there a better, faster, more efficient way to complete this task?
+
+If **yes** → drop the slower plan and take that path.  
+If **no** → say why this is already the fastest **safe verified** path (docs + GitHub or installed types).
+
+Do **not** go requirement → custom implementation. Do **not** skip dashboard, CLI, prebuilt modules, or official examples because training data “already knows.”
+
+Companions: `ponytail.mdc` (smallest diff **after** the path is chosen) · `fastest.mdc` (repeat the question once per phase) · `/fastest` (research table, no edits).
+
+## MUST use before custom code (stop at first fit)
+
+| # | Path | Must |
+| -- | -- | -- |
+| 1 | **Existing iPix / Lumina** | `graphify query` this repo; COPY+CLEAN Lumina screens/domain. Never copy old Worker auth, old CopilotKit route, or `/home/sk/ipix/app/src/mastra` wholesale. |
+| 2 | **Dashboard / native feature** | Supabase Auth/RLS/extensions; Cloudinary presets/transforms/triggers; Stripe Checkout/webhooks; CopilotKit Inspector; Mastra Studio. Config over code when it fully solves it. |
+| 3 | **Official CLI** | `supabase`, `stripe`, Cloudinary CLI, vendor scaffold. No custom script if a CLI command exists. |
+| 4 | **Installed / prebuilt module** | `package.json` + `node_modules` types/source. No wrapper if the SDK already exports the function. Installed version beats blogs. |
+| 5 | **Official docs** | **Fetch/MCP-check** current docs. API, auth, limits, recommended vs deprecated. |
+| 6 | **Official GitHub repo** | **Open it.** Not archived. Examples/types match installed major. |
+| 7 | **Official examples / templates / recipes / tutorials** | Adapt these before infrastructure. |
+| 8 | OSS reference | Only after official/native. License, maintenance, security. |
+| 9 | Smallest adapter | Thin wrap around the official feature. |
+| 10 | Custom | **Last.** Only when rungs 1–9 are **proven** insufficient. |
+
+Wait for the user if the faster path changes product scope, costs money, weakens auth, writes **production** Supabase, or drops something they asked for.
+
+## MUST verify (critical information)
+
+Load-bearing claims (API names, versions, auth/RLS, env keys, URLs, webhooks, signed uploads, tenant keys) are **UNVERIFIED** until checked against **current official docs** **and** **official GitHub or installed types**. Prefer a third source when it exists (live dashboard / read-only schema).
+
+Trust-boundary work (auth, payments, isolation, persistence, media signing, webhooks, production writes): **two strong sources minimum**.
+
+Never combined `npm run dev`. Never mutate production Supabase. No blogs as SSOT.
+
+**100% correct** is not a research claim. Use:
+
+| State | Meaning |
+| -- | -- |
+| **UNVERIFIED** | Docs/GitHub not opened, or sources disagree |
+| **VERIFIED DESIGN** | Official docs + installed/GitHub agree |
+| **IMPLEMENTED** | Code/config exists |
+| **PROVEN** | Targeted tests pass |
+| **DONE** | Real workflow + required negative/security tests + CI + evidence |
+
+Every implement/plan task: **Correctness confidence: XX/100**.  
+**100/100 only when:** official docs verified · installed or GitHub API verified · live config/schema if relevant · positive test · negative/security test · workflow/browser/CLI proof · CI · no blocking review. Else score below 100 and name the gap.
+
+## Report (implement/plan)
+
+| Check | Result |
+| -- | -- |
+| Existing iPix/Lumina | reuse / no fit |
+| Dashboard/native | use / no fit |
+| Official CLI | use / no fit |
+| Prebuilt / installed SDK | exact API or no fit |
+| Official docs | **verified** (URL) or UNVERIFIED |
+| Official GitHub | **verified** (repo, not archived) or UNVERIFIED |
+| Example/template/recipe/tutorial | reuse / no fit |
+| Faster path used? | yes (what) / no (why this is already fastest safe) |
+| Custom code required | yes/no |
+| Confidence | XX/100 |
+
+**lean-relaxed:** one sentence naming the rung + “faster path used.” Full table otherwise.
+
+## Stack defaults (do not rebuild)
+
+Mastra built-ins/templates · CopilotKit shared state/HITL · Supabase Dashboard+CLI+RLS · pgvector as evidence only · Cloudinary widget/signed/named transforms · Stripe Checkout+CLI+webhooks · Postiz APIs · Firecrawl APIs.

@@ -5,7 +5,7 @@ argument-hint: "<IPI-XXX|task name|description>"
 
 # /fastest — Find the Fastest Verified Way to Complete a Task
 
-Follow `.claude/commands/fastest.md` as the full command. Always-on: `.cursor/rules/fastest.mdc` — before each step, ask if a faster path exists and use it. In-repo reuse: `.cursor/rules/ponytail.mdc`.
+Follow `.claude/commands/fastest.md` as the full command. Always-on: `.cursor/rules/verified-fast-path.mdc` and `.cursor/rules/fastest.mdc`. In-repo smallest diff: `.cursor/rules/ponytail.mdc`.
 
 **Arguments:** `$ARGUMENTS` — Linear issue, task name, or description.
 
