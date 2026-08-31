@@ -1,22 +1,20 @@
 ---
-description: HARD GATE each phase — if a better/faster path exists, use it. Ladder SSOT is verified-fast-path.mdc (dashboard, CLI, GitHub, examples before custom).
+description: HARD GATE each phase — if a better/faster path exists without weakening evidence, use it. Ladder SSOT is verified-fast-path.mdc.
 alwaysApply: true
 ---
 
 # Fastest — use the better path (mandatory)
 
-Canonical ladder, docs+GitHub verification, report table: **`verified-fast-path.mdc`**.
+Canonical ladder, verification, report table: **`verified-fast-path.mdc`**. Do not copy the ladder here.
 
 At the start of **each** major phase (plan, research, implement, test, PR), ask:
 
-> Is there a better, faster, more efficient way to complete **this** phase?
+> Is there a better, faster, more efficient way to complete **this** phase — without weakening evidence?
 
-**If yes: use it.** Replace the slower plan. Do not keep custom code as a courtesy.
-
-Must already have been considered: **dashboard → official CLI → installed/prebuilt SDK → official docs + official GitHub → examples/templates/recipes/tutorials → adapter → custom last.**
+**If yes: use it.** Replace the slower plan. Do not keep custom code as a courtesy. Do **not** treat “skip tests / skip official docs” as faster.
 
 - Say the path in one sentence, then take it: *"Faster: Stripe CLI `trigger` instead of a custom webhook faker — using that."*
-- Wait for the user only if it changes product scope, costs money, weakens auth, writes production Supabase, or drops what they asked for.
-- If nothing is faster, say why this path is already the fastest **safe verified** one (docs + GitHub or installed types). Do not fake a search.
+- Wait for the user only if it changes product scope, costs money, weakens auth, would write production without the `verified-fast-path.mdc` production-write gate, or drops what they asked for.
+- If nothing is faster, say why this path is already the fastest **safe verified** one (official docs **and** installed types). Do not fake a search.
 
 `/fastest` = full research table, **no edits**. Smallest diff after the path is chosen: `ponytail.mdc`.

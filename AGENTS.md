@@ -108,7 +108,7 @@ At the **start of each task** and each **major phase** (plan, research, implemen
 
 **Critical information must be 100% checked** before implement: API names, versions, auth, RLS, env keys, and URLs must match official docs **and** installed types **and** (when listed) the GitHub example. If a critical fact cannot be opened and confirmed, report **UNVERIFIED** / **BLOCKED** — do not guess. “100%” means every load-bearing claim was verified, not that the whole product is finished.
 
-Details: `.cursor/rules/verified-fast-path.mdc` (dashboard, CLI, official docs+GitHub, examples before custom). Habit: `.cursor/rules/fastest.mdc`. Research table only: `/fastest`.
+Details: `.cursor/rules/verified-fast-path.mdc` (native vendor before old iPix/Lumina or custom). Habit: `.cursor/rules/fastest.mdc`. Research table only: `/fastest`.
 
 ## Explain
 

@@ -9,6 +9,6 @@ Follow `.claude/commands/fastest.md` as the full command. Always-on: `.cursor/ru
 
 **Arguments:** `$ARGUMENTS` — Linear issue, task name, or description.
 
-**Research only — do not edit, commit, or open a PR.** Prefer: managed dashboard → official CLI/Action → official SDK → official example → small adapter → custom last.
+**Research only — do not edit, commit, or open a PR.** Follow the canonical ladder in `verified-fast-path.mdc` (stop at first fit; do not copy an incomplete summary here).
 
 Output the required table + Recommended path / Avoid / Verdict / scores. Full task names. Cite official sources only.

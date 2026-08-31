@@ -1,5 +1,5 @@
 ---
-description: HARD GATE — dashboard, CLI, installed SDK, official docs+GitHub, examples/recipes before any custom code. Verify critical facts. If a faster path exists, use it.
+description: HARD GATE — native vendor (dashboard, CLI, SDK, docs, GitHub, examples) before copying old iPix/Lumina or writing custom code. Verify critical facts. If a faster safe path exists, use it.
 alwaysApply: true
 ---
 
@@ -7,14 +7,14 @@ alwaysApply: true
 
 **Do not write or propose custom code until this gate passes.**
 
-Ask, then **use the answer**:
+First: **verify the current problem / requirement** (task, AC, live code). Then ask, and **use the answer**:
 
-> Is there a better, faster, more efficient way to complete this task?
+> Is there a better, faster, more efficient way to complete this task — without weakening evidence?
 
 If **yes** → drop the slower plan and take that path.  
-If **no** → say why this is already the fastest **safe verified** path (docs + GitHub or installed types).
+If **no** → say why this is already the fastest **safe verified** path (docs + installed types).
 
-Do **not** go requirement → custom implementation. Do **not** skip dashboard, CLI, prebuilt modules, or official examples because training data “already knows.”
+Do **not** go requirement → custom implementation. Do **not** copy an old iPix/Lumina uploader because it exists if the vendor now ships a native widget. Do **not** skip dashboard, CLI, prebuilt modules, or official examples because training data “already knows.”
 
 Companions: `ponytail.mdc` (smallest diff **after** the path is chosen) · `fastest.mdc` (repeat the question once per phase) · `/fastest` (research table, no edits).
 
@@ -22,53 +22,87 @@ Companions: `ponytail.mdc` (smallest diff **after** the path is chosen) · `fast
 
 | # | Path | Must |
 | -- | -- | -- |
-| 1 | **Existing iPix / Lumina** | `graphify query` this repo; COPY+CLEAN Lumina screens/domain. Never copy old Worker auth, old CopilotKit route, or `/home/sk/ipix/app/src/mastra` wholesale. |
-| 2 | **Dashboard / native feature** | Supabase Auth/RLS/extensions; Cloudinary presets/transforms/triggers; Stripe Checkout/webhooks; CopilotKit Inspector; Mastra Studio. Config over code when it fully solves it. |
-| 3 | **Official CLI** | `supabase`, `stripe`, Cloudinary CLI, vendor scaffold. No custom script if a CLI command exists. |
-| 4 | **Installed / prebuilt module** | `package.json` + `node_modules` types/source. No wrapper if the SDK already exports the function. Installed version beats blogs. |
-| 5 | **Official docs** | **Fetch/MCP-check** current docs. API, auth, limits, recommended vs deprecated. |
-| 6 | **Official GitHub repo** | **Open it.** Not archived. Examples/types match installed major. |
-| 7 | **Official examples / templates / recipes / tutorials** | Adapt these before infrastructure. |
+| 0 | **Verify the problem** | Read the task and the live flow. `graphify query` this repo. Do not invent scope. |
+| 1 | **Dashboard / native feature** | Supabase Auth/RLS/extensions; Cloudinary presets/transforms/triggers/Upload Widget; Stripe Checkout/webhooks; CopilotKit Inspector; Mastra Studio. Config over code when it fully solves it. **Read-only first:** dashboard state → CLI inspect/list/diff → schema/types → **mutation last**. |
+| 2 | **Official CLI / scaffold** | `supabase`, `stripe`, Cloudinary CLI, vendor scaffold. No custom script if a CLI command exists. |
+| 3 | **Installed SDK / source / types** | `package.json` + `node_modules` types/source. No wrapper if the SDK already exports the function. Installed version beats blogs. |
+| 4 | **Current official docs** | **Fetch/MCP-check** current docs. API, auth, limits, recommended vs deprecated. |
+| 5 | **Official GitHub repo** | **Open it.** Not archived. Examples/types match **installed** major/minor. |
+| 6 | **Official examples / templates / recipes / tutorials** | Adapt these before infrastructure. |
+| 7 | **Existing iPix / Lumina** | Reuse **this** repo (`amoai-tech/ipixai`). COPY+CLEAN screens/domain only from a **pinned GitHub** source named in the task. **Never implement from local `/home/sk/ipix`.** Never copy old Worker auth, old CopilotKit route, or Mastra wholesale. |
 | 8 | OSS reference | Only after official/native. License, maintenance, security. |
 | 9 | Smallest adapter | Thin wrap around the official feature. |
-| 10 | Custom | **Last.** Only when rungs 1–9 are **proven** insufficient. |
+| 10 | Custom | **Last.** Blocked until native paths are **proven insufficient** (record below). |
 
-Wait for the user if the faster path changes product scope, costs money, weakens auth, writes **production** Supabase, or drops something they asked for.
+**lean-relaxed** (typo, copy, single-file fix of an existing API): this repo + installed types/MCP may be enough. **New designs, new APIs, custom code, auth/RLS/production:** full ladder.
+
+Wait for the user if the faster path changes product scope, costs money, weakens auth, **or** would write production without the production-write gate below, or drops something they asked for.
+
+## Proof of insufficiency (before custom code)
+
+Custom code is **blocked** until at least one concrete gap is documented:
+
+```text
+Native path rejected:
+- Dashboard/native: why insufficient
+- CLI: why insufficient
+- Installed SDK: why insufficient
+- Official example/template: why insufficient
+```
+
+Checking the boxes without a gap is not a pass.
+
+## Production writes
+
+Never mutate production **by default**.
+
+Production writes/config/migrations are allowed **only when**:
+
+- the **named task** explicitly requires them
+- the user / task authorizes the production action
+- backup / rollback is known
+- dry-run / local / staging proof passed first
+- exact target project / environment is verified
+
+Never combined `npm run dev`. No blogs as SSOT.
 
 ## MUST verify (critical information)
 
-Load-bearing claims (API names, versions, auth/RLS, env keys, URLs, webhooks, signed uploads, tenant keys) are **UNVERIFIED** until checked against **current official docs** **and** **official GitHub or installed types**. Prefer a third source when it exists (live dashboard / read-only schema).
+Load-bearing claims (API names, versions, auth/RLS, env keys, URLs, webhooks, signed uploads, tenant keys) are **UNVERIFIED** until checked against **current official docs** **and** **installed types**. When a GitHub example is listed, open it too. Prefer a third source when it exists (live dashboard / read-only schema).
+
+For version-sensitive APIs, the docs/example must apply to the **installed major/minor**. Do not adapt an example built for a materially different major without checking migration/changelog guidance.
 
 Trust-boundary work (auth, payments, isolation, persistence, media signing, webhooks, production writes): **two strong sources minimum**.
-
-Never combined `npm run dev`. Never mutate production Supabase. No blogs as SSOT.
 
 **100% correct** is not a research claim. Use:
 
 | State | Meaning |
 | -- | -- |
-| **UNVERIFIED** | Docs/GitHub not opened, or sources disagree |
-| **VERIFIED DESIGN** | Official docs + installed/GitHub agree |
+| **UNVERIFIED** | Docs not opened, installed types not checked, or sources disagree |
+| **VERIFIED DESIGN** | Official docs + installed types agree (GitHub example if listed) |
 | **IMPLEMENTED** | Code/config exists |
 | **PROVEN** | Targeted tests pass |
 | **DONE** | Real workflow + required negative/security tests + CI + evidence |
 
 Every implement/plan task: **Correctness confidence: XX/100**.  
-**100/100 only when:** official docs verified · installed or GitHub API verified · live config/schema if relevant · positive test · negative/security test · workflow/browser/CLI proof · CI · no blocking review. Else score below 100 and name the gap.
+**100/100 only when:** official docs verified · installed types verified · GitHub example if listed · live config/schema if relevant · positive test · negative/security test · workflow/browser/CLI proof · CI · no blocking review. Else score below 100 and name the gap.
 
 ## Report (implement/plan)
 
 | Check | Result |
 | -- | -- |
-| Existing iPix/Lumina | reuse / no fit |
-| Dashboard/native | use / no fit |
-| Official CLI | use / no fit |
-| Prebuilt / installed SDK | exact API or no fit |
-| Official docs | **verified** (URL) or UNVERIFIED |
-| Official GitHub | **verified** (repo, not archived) or UNVERIFIED |
-| Example/template/recipe/tutorial | reuse / no fit |
+| Problem verified | yes / gap |
+| Dashboard/native | use / no fit (why) |
+| Official CLI | use / no fit (why) |
+| Prebuilt / installed SDK | exact API or no fit (why) |
+| Official docs | **verified** (URL, version match) or UNVERIFIED |
+| Official GitHub | **verified** (repo, not archived, version match) or UNVERIFIED |
+| Example/template/recipe/tutorial | reuse / no fit (why) |
+| Existing iPix (this repo / pinned GitHub) | reuse / no fit |
 | Faster path used? | yes (what) / no (why this is already fastest safe) |
-| Custom code required | yes/no |
+| Custom code required | yes/no + insufficiency notes if yes |
+| Success proof | exact command / test / workflow |
+| Rollback | how to reverse safely |
 | Confidence | XX/100 |
 
 **lean-relaxed:** one sentence naming the rung + “faster path used.” Full table otherwise.

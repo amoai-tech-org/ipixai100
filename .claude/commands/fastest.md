@@ -10,7 +10,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "WebFetch", "WebSearch", "Task"]
 
 **Principle:** Read-only research. Analyze the selected task and find the most efficient, verified implementation path **before writing any code**. Do not implement until the efficient path is verified — this command never edits files or commits.
 
-Always-on: `.cursor/rules/verified-fast-path.mdc` (must verify official docs + GitHub; dashboard/CLI/examples before custom) and `.cursor/rules/fastest.mdc` (if a faster path exists, use it). This command is the full research table — **no edits**. In-repo smallest diff: `.cursor/rules/ponytail.mdc`.
+Always-on: `.cursor/rules/verified-fast-path.mdc` (verify the evidence required by the selected rung; native vendor before old iPix/Lumina or custom) and `.cursor/rules/fastest.mdc` (if a faster path exists **without weakening evidence**, use it). This command is the full research table — **no edits**. In-repo smallest diff: `.cursor/rules/ponytail.mdc`.
 
 ---
 
