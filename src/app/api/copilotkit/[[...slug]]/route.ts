@@ -225,7 +225,12 @@ async function handleCopilot(request: Request) {
     licenseToken && intelligenceKey
       ? new CopilotRuntime({
           agents,
-          identifyUser: identifyOperator,
+          // Intelligence keys threads by identifyUser.id (not TenantAbortRunner).
+          // Reuse the AUTH-002 org+user resourceId so Org B cannot attach to Org A.
+          identifyUser: async () => ({
+            id: resourceId,
+            name: operator.name,
+          }),
           intelligence: new CopilotKitIntelligence({
             apiKey: intelligenceKey,
             apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
