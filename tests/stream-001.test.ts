@@ -60,7 +60,7 @@ let runSeq = 0;
 function runBody() {
   runSeq += 1;
   return {
-    threadId: `thread-stream-001-${runSeq}`,
+    threadId: crypto.randomUUID(),
     runId: `run-stream-001-${runSeq}`,
     state: {},
     messages: [
@@ -510,8 +510,11 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     const response = await POST(
       copilotRequest("/api/copilotkit/agent/default/run", { body: runBody() }),
     );
-    expect(response.status).toBe(200);
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "unavailable",
+      reason: "claim_unavailable",
+    });
     expect(stats.runStarted).toBe(false);
   });
 

@@ -1,7 +1,7 @@
 import { AbstractAgent, type BaseEvent } from "@ag-ui/client";
 import { EventType, type RunAgentInput } from "@ag-ui/core";
 import { Observable } from "rxjs";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as agent from "../src/agent";
 import { GET, PATCH, POST, DELETE } from "../src/app/api/copilotkit/[[...slug]]/route";
@@ -10,6 +10,7 @@ import {
   authorizeThreadAccess,
   loadThreadOwner,
 } from "../src/lib/auth/thread-acl";
+import * as threadClaim from "../src/lib/auth/thread-claim";
 import { memoryResourceId } from "../src/lib/auth/verified-operator";
 import * as threadPersistence from "../src/mastra/thread-persistence";
 
@@ -213,6 +214,15 @@ describe("IPI-1047 · ACCESS-001 thread ownership", () => {
   const owner = memoryResourceId({ userId: USER_A, orgId: ORG_A });
   const other = memoryResourceId({ userId: USER_B, orgId: ORG_B });
 
+  beforeEach(() => {
+    vi.spyOn(threadClaim, "claimPlannerThread").mockImplementation(
+      async ({ resourceId }) => ({
+        status: "owned",
+        resourceId,
+      }),
+    );
+  });
+
   it.each([
     {
       name: "allows the stored owner",
@@ -245,15 +255,14 @@ describe("IPI-1047 · ACCESS-001 thread ownership", () => {
       expected: { ok: true },
     },
     {
-      name: "allows lookup failure only on run/connect",
+      name: "denies lookup failure on run/connect",
       input: {
         threadId: "thread-new",
         callerResourceId: owner,
         owner: { status: "lookup_failed" as const },
         allowMissing: true,
-        allowLookupFailed: true,
       },
-      expected: { ok: true },
+      expected: { ok: false },
     },
     {
       name: "denies lookup failure on stop",

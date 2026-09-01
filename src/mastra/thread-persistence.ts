@@ -10,10 +10,40 @@ const RUN_STORE_SEP = "\u001f";
 export const THREAD_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Lowercase UUID locators; opaque CopilotKit tokens pass through unchanged. */
+export function canonicalizePlannerThreadId(threadId: unknown): string | null {
+  if (typeof threadId !== "string" || !THREAD_ID.test(threadId)) return null;
+  return threadId.toLowerCase();
+}
+
+function mastraThreadKey(threadId: string): string {
+  return canonicalizePlannerThreadId(threadId) ?? threadId;
+}
+
+/** Canonical UUID plus the uppercase spelling used by pre-canonical Mastra rows. */
+function mastraThreadLookupIds(threadId: string): string[] {
+  const canonical = canonicalizePlannerThreadId(threadId);
+  if (!canonical) return [threadId];
+  const legacy = canonical.toUpperCase();
+  return legacy === canonical ? [canonical] : [canonical, legacy];
+}
+
+export async function findMastraThread(
+  memory: MastraMemory,
+  threadId: string,
+) {
+  for (const id of mastraThreadLookupIds(threadId)) {
+    const thread = await memory.getThreadById({ threadId: id });
+    if (thread) return thread;
+  }
+  return null;
+}
+
 export function splitRunThreadIds(resourceId: string, clientThreadId: string) {
+  const mastraThreadId = mastraThreadKey(clientThreadId);
   return {
-    runnerThreadId: `${resourceId}${RUN_STORE_SEP}${clientThreadId}`,
-    mastraThreadId: clientThreadId,
+    runnerThreadId: `${resourceId}${RUN_STORE_SEP}${mastraThreadId}`,
+    mastraThreadId,
   };
 }
 
@@ -25,9 +55,8 @@ export async function ensureMastraThread(
   memory: MastraMemory,
   input: { threadId: string; resourceId: string; title?: string },
 ): Promise<{ created: boolean }> {
-  const existing = await memory.getThreadById({
-    threadId: input.threadId,
-  });
+  const threadId = mastraThreadKey(input.threadId);
+  const existing = await findMastraThread(memory, input.threadId);
   if (existing) {
     if (existing.resourceId !== input.resourceId) {
       throw new Error("thread belongs to another resource");
@@ -35,7 +64,7 @@ export async function ensureMastraThread(
     return { created: false };
   }
   await memory.createThread({
-    threadId: input.threadId,
+    threadId,
     resourceId: input.resourceId,
     title: input.title ?? "Planner chat",
   });
@@ -70,14 +99,12 @@ export async function recallPlannerChatMessages(
   memory: MastraMemory,
   input: { threadId: string; resourceId: string },
 ): Promise<PlannerChatMessage[]> {
-  const thread = await memory.getThreadById({
-    threadId: input.threadId,
-  });
+  const thread = await findMastraThread(memory, input.threadId);
   if (!thread || thread.resourceId !== input.resourceId) {
     return [];
   }
   const recalled = await memory.recall({
-    threadId: input.threadId,
+    threadId: thread.id,
     resourceId: input.resourceId,
     perPage: false,
   });

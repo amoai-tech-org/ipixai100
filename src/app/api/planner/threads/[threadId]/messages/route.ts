@@ -5,7 +5,7 @@ import {
   threadForbiddenResponse,
 } from "@/lib/auth/thread-acl";
 import {
-  THREAD_ID,
+  canonicalizePlannerThreadId,
   getPlannerMemory,
   recallPlannerChatMessages,
 } from "@/mastra/thread-persistence";
@@ -17,8 +17,9 @@ export async function GET(
   const session = await requirePlannerResourceId(request);
   if (!session.ok) return session.response;
 
-  const { threadId } = await context.params;
-  if (!THREAD_ID.test(threadId)) {
+  const { threadId: rawThreadId } = await context.params;
+  const threadId = canonicalizePlannerThreadId(rawThreadId);
+  if (!threadId) {
     return Response.json({ error: "invalid_thread" }, { status: 400 });
   }
 

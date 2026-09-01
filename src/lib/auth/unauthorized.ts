@@ -23,3 +23,13 @@ export function membershipLookupFailedResponse(): Response {
     },
   );
 }
+
+export function claimUnavailableResponse(): Response {
+  return new Response(
+    JSON.stringify({ error: "unavailable", reason: "claim_unavailable" }),
+    {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
