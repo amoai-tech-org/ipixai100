@@ -37,7 +37,10 @@ export async function claimPlannerThread(
   input: { threadId: unknown; resourceId: string },
   sql?: ClaimSql,
 ): Promise<ThreadClaimDecision> {
-  if (!isClaimableThreadId(input.threadId)) return { status: "invalid" };
+  if (!isClaimableThreadId(input.threadId)) {
+    if (sql || isMastraHostedRuntime()) return { status: "invalid" };
+    return { status: "owned", resourceId: input.resourceId };
+  }
   if (typeof input.resourceId !== "string" || input.resourceId.length === 0) {
     return { status: "invalid" };
   }
