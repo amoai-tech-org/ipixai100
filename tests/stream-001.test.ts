@@ -555,8 +555,18 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     const deadline = Date.now() + 2000;
     let streamEnded = false;
     while (Date.now() < deadline) {
-      const { done } = await reader!.read();
-      if (done) {
+      const remaining = deadline - Date.now();
+      const chunk = await Promise.race([
+        reader!.read().then((result) => ({ kind: "read" as const, result })),
+        new Promise<{ kind: "timeout" }>((resolve) =>
+          setTimeout(() => resolve({ kind: "timeout" }), remaining),
+        ),
+      ]);
+      if (chunk.kind === "timeout") {
+        await reader!.cancel().catch(() => undefined);
+        break;
+      }
+      if (chunk.result.done) {
         streamEnded = true;
         break;
       }
