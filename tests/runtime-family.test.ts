@@ -122,7 +122,7 @@ describe("IPI-1042 runtime family", () => {
     expect(src).not.toMatch(/public\.mastra_/);
   });
 
-  it("does not delete wrapAbortRun / TenantAbortRunner", () => {
+  it("keeps tenant-scoped stop/cancel after the Mastra upgrade", () => {
     const src = readFileSync(
       new URL("../src/app/api/copilotkit/[[...slug]]/route.ts", import.meta.url),
       "utf8",
