@@ -13,9 +13,9 @@ const USER_B = "22222222-2222-4222-8222-222222222222";
 const ORG_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ORG_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const ORG_A_THREAD = "thread-org-a-secret";
-const RESOURCE_A = memoryResourceId({ userId: USER_A, orgId: ORG_A });
-const RESOURCE_B = memoryResourceId({ userId: USER_B, orgId: ORG_B });
-const RESOURCE_A_IN_ORG_B = memoryResourceId({ userId: USER_A, orgId: ORG_B });
+const RESOURCE_A = `org:${ORG_A}::user:${USER_A}`;
+const RESOURCE_B = `org:${ORG_B}::user:${USER_B}`;
+const RESOURCE_A_IN_ORG_B = `org:${ORG_B}::user:${USER_A}`;
 
 const memberships: { rows: { org_id: string }[] } = { rows: [] };
 const claims: { sub?: string; email?: string } = {
@@ -33,9 +33,15 @@ vi.mock("../src/lib/supabase/server", () => ({
     },
     from: (table: string) => ({
       select: () => ({
-        eq: async () => {
+        eq: async (column: string, value: string) => {
           if (table !== "org_members") {
             return { data: null, error: { message: "unexpected table" } };
+          }
+          if (column !== "user_id") {
+            return { data: null, error: { message: `unexpected column ${column}` } };
+          }
+          if (value !== claims.sub) {
+            return { data: [], error: null };
           }
           return { data: memberships.rows, error: null };
         },
@@ -89,6 +95,38 @@ function runBody(threadId: string) {
   };
 }
 
+/**
+ * Installed @copilotkit/runtime@1.68.1 has no public connectThread.
+ * HTTP /connect calls CopilotKitIntelligence.prototype.ɵconnectThread.
+ */
+function mockOrgAThreadAccess() {
+  const listSpy = vi
+    .spyOn(CopilotKitIntelligence.prototype, "listThreads")
+    .mockImplementation(async ({ userId }) => {
+      if (userId === RESOURCE_A) {
+        return orgAThreadList();
+      }
+      return emptyThreadList();
+    });
+
+  const connect = CopilotKitIntelligence.prototype.ɵconnectThread;
+  if (typeof connect !== "function") {
+    throw new Error(
+      "CopilotKitIntelligence.prototype.ɵconnectThread missing on installed @copilotkit/runtime",
+    );
+  }
+  const connectSpy = vi
+    .spyOn(CopilotKitIntelligence.prototype, "ɵconnectThread")
+    .mockImplementation(async ({ userId, threadId }) => {
+      if (userId === RESOURCE_A && threadId === ORG_A_THREAD) {
+        return { threadId: ORG_A_THREAD, joinToken: "org-a-token" };
+      }
+      return null;
+    });
+
+  return { listSpy, connectSpy };
+}
+
 describe("IPI-1009 intelligence tenant safety", () => {
   const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
   const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
@@ -114,6 +152,15 @@ describe("IPI-1009 intelligence tenant safety", () => {
     process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
     process.env.INTELLIGENCE_API_KEY = "test-intelligence-key";
   }
+
+  it("encodes Intelligence identity as org+user, not JWT user id", () => {
+    expect(RESOURCE_A).toBe(`org:${ORG_A}::user:${USER_A}`);
+    expect(RESOURCE_A).not.toBe(USER_A);
+    expect(memoryResourceId({ userId: USER_A, orgId: ORG_A })).toBe(RESOURCE_A);
+    expect(memoryResourceId({ userId: USER_A, orgId: ORG_B })).toBe(
+      RESOURCE_A_IN_ORG_B,
+    );
+  });
 
   it("selects Intelligence mode without TenantAbortRunner", async () => {
     enableIntelligence();
@@ -144,14 +191,7 @@ describe("IPI-1009 intelligence tenant safety", () => {
   it("lists threads under the org+user Intelligence identity", async () => {
     enableIntelligence();
     memberships.rows = [{ org_id: ORG_A }];
-    const listSpy = vi
-      .spyOn(CopilotKitIntelligence.prototype, "listThreads")
-      .mockImplementation(async ({ userId }) => {
-        if (userId === RESOURCE_A) {
-          return orgAThreadList();
-        }
-        return emptyThreadList();
-      });
+    const { listSpy } = mockOrgAThreadAccess();
 
     const response = await GET(
       copilotRequest("/api/copilotkit/threads?agentId=default", {
@@ -162,27 +202,15 @@ describe("IPI-1009 intelligence tenant safety", () => {
     expect(listSpy).toHaveBeenCalledWith(
       expect.objectContaining({ userId: RESOURCE_A, agentId: "default" }),
     );
+    expect(listSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_A }),
+    );
     expect(await response.json()).toEqual(orgAThreadList());
   });
 
   it("does not let Org B list or connect to Org A Intelligence threads", async () => {
     enableIntelligence();
-    vi.spyOn(CopilotKitIntelligence.prototype, "listThreads").mockImplementation(
-      async ({ userId }) => {
-        if (userId === RESOURCE_A) {
-          return orgAThreadList();
-        }
-        return emptyThreadList();
-      },
-    );
-    const connectSpy = vi
-      .spyOn(CopilotKitIntelligence.prototype, "ɵconnectThread")
-      .mockImplementation(async ({ userId, threadId }) => {
-        if (userId === RESOURCE_A && threadId === ORG_A_THREAD) {
-          return { threadId: ORG_A_THREAD, joinToken: "org-a-token" };
-        }
-        return null;
-      });
+    const { connectSpy } = mockOrgAThreadAccess();
 
     claims.sub = USER_B;
     memberships.rows = [{ org_id: ORG_B }];
@@ -218,23 +246,7 @@ describe("IPI-1009 intelligence tenant safety", () => {
 
   it("does not let the same user attach Org A Intelligence threads from Org B", async () => {
     enableIntelligence();
-    vi.spyOn(CopilotKitIntelligence.prototype, "listThreads").mockImplementation(
-      async ({ userId }) => {
-        if (userId === RESOURCE_A) {
-          return orgAThreadList();
-        }
-        return emptyThreadList();
-      },
-    );
-    vi.spyOn(
-      CopilotKitIntelligence.prototype,
-      "ɵconnectThread",
-    ).mockImplementation(async ({ userId, threadId }) => {
-      if (userId === RESOURCE_A && threadId === ORG_A_THREAD) {
-        return { threadId: ORG_A_THREAD, joinToken: "org-a-token" };
-      }
-      return null;
-    });
+    const { connectSpy } = mockOrgAThreadAccess();
 
     claims.sub = USER_A;
     memberships.rows = [{ org_id: ORG_B }];
@@ -254,8 +266,10 @@ describe("IPI-1009 intelligence tenant safety", () => {
       }),
     );
     expect(connected.status).toBe(204);
-    expect(
-      vi.mocked(CopilotKitIntelligence.prototype.ɵconnectThread).mock.calls[0]?.[0],
-    ).toMatchObject({ userId: RESOURCE_A_IN_ORG_B, threadId: ORG_A_THREAD });
+    expect(connectSpy.mock.calls[0]?.[0]).toMatchObject({
+      userId: RESOURCE_A_IN_ORG_B,
+      threadId: ORG_A_THREAD,
+    });
+    expect(RESOURCE_A_IN_ORG_B).not.toBe(RESOURCE_A);
   });
 });

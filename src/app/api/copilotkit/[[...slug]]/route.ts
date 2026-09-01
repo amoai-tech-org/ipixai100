@@ -226,7 +226,9 @@ async function handleCopilot(request: Request) {
       ? new CopilotRuntime({
           agents,
           // Intelligence keys threads by identifyUser.id (not TenantAbortRunner).
-          // Reuse the AUTH-002 org+user resourceId so Org B cannot attach to Org A.
+          // AUTH-002 org+user resourceId so Org B cannot attach to Org A.
+          // Do not fall back to operator.id: that identity is not tenant-scoped.
+          // Pre-fix user-only Intelligence history is an intentional reset.
           identifyUser: async () => ({
             id: resourceId,
             name: operator.name,
