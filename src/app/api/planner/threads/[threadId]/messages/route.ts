@@ -1,5 +1,6 @@
 import { requirePlannerResourceId } from "@/lib/auth/planner-session";
 import {
+  authorizeThreadAccess,
   loadThreadOwner,
   threadForbiddenResponse,
 } from "@/lib/auth/thread-acl";
@@ -32,10 +33,13 @@ export async function GET(
   }
 
   const owner = await loadThreadOwner(threadId);
-  if (
-    owner.status !== "owned" ||
-    owner.resourceId !== session.resourceId
-  ) {
+  const decision = authorizeThreadAccess({
+    threadId,
+    callerResourceId: session.resourceId,
+    owner,
+    allowMissing: false,
+  });
+  if (!decision.ok) {
     return threadForbiddenResponse();
   }
 
