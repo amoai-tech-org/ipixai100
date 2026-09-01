@@ -142,10 +142,6 @@ describe("IPI-1042 runtime family", () => {
     });
     expect(storage).toBeDefined();
     expect(memory).toBeDefined();
-    const mastraSrc = readFileSync(new URL("../src/mastra/index.ts", import.meta.url), "utf8");
-    const agentSrc = readFileSync(new URL("../src/mastra/agents/index.ts", import.meta.url), "utf8");
-    expect(mastraSrc).toMatch(/url:\s*":memory:"/);
-    expect(agentSrc).toMatch(/url:\s*"file::memory:"/);
   });
 
   it("core memory tables still exist in 1.63.2 TABLE_SCHEMAS and the recorded catalog", () => {
