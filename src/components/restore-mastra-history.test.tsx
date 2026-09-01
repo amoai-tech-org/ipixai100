@@ -142,12 +142,13 @@ describe("RestoreMastraHistory", () => {
     const pending = new Promise((resolve) => {
       resolveFetch = resolve;
     });
+    const json = vi.fn(async () => ({ messages: history }));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockReturnValue(
         pending.then(() => ({
           ok: true,
-          json: async () => ({ messages: history }),
+          json,
         })),
       ),
     );
@@ -156,8 +157,7 @@ describe("RestoreMastraHistory", () => {
     agent.messages = [{ id: "live", role: "user", content: "newer" }];
     resolveFetch(undefined);
 
-    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 20));
+    await waitFor(() => expect(json).toHaveBeenCalled());
     expect(screen.queryByLabelText("Restored conversation")).toBeNull();
     expect(agent.messages).toEqual([
       { id: "live", role: "user", content: "newer" },
@@ -165,12 +165,13 @@ describe("RestoreMastraHistory", () => {
   });
 
   it("does not replace live messages sent before Try again", async () => {
+    const json = vi.fn(async () => ({ messages: history }));
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, status: 503 })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ messages: history }),
+        json,
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -178,8 +179,7 @@ describe("RestoreMastraHistory", () => {
     await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
     agent.messages = [{ id: "live", role: "user", content: "typed-after-error" }];
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    await new Promise((r) => setTimeout(r, 20));
+    await waitFor(() => expect(json).toHaveBeenCalled());
     expect(screen.queryByLabelText("Restored conversation")).toBeNull();
     expect(agent.messages).toEqual([
       { id: "live", role: "user", content: "typed-after-error" },
@@ -191,12 +191,13 @@ describe("RestoreMastraHistory", () => {
     const pending = new Promise((resolve) => {
       resolveFetch = resolve;
     });
+    const json = vi.fn(async () => ({ messages: history }));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockReturnValue(
         pending.then(() => ({
           ok: true,
-          json: async () => ({ messages: history }),
+          json,
         })),
       ),
     );
@@ -206,11 +207,45 @@ describe("RestoreMastraHistory", () => {
     agent.messages = [{ id: "m1", role: "user", content: "hello-streamed" }];
     resolveFetch(undefined);
 
-    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 20));
+    await waitFor(() => expect(json).toHaveBeenCalled());
     expect(screen.queryByLabelText("Restored conversation")).toBeNull();
     expect(agent.messages).toEqual([
       { id: "m1", role: "user", content: "hello-streamed" },
+    ]);
+  });
+
+  it("does not treat delimiter-colliding live edits as unchanged", async () => {
+    const json = vi.fn(async () => ({ messages: history }));
+    let resolveFetch: (value: unknown) => void = () => {};
+    const pending = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockReturnValue(
+        pending.then(() => ({
+          ok: true,
+          json,
+        })),
+      ),
+    );
+
+    agent.messages = [
+      { id: "m1", role: "user", content: "a\nm2:b" },
+      { id: "m2", role: "assistant", content: "c" },
+    ];
+    render(<RestoreMastraHistory threadId="thread-a" />);
+    agent.messages = [
+      { id: "m1", role: "user", content: "a" },
+      { id: "m2", role: "assistant", content: "b\nm2:c" },
+    ];
+    resolveFetch(undefined);
+
+    await waitFor(() => expect(json).toHaveBeenCalled());
+    expect(screen.queryByLabelText("Restored conversation")).toBeNull();
+    expect(agent.messages).toEqual([
+      { id: "m1", role: "user", content: "a" },
+      { id: "m2", role: "assistant", content: "b\nm2:c" },
     ]);
   });
 });

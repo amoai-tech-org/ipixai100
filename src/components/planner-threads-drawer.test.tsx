@@ -88,15 +88,16 @@ describe("PlannerThreadsDrawer", () => {
   });
 
   it("keeps New across a list retry", async () => {
+    const listJson = vi.fn(async () => ({
+      resourceId: "org:a::user:a",
+      threads: [rowA],
+    }));
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, status: 503 })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          resourceId: "org:a::user:a",
-          threads: [rowA],
-        }),
+        json: listJson,
       });
     vi.stubGlobal("fetch", fetchMock);
     const onThreadId = vi.fn();
@@ -111,8 +112,7 @@ describe("PlannerThreadsDrawer", () => {
       replay: false,
     });
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    await new Promise((r) => setTimeout(r, 20));
+    await waitFor(() => expect(listJson).toHaveBeenCalled());
     expect(onThreadId.mock.calls.at(-1)?.[0]).toBe(created);
     expect(onThreadId).not.toHaveBeenCalledWith(rowA.id, replayTrue);
   });
@@ -124,6 +124,10 @@ describe("PlannerThreadsDrawer", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockReturnValue(pending));
     const onThreadId = vi.fn();
+    const listJson = vi.fn(async () => ({
+      resourceId: "org:a::user:a",
+      threads: [rowA],
+    }));
     render(
       <PlannerThreadsDrawer threadId={null} onThreadId={onThreadId} />,
     );
@@ -135,13 +139,9 @@ describe("PlannerThreadsDrawer", () => {
     });
     resolveFirst({
       ok: true,
-      json: async () => ({
-        resourceId: "org:a::user:a",
-        threads: [rowA],
-      }),
+      json: listJson,
     });
-    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 20));
+    await waitFor(() => expect(listJson).toHaveBeenCalled());
     expect(onThreadId.mock.calls.at(-1)?.[0]).toBe(created);
     expect(onThreadId).not.toHaveBeenCalledWith(rowA.id, replayTrue);
   });

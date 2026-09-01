@@ -27,7 +27,7 @@ function conversationRevision(messages: unknown) {
         typeof row.content === "string"
           ? row.content
           : JSON.stringify(row.content ?? "");
-      return `${id}:${content}`;
+      return JSON.stringify([id, content]);
     })
     .join("\n");
 }
