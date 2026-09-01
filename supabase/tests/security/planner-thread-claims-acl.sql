@@ -26,7 +26,7 @@ begin
     raise exception 'hyperdrive_mastra_runtime must have SELECT, INSERT on planner.planner_thread_claims';
   end if;
 
-  foreach privilege_name in array array['update', 'delete', 'truncate'] loop
+  foreach privilege_name in array array['update', 'delete', 'truncate', 'references', 'trigger'] loop
     if has_table_privilege('hyperdrive_mastra_runtime', 'planner.planner_thread_claims', privilege_name) then
       raise exception 'hyperdrive_mastra_runtime must not have % on planner.planner_thread_claims', privilege_name;
     end if;
