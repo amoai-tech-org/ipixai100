@@ -16,19 +16,37 @@ function replayErrorMessage(status: number) {
   return "Could not load this conversation. Try again.";
 }
 
-export function RestoreMastraHistory({ threadId }: { threadId: string }) {
+export function RestoreMastraHistory({
+  threadId,
+  replay = true,
+}: {
+  threadId: string;
+  replay?: boolean;
+}) {
   const { agent } = useAgent({ agentId: "default" });
   const agentRef = useRef(agent);
+  const baselineRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [restored, setRestored] = useState<PlannerChatMessage[] | null>(null);
 
   useEffect(() => {
     agentRef.current = agent;
   }, [agent]);
 
   useEffect(() => {
+    baselineRef.current = null;
+    setRestored(null);
+    setError(null);
+  }, [threadId]);
+
+  useEffect(() => {
+    if (!replay) return;
     const controller = new AbortController();
-    const startedWith = agentRef.current.messages?.length ?? 0;
+    if (baselineRef.current === null) {
+      baselineRef.current = agentRef.current.messages?.length ?? 0;
+    }
+    const startedWith = baselineRef.current;
     setError(null);
     void (async () => {
       try {
@@ -46,7 +64,9 @@ export function RestoreMastraHistory({ threadId }: { threadId: string }) {
         };
         if (controller.signal.aborted) return;
         if ((agentRef.current.messages?.length ?? 0) > startedWith) return;
-        agentRef.current.setMessages(body.messages ?? []);
+        const messages = body.messages ?? [];
+        agentRef.current.setMessages(messages);
+        setRestored(messages);
       } catch {
         if (controller.signal.aborted) return;
         setError("Could not load this conversation. Try again.");
@@ -55,15 +75,26 @@ export function RestoreMastraHistory({ threadId }: { threadId: string }) {
     return () => {
       controller.abort();
     };
-  }, [threadId, retryKey]);
+  }, [threadId, retryKey, replay]);
 
-  if (!error) return null;
+  if (!replay) return null;
 
   return (
-    <ErrorState
-      title="Could not restore conversation"
-      message={error}
-      onRetry={() => setRetryKey((n) => n + 1)}
-    />
+    <>
+      {restored ? (
+        <ol aria-label="Restored conversation" className="sr-only">
+          {restored.map((message) => (
+            <li key={message.id}>{message.content}</li>
+          ))}
+        </ol>
+      ) : null}
+      {error ? (
+        <ErrorState
+          title="Could not restore conversation"
+          message={error}
+          onRetry={() => setRetryKey((n) => n + 1)}
+        />
+      ) : null}
+    </>
   );
 }

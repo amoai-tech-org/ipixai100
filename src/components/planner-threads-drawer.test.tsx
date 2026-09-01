@@ -26,6 +26,8 @@ const rowA = {
   updatedAt: "2026-09-01T00:00:00.000Z",
 };
 
+const replayTrue = { threadId: rowA.id, replay: true };
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -53,7 +55,9 @@ describe("PlannerThreadsDrawer", () => {
     render(
       <PlannerThreadsDrawer threadId={null} onThreadId={onThreadId} />,
     );
-    await waitFor(() => expect(onThreadId).toHaveBeenCalledWith(rowA.id));
+    await waitFor(() =>
+      expect(onThreadId).toHaveBeenCalledWith(rowA.id, replayTrue),
+    );
     expect(screen.getByText("SS26")).toBeDefined();
   });
 
@@ -77,8 +81,40 @@ describe("PlannerThreadsDrawer", () => {
     await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
     expect(onThreadId).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(onThreadId).toHaveBeenCalledWith(rowA.id));
+    await waitFor(() =>
+      expect(onThreadId).toHaveBeenCalledWith(rowA.id, replayTrue),
+    );
     expect(onThreadId.mock.calls.every(([id]) => id === rowA.id)).toBe(true);
+  });
+
+  it("keeps New across a list retry", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          resourceId: "org:a::user:a",
+          threads: [rowA],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const onThreadId = vi.fn();
+    render(
+      <PlannerThreadsDrawer threadId={null} onThreadId={onThreadId} />,
+    );
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
+    const created = onThreadId.mock.calls.at(-1)?.[0] as string;
+    expect(onThreadId.mock.calls.at(-1)?.[1]).toEqual({
+      threadId: created,
+      replay: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onThreadId.mock.calls.at(-1)?.[0]).toBe(created);
+    expect(onThreadId).not.toHaveBeenCalledWith(rowA.id, replayTrue);
   });
 
   it("only New creates a client UUID", async () => {
@@ -96,12 +132,55 @@ describe("PlannerThreadsDrawer", () => {
     render(
       <PlannerThreadsDrawer threadId={rowA.id} onThreadId={onThreadId} />,
     );
-    await waitFor(() => expect(onThreadId).toHaveBeenCalledWith(rowA.id));
+    await waitFor(() =>
+      expect(onThreadId).toHaveBeenCalledWith(rowA.id, replayTrue),
+    );
     fireEvent.click(screen.getByRole("button", { name: "New" }));
     const created = onThreadId.mock.calls.at(-1)?.[0] as string;
     expect(created).not.toBe(rowA.id);
+    expect(onThreadId.mock.calls.at(-1)?.[1]).toEqual({
+      threadId: created,
+      replay: false,
+    });
     expect(created).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
+  });
+
+  it("keeps listed threads visible while a later message refresh is in flight", async () => {
+    let resolveSecond: (value: unknown) => void = () => {};
+    const second = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          resourceId: "org:a::user:a",
+          threads: [rowA],
+        }),
+      })
+      .mockReturnValueOnce(second);
+    vi.stubGlobal("fetch", fetchMock);
+    const onThreadId = vi.fn();
+    const { rerender } = render(
+      <PlannerThreadsDrawer threadId={null} onThreadId={onThreadId} />,
+    );
+    await waitFor(() => expect(screen.getByText("SS26")).toBeDefined());
+    agent.messages = [{ id: "m1" }];
+    rerender(
+      <PlannerThreadsDrawer threadId={rowA.id} onThreadId={onThreadId} />,
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("SS26")).toBeDefined();
+    expect(screen.queryByText("Loading threads…")).toBeNull();
+    resolveSecond({
+      ok: true,
+      json: async () => ({
+        resourceId: "org:a::user:a",
+        threads: [rowA],
+      }),
+    });
   });
 });

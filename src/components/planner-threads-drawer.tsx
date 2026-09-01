@@ -12,9 +12,14 @@ import {
 
 import styles from "../app/page.module.css";
 
+export type PlannerThreadSelection = {
+  threadId: string;
+  replay: boolean;
+};
+
 type PlannerThreadsDrawerProps = {
   threadId: string | null;
-  onThreadId: (threadId: string) => void;
+  onThreadId: (threadId: string, selection: PlannerThreadSelection) => void;
 };
 
 export function PlannerThreadsDrawer({
@@ -28,11 +33,16 @@ export function PlannerThreadsDrawer({
   const [resourceId, setResourceId] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const pickedRef = useRef(false);
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
 
   useEffect(() => {
     const controller = new AbortController();
+    const hadList = threadsRef.current !== null;
     setError(null);
-    setThreads(null);
+    if (!hadList) {
+      setThreads(null);
+    }
     void (async () => {
       try {
         const response = await fetch("/api/planner/threads", {
@@ -62,7 +72,8 @@ export function PlannerThreadsDrawer({
               )
             : null;
         const next = resolvePlannerThreadId(rows, stored);
-        onThreadId(next);
+        const replay = rows.some((row) => row.id === next);
+        onThreadId(next, { threadId: next, replay });
         if (scopedResourceId.length > 0) {
           window.localStorage.setItem(
             plannerThreadStorageKey(scopedResourceId),
@@ -72,7 +83,9 @@ export function PlannerThreadsDrawer({
       } catch {
         if (controller.signal.aborted) return;
         setError("Could not load saved conversations. Try again.");
-        setThreads([]);
+        if (threadsRef.current === null) {
+          setThreads([]);
+        }
       }
     })();
     return () => {
@@ -80,18 +93,19 @@ export function PlannerThreadsDrawer({
     };
   }, [onThreadId, messageCount, retryKey]);
 
-  function activate(id: string) {
+  function activate(id: string, replay: boolean) {
+    pickedRef.current = true;
     if (resourceId) {
       window.localStorage.setItem(plannerThreadStorageKey(resourceId), id);
     }
-    onThreadId(id);
+    onThreadId(id, { threadId: id, replay });
   }
 
   return (
     <aside className={styles.threadsDrawer} aria-label="Conversation threads">
       <div className={styles.threadsDrawerHeader}>
         <strong>Threads</strong>
-        <button type="button" onClick={() => activate(crypto.randomUUID())}>
+        <button type="button" onClick={() => activate(crypto.randomUUID(), false)}>
           New
         </button>
       </div>
@@ -115,7 +129,7 @@ export function PlannerThreadsDrawer({
                 className={
                   row.id === threadId ? styles.threadActive : styles.threadButton
                 }
-                onClick={() => activate(row.id)}
+                onClick={() => activate(row.id, true)}
               >
                 {row.title}
               </button>

@@ -48,9 +48,14 @@ export function PlannerApp() {
 function PlannerSurface() {
   const [themeColor, setThemeColor] = useState("#6366f1");
   const [threadId, setThreadId] = useState<string | null>(null);
-  const onThreadId = useCallback((id: string) => {
-    setThreadId(id);
-  }, []);
+  const [replay, setReplay] = useState(true);
+  const onThreadId = useCallback(
+    (id: string, selection: { threadId: string; replay: boolean }) => {
+      setThreadId(id);
+      setReplay(selection.replay);
+    },
+    [],
+  );
 
   useFrontendTool({
     name: "setThemeColor",
@@ -102,7 +107,13 @@ function PlannerSurface() {
         <PlannerThreadsDrawer threadId={threadId} onThreadId={onThreadId} />
         <div className={styles.mainPanel}>
           <AuthBar />
+          {threadId && replay ? (
+            <div className={styles.replayBanner}>
+              <RestoreMastraHistory threadId={threadId} replay={replay} />
+            </div>
+          ) : null}
           <main
+            className={styles.mainScroll}
             style={
               {
                 "--copilot-kit-primary-color": themeColor,
@@ -110,7 +121,6 @@ function PlannerSurface() {
             }
           >
             <YourMainContent themeColor={themeColor} />
-            {threadId ? <RestoreMastraHistory threadId={threadId} /> : null}
             {threadId ? (
               <CopilotSidebar
                 defaultOpen={false}

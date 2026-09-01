@@ -2,8 +2,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const setMessages = vi.fn();
-const agent = { messages: [] as unknown[], setMessages };
+const agent = {
+  messages: [] as Array<{ id: string; role: string; content: string }>,
+  setMessages(next: Array<{ id: string; role: string; content: string }>) {
+    agent.messages = next;
+  },
+};
 
 vi.mock("@copilotkit/react-core/v2", () => ({
   useAgent: () => ({ agent }),
@@ -23,17 +27,15 @@ const history = [
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  setMessages.mockReset();
   agent.messages = [];
 });
 
 describe("RestoreMastraHistory", () => {
   beforeEach(() => {
-    setMessages.mockReset();
     agent.messages = [];
   });
 
-  it("hydrates ordered messages with credentials", async () => {
+  it("shows the restored conversation after a successful fetch", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ messages: history }),
@@ -42,7 +44,11 @@ describe("RestoreMastraHistory", () => {
 
     render(<RestoreMastraHistory threadId="thread-a" />);
 
-    await waitFor(() => expect(setMessages).toHaveBeenCalledWith(history));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Restored conversation")).toBeDefined(),
+    );
+    expect(screen.getByText("alpha-fact")).toBeDefined();
+    expect(screen.getByText("remembered")).toBeDefined();
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/planner/threads/thread-a/messages",
       expect.objectContaining({ credentials: "include" }),
@@ -51,27 +57,50 @@ describe("RestoreMastraHistory", () => {
   });
 
   it("does not hydrate on 403 and shows a retryable denial without body leak", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 403,
-      json: async () => ({
-        error: "thread_forbidden",
-        secret: "ORG-A-SECRET-SHOULD-NOT-APPEAR",
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          error: "thread_forbidden",
+          secret: "ORG-A-SECRET-SHOULD-NOT-APPEAR",
+        }),
       }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    );
 
     render(<RestoreMastraHistory threadId="org-a-thread" />);
 
     await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
-    expect(setMessages).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Restored conversation")).toBeNull();
     expect(screen.queryByText(/ORG-A-SECRET/)).toBeNull();
     expect(
       screen.getByText("This conversation is not available for your organization."),
     ).toBeDefined();
   });
 
-  it("shows retryable error on 5xx and retries fetch", async () => {
+  it("shows sign-in required on 401", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 401 }),
+    );
+    render(<RestoreMastraHistory threadId="thread-a" />);
+    await waitFor(() =>
+      expect(screen.getByText("Sign in required to load this conversation.")).toBeDefined(),
+    );
+    expect(screen.queryByLabelText("Restored conversation")).toBeNull();
+  });
+
+  it("skips fetch for an unpersisted new conversation", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RestoreMastraHistory threadId="new-uuid" replay={false} />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("error-state")).toBeNull();
+  });
+
+  it("retries after 5xx and then shows restored messages", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, status: 503 })
@@ -84,9 +113,11 @@ describe("RestoreMastraHistory", () => {
     render(<RestoreMastraHistory threadId="thread-a" />);
 
     await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
-    expect(setMessages).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(setMessages).toHaveBeenCalledWith(history));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Restored conversation")).toBeDefined(),
+    );
+    expect(screen.getByText("alpha-fact")).toBeDefined();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -97,10 +128,12 @@ describe("RestoreMastraHistory", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockReturnValue(pending.then(() => ({
-        ok: true,
-        json: async () => ({ messages: history }),
-      }))),
+      vi.fn().mockReturnValue(
+        pending.then(() => ({
+          ok: true,
+          json: async () => ({ messages: history }),
+        })),
+      ),
     );
 
     render(<RestoreMastraHistory threadId="thread-a" />);
@@ -109,6 +142,31 @@ describe("RestoreMastraHistory", () => {
 
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 20));
-    expect(setMessages).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Restored conversation")).toBeNull();
+    expect(agent.messages).toEqual([
+      { id: "live", role: "user", content: "newer" },
+    ]);
+  });
+
+  it("does not replace live messages sent before Try again", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ messages: history }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<RestoreMastraHistory threadId="thread-a" />);
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
+    agent.messages = [{ id: "live", role: "user", content: "typed-after-error" }];
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByLabelText("Restored conversation")).toBeNull();
+    expect(agent.messages).toEqual([
+      { id: "live", role: "user", content: "typed-after-error" },
+    ]);
   });
 });
