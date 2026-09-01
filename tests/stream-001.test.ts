@@ -548,9 +548,75 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     expect(stopResponse.status).toBe(200);
     expect(await stopResponse.json()).toMatchObject({ stopped: true });
     release();
-    await runPromise;
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    const runResponse = await runPromise;
+    expect(runResponse.status).toBe(200);
+    const reader = runResponse.body?.getReader();
+    expect(reader).toBeTruthy();
+    const deadline = Date.now() + 2000;
+    let streamEnded = false;
+    while (Date.now() < deadline) {
+      const remaining = deadline - Date.now();
+      const chunk = await Promise.race([
+        reader!.read().then((result) => ({ kind: "read" as const, result })),
+        new Promise<{ kind: "timeout" }>((resolve) =>
+          setTimeout(() => resolve({ kind: "timeout" }), remaining),
+        ),
+      ]);
+      if (chunk.kind === "timeout") {
+        await reader!.cancel().catch(() => undefined);
+        break;
+      }
+      if (chunk.result.done) {
+        streamEnded = true;
+        break;
+      }
+    }
+    expect(streamEnded).toBe(true);
     expect(stats.runStarted).toBe(false);
+  });
+
+  it("still preflights Mastra thread storage when only COPILOTKIT_LICENSE_TOKEN is set", async () => {
+    const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
+    const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+    process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
+    delete process.env.INTELLIGENCE_API_KEY;
+    const { agent: streamAgent, stats } = createStreamHarness();
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: streamAgent,
+    });
+    const ensureSpy = vi
+      .spyOn(threadPersistence, "ensureMastraThread")
+      .mockResolvedValue({ created: true });
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue(
+      {} as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>,
+    );
+    memberships.rows = [{ org_id: ORG_A }];
+    try {
+      const body = runBody();
+      const response = await POST(
+        copilotRequest("/api/copilotkit/agent/default/run", { body }),
+      );
+      expect(response.status).toBe(200);
+      await readSseUntil(response, (seen) =>
+        seen.some((event) => event.type === EventType.RUN_STARTED),
+      );
+      expect(ensureSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ threadId: body.threadId }),
+      );
+      expect(stats.runStarted).toBe(true);
+    } finally {
+      if (previousLicense === undefined) {
+        delete process.env.COPILOTKIT_LICENSE_TOKEN;
+      } else {
+        process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
+      }
+      if (previousIntelligence === undefined) {
+        delete process.env.INTELLIGENCE_API_KEY;
+      } else {
+        process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+      }
+    }
   });
 
   it("stops a run even when abort arrives before runner registration", async () => {

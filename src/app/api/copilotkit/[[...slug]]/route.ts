@@ -109,20 +109,24 @@ class TenantAbortRunner extends InMemoryAgentRunner {
     return new Observable<BaseEvent>((subscriber) => {
       let inner: { unsubscribe: () => void } | undefined;
       let cancelled = false;
+      const releasePending = () => {
+        pendingStops.delete(runnerThreadId);
+        pendingRuns.delete(runnerThreadId);
+      };
       void (async () => {
         if (this.shouldSkipRun(runnerThreadId, cancelled)) {
-          pendingStops.delete(runnerThreadId);
-          pendingRuns.delete(runnerThreadId);
+          releasePending();
+          subscriber.complete();
           return;
         }
         const memory = await getPlannerMemory();
         if (this.shouldSkipRun(runnerThreadId, cancelled)) {
-          pendingStops.delete(runnerThreadId);
-          pendingRuns.delete(runnerThreadId);
+          releasePending();
+          subscriber.complete();
           return;
         }
         if (!memory) {
-          pendingRuns.delete(runnerThreadId);
+          releasePending();
           subscriber.error(new Error("memory_unavailable"));
           return;
         }
@@ -131,8 +135,8 @@ class TenantAbortRunner extends InMemoryAgentRunner {
           resourceId: this.resourceId,
         });
         if (this.shouldSkipRun(runnerThreadId, cancelled)) {
-          pendingStops.delete(runnerThreadId);
-          pendingRuns.delete(runnerThreadId);
+          releasePending();
+          subscriber.complete();
           return;
         }
         inner = super
@@ -140,7 +144,7 @@ class TenantAbortRunner extends InMemoryAgentRunner {
           .subscribe(subscriber);
         pendingRuns.delete(runnerThreadId);
       })().catch((error) => {
-        pendingRuns.delete(runnerThreadId);
+        releasePending();
         if (!cancelled) subscriber.error(error);
       });
       return () => {
@@ -213,25 +217,29 @@ async function handleCopilot(request: Request) {
   });
   const agents = attachRunnerAbort(createLocalAgents(resourceId));
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN;
-  const runtime = licenseToken
-    ? new CopilotRuntime({
-        agents,
-        identifyUser: identifyOperator,
-        // --- copilotkit:intelligence (remove this block to opt out) ---
-        intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
-          apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-          wsUrl:
-            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-        }),
-        licenseToken,
-        // --- /copilotkit:intelligence ---
-      })
-    : new CopilotRuntime({
-        agents,
-        identifyUser: identifyOperator,
-        runner: new TenantAbortRunner(resourceId, request.signal),
-      });
+  const intelligenceKey = process.env.INTELLIGENCE_API_KEY;
+  // Official CopilotKit: Intelligence mode auto-wires IntelligenceAgentRunner.
+  // Do not pass TenantAbortRunner together with intelligence (type/runtime conflict).
+  // License-only (Preview today) keeps the SSE persist runner.
+  const runtime =
+    licenseToken && intelligenceKey
+      ? new CopilotRuntime({
+          agents,
+          identifyUser: identifyOperator,
+          intelligence: new CopilotKitIntelligence({
+            apiKey: intelligenceKey,
+            apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+            wsUrl:
+              process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+          }),
+          licenseToken,
+        })
+      : new CopilotRuntime({
+          agents,
+          identifyUser: identifyOperator,
+          runner: new TenantAbortRunner(resourceId, request.signal),
+          ...(licenseToken ? { licenseToken } : {}),
+        });
 
   const app = createCopilotEndpoint({
     runtime,

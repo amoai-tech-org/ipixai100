@@ -94,11 +94,12 @@ export function PlannerThreadsDrawer({
           New
         </button>
       </div>
+      <p role="alert" aria-live="assertive" aria-atomic="true">
+        {error ?? ""}
+      </p>
       {threads === null ? (
         <p>Loading threads…</p>
-      ) : error ? (
-        <p>{error}</p>
-      ) : threads.length === 0 ? (
+      ) : error ? null : threads.length === 0 ? (
         <p>No saved threads yet.</p>
       ) : (
         <ul className={styles.threadsList}>
