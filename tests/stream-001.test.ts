@@ -175,8 +175,10 @@ function createStreamHarness(options: { finiteChunks?: number } = {}) {
   return { agent: new StreamTestAgent(), stats };
 }
 
-function parseSseEvents(text: string): Array<{ type?: string; delta?: string }> {
-  const events: Array<{ type?: string; delta?: string }> = [];
+function parseSseEvents(
+  text: string,
+): Array<{ type?: string; delta?: string; threadId?: string }> {
+  const events: Array<{ type?: string; delta?: string; threadId?: string }> = [];
   for (const block of text.split("\n\n")) {
     const dataLine = block
       .split("\n")
@@ -197,7 +199,10 @@ async function readSseUntil(
   response: Response,
   predicate: (events: Array<{ type?: string }>) => boolean,
   timeoutMs = 4000,
-): Promise<{ text: string; events: Array<{ type?: string; delta?: string }> }> {
+): Promise<{
+  text: string;
+  events: Array<{ type?: string; delta?: string; threadId?: string }>;
+}> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("missing SSE body");
   const decoder = new TextDecoder();
@@ -277,8 +282,9 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     expect(info.headers.get("content-type")).toMatch(/json/);
     expect(infoListsDefaultAgent(await info.json())).toBe(true);
 
+    const body = runBody();
     const response = await POST(
-      copilotRequest("/api/copilotkit/agent/default/run", { body: runBody() }),
+      copilotRequest("/api/copilotkit/agent/default/run", { body }),
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toMatch(/text\/event-stream/);
@@ -292,6 +298,9 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
       (seen) => seen.some((event) => event.type === EventType.RUN_STARTED),
     );
     expect(events.map((event) => event.type)).toContain(EventType.RUN_STARTED);
+    expect(
+      events.find((event) => event.type === EventType.RUN_STARTED)?.threadId,
+    ).toBe(body.threadId);
     expect(stats.runStarted).toBe(true);
   });
 

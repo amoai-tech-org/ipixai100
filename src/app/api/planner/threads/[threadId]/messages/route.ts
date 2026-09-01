@@ -1,0 +1,30 @@
+import { requirePlannerResourceId } from "@/lib/auth/planner-session";
+import {
+  THREAD_ID,
+  getPlannerMemory,
+  recallPlannerChatMessages,
+} from "@/mastra/thread-persistence";
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ threadId: string }> },
+) {
+  const session = await requirePlannerResourceId(request);
+  if (!session.ok) return session.response;
+
+  const { threadId } = await context.params;
+  if (!THREAD_ID.test(threadId)) {
+    return Response.json({ error: "invalid_thread" }, { status: 400 });
+  }
+
+  const memory = await getPlannerMemory();
+  if (!memory) {
+    return Response.json({ error: "memory_unavailable" }, { status: 503 });
+  }
+
+  const messages = await recallPlannerChatMessages(memory, {
+    threadId,
+    resourceId: session.resourceId,
+  });
+  return Response.json({ threadId, messages });
+}

@@ -2,13 +2,10 @@
   display: grid;
   /*
     Reserve the desktop drawer's width (its default 320px) as a fixed first
-    column so the layout doesn't shift when the client-only <CopilotThreadsDrawer>
-    mounts after hydration. On mobile the drawer is an off-canvas overlay (out
-    of flow), so the column collapses and the content fills the width.
+    column so the thread list and chat stay side by side.
   */
+  --cpk-drawer-reserved-width: 320px;
   grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
-  /* Drawer sets --cpk-drawer-reserved-width to 0 on desktop-collapse, so the
-     reserved column collapses and the chat reclaims the space. */
   transition: grid-template-columns 0.2s ease;
   /*
     Bound the single grid row to the viewport (minmax(0,1fr) lets it shrink
@@ -24,14 +21,55 @@
 
 .mainPanel {
   /*
-    Pin the content to the SECOND track explicitly. The client-only drawer
-    renders nothing during SSR, so without this the content would flow into the
-    reserved first column at first paint and then jump once the drawer mounts.
+    Pin the content to the SECOND track explicitly so the thread list keeps
+    the reserved first column.
   */
   grid-column: 2;
   min-width: 0;
   height: 100dvh;
   overflow: hidden;
+}
+
+.threadsDrawer {
+  grid-column: 1;
+  height: 100dvh;
+  overflow: auto;
+  border-right: 1px solid var(--border, #e5e5e5);
+  padding: 12px 14px;
+  background: var(--background, #fff);
+  color: var(--foreground, #111);
+}
+
+.threadsDrawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.threadsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.threadButton,
+.threadActive {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.threadActive {
+  background: var(--accent, #f4f4f5);
 }
 
 /*

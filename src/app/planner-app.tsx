@@ -12,12 +12,13 @@ import {
   CopilotKit,
   CopilotSidebar,
   CopilotChatConfigurationProvider,
-  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 import { AuthBar } from "@/components/auth-bar";
+import { PlannerThreadsDrawer } from "@/components/planner-threads-drawer";
+import { RestoreMastraHistory } from "@/components/restore-mastra-history";
 import { copilotHandshake } from "@/lib/auth/copilot-mount";
 import { usePlannerAuth } from "@/lib/auth/use-planner-auth";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
 import styles from "./page.module.css";
@@ -46,6 +47,10 @@ export function PlannerApp() {
 
 function PlannerSurface() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const onThreadId = useCallback((id: string) => {
+    setThreadId(id);
+  }, []);
 
   useFrontendTool({
     name: "setThemeColor",
@@ -94,7 +99,7 @@ function PlannerSurface() {
   return (
     <CopilotChatConfigurationProvider agentId="default">
       <div className={`${styles.layout} threadsLayout`}>
-        <CopilotThreadsDrawer agentId="default" />
+        <PlannerThreadsDrawer threadId={threadId} onThreadId={onThreadId} />
         <div className={styles.mainPanel}>
           <AuthBar />
           <main
@@ -105,14 +110,18 @@ function PlannerSurface() {
             }
           >
             <YourMainContent themeColor={themeColor} />
-            <CopilotSidebar
-              defaultOpen={true}
-              labels={{
-                modalHeaderTitle: "Popup Assistant",
-                welcomeMessageText:
-                  "👋 Hi, there! You're chatting with an agent.",
-              }}
-            />
+            {threadId ? <RestoreMastraHistory threadId={threadId} /> : null}
+            {threadId ? (
+              <CopilotSidebar
+                defaultOpen={true}
+                threadId={threadId}
+                labels={{
+                  modalHeaderTitle: "Popup Assistant",
+                  welcomeMessageText:
+                    "👋 Hi, there! You're chatting with an agent.",
+                }}
+              />
+            ) : null}
           </main>
         </div>
       </div>
