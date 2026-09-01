@@ -76,6 +76,9 @@ jobs:
             if not exists (select 1 from pg_roles where rolname = 'ci_acl_probe') then
               create role ci_acl_probe nologin nosuperuser;
             end if;
+            if not exists (select 1 from pg_roles where rolname = 'hyperdrive_mastra_runtime') then
+              create role hyperdrive_mastra_runtime nologin nosuperuser;
+            end if;
           end
           $roles$;
           create schema if not exists planner;
@@ -100,4 +103,56 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/migrations/20260825095051_ipi897_revoke_planner_default_privileges.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260901180000_ipi1127_planner_thread_claims.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/default-planner-privileges.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/security/planner-thread-claims-acl.sql
+
+  claim-concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      OPENAI_API_KEY: placeholder
+      COPILOTKIT_TELEMETRY_DISABLED: "true"
+      IPIX_CLAIM_CONCURRENCY: "1"
+      MASTRA_DATABASE_URL: postgres://hyperdrive_mastra_runtime:runtime@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Apply claim table and grants
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          create schema if not exists planner;
+          do $roles$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'hyperdrive_mastra_runtime') then
+              create role hyperdrive_mastra_runtime login password 'runtime';
+            end if;
+          end
+          $roles$;
+          grant connect on database postgres to hyperdrive_mastra_runtime;
+          SQL
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260901180000_ipi1127_planner_thread_claims.sql
+      - run: npm ci
+      - run: npx vitest run tests/access-claim-001.test.ts

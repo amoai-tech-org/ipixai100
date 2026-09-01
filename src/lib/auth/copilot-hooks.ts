@@ -1,5 +1,6 @@
 import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
 
+import * as threadClaim from "./thread-claim";
 import {
   authorizeThreadAccess,
   loadThreadOwner,
@@ -9,7 +10,10 @@ import {
   threadForbiddenResponse,
   threadIdFromRequest,
 } from "./thread-acl";
-import { unauthorizedResponse } from "./unauthorized";
+import {
+  claimUnavailableResponse,
+  unauthorizedResponse,
+} from "./unauthorized";
 import {
   claimsFromSupabaseResult,
   getVerifiedOperatorFromClaims,
@@ -69,6 +73,19 @@ export function copilotAuthHooksFor(resourceId: string): CopilotRuntimeHooks {
         allowLookupFailed: routeAllowsLookupFailed(route.method),
       });
       if (!decision.ok) throw threadForbiddenResponse();
+
+      if (
+        owner.status === "not_found" &&
+        threadClaim.routeNeedsFirstCreateClaim(route.method)
+      ) {
+        const claim = await threadClaim.claimPlannerThread({
+          threadId,
+          resourceId,
+        });
+        if (claim.status === "owned") return;
+        if (claim.status === "unavailable") throw claimUnavailableResponse();
+        throw threadForbiddenResponse();
+      }
     },
   };
 }

@@ -60,7 +60,7 @@ let runSeq = 0;
 function runBody() {
   runSeq += 1;
   return {
-    threadId: `thread-stream-001-${runSeq}`,
+    threadId: crypto.randomUUID(),
     runId: `run-stream-001-${runSeq}`,
     state: {},
     messages: [
