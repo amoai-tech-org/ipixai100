@@ -4,7 +4,7 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createLocalAgents } from "@/agent";
 import {
   copilotAuthHooks,
@@ -20,12 +20,13 @@ import {
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
 import { createClientFromRequest } from "@/lib/supabase/server";
 import { handle } from "hono/vercel";
+import { Observable } from "rxjs";
 
-const RUN_STORE_SEP = "\u001f";
-
-function scopedThreadId(resourceId: string, threadId: string) {
-  return `${resourceId}${RUN_STORE_SEP}${threadId}`;
-}
+import {
+  ensureMastraThread,
+  getPlannerMemory,
+  splitRunThreadIds,
+} from "@/mastra/thread-persistence";
 
 /**
  * Mastra local agents inherit AbstractAgent.abortRun() as a no-op.
@@ -57,6 +58,9 @@ function attachRunnerAbort(agents: Record<string, AbstractAgent>) {
  * AUTH-002 resourceId so /stop cannot cancel another org/user's run.
  * Bind abort on run() after the store registers the thread (not a one-shot body peek).
  */
+const pendingRuns = new Set<string>();
+const pendingStops = new Set<string>();
+
 class TenantAbortRunner extends InMemoryAgentRunner {
   constructor(
     private readonly resourceId: string,
@@ -66,13 +70,24 @@ class TenantAbortRunner extends InMemoryAgentRunner {
   }
 
   private scope(threadId: string) {
-    return scopedThreadId(this.resourceId, threadId);
+    return splitRunThreadIds(this.resourceId, threadId).runnerThreadId;
+  }
+
+  private shouldSkipRun(runnerThreadId: string, cancelled: boolean) {
+    return (
+      cancelled ||
+      this.signal.aborted ||
+      pendingStops.has(runnerThreadId)
+    );
   }
 
   override run(request: Parameters<InMemoryAgentRunner["run"]>[0]) {
-    const threadId = this.scope(request.threadId);
+    const { runnerThreadId, mastraThreadId } = splitRunThreadIds(
+      this.resourceId,
+      request.threadId,
+    );
     const input = request.input
-      ? { ...request.input, threadId }
+      ? { ...request.input, threadId: mastraThreadId }
       : request.input;
     const agent = request.agent;
     const runAgent = agent.runAgent.bind(agent);
@@ -90,11 +105,62 @@ class TenantAbortRunner extends InMemoryAgentRunner {
       );
       return runAgent(runInput, subscribers);
     };
-    return super.run({ ...request, threadId, input });
+    pendingRuns.add(runnerThreadId);
+    return new Observable<BaseEvent>((subscriber) => {
+      let inner: { unsubscribe: () => void } | undefined;
+      let cancelled = false;
+      void (async () => {
+        if (this.shouldSkipRun(runnerThreadId, cancelled)) {
+          pendingStops.delete(runnerThreadId);
+          pendingRuns.delete(runnerThreadId);
+          return;
+        }
+        const memory = await getPlannerMemory();
+        if (this.shouldSkipRun(runnerThreadId, cancelled)) {
+          pendingStops.delete(runnerThreadId);
+          pendingRuns.delete(runnerThreadId);
+          return;
+        }
+        if (!memory) {
+          pendingRuns.delete(runnerThreadId);
+          subscriber.error(new Error("memory_unavailable"));
+          return;
+        }
+        await ensureMastraThread(memory, {
+          threadId: mastraThreadId,
+          resourceId: this.resourceId,
+        });
+        if (this.shouldSkipRun(runnerThreadId, cancelled)) {
+          pendingStops.delete(runnerThreadId);
+          pendingRuns.delete(runnerThreadId);
+          return;
+        }
+        inner = super
+          .run({ ...request, threadId: runnerThreadId, input })
+          .subscribe(subscriber);
+        pendingRuns.delete(runnerThreadId);
+      })().catch((error) => {
+        pendingRuns.delete(runnerThreadId);
+        if (!cancelled) subscriber.error(error);
+      });
+      return () => {
+        cancelled = true;
+        pendingRuns.delete(runnerThreadId);
+        inner?.unsubscribe();
+      };
+    });
   }
 
-  override stop(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
-    return super.stop({ ...request, threadId: this.scope(request.threadId) });
+  override async stop(request: Parameters<InMemoryAgentRunner["stop"]>[0]) {
+    const runnerThreadId = this.scope(request.threadId);
+    if (pendingRuns.has(runnerThreadId)) {
+      pendingStops.add(runnerThreadId);
+    }
+    const stopped = await super.stop({
+      ...request,
+      threadId: runnerThreadId,
+    });
+    return Boolean(stopped) || pendingStops.has(runnerThreadId);
   }
 
   override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]) {
@@ -121,7 +187,7 @@ class TenantAbortRunner extends InMemoryAgentRunner {
   }
 
   override listThreads() {
-    const prefix = `${this.resourceId}${RUN_STORE_SEP}`;
+    const prefix = splitRunThreadIds(this.resourceId, "").runnerThreadId;
     return super
       .listThreads()
       .filter((thread) => thread.id.startsWith(prefix))

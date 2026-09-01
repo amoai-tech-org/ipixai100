@@ -1,0 +1,114 @@
+import type { MastraMemory } from "@mastra/core/memory";
+
+import { weatherAgent } from "@/mastra/agents";
+import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types";
+
+export type { PlannerChatMessage, PlannerThreadRow };
+
+const RUN_STORE_SEP = "\u001f";
+
+export const THREAD_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function splitRunThreadIds(resourceId: string, clientThreadId: string) {
+  return {
+    runnerThreadId: `${resourceId}${RUN_STORE_SEP}${clientThreadId}`,
+    mastraThreadId: clientThreadId,
+  };
+}
+
+export async function getPlannerMemory(): Promise<MastraMemory | undefined> {
+  return weatherAgent.getMemory();
+}
+
+export async function ensureMastraThread(
+  memory: MastraMemory,
+  input: { threadId: string; resourceId: string; title?: string },
+): Promise<{ created: boolean }> {
+  const existing = await memory.getThreadById({
+    threadId: input.threadId,
+  });
+  if (existing) {
+    if (existing.resourceId !== input.resourceId) {
+      throw new Error("thread belongs to another resource");
+    }
+    return { created: false };
+  }
+  await memory.createThread({
+    threadId: input.threadId,
+    resourceId: input.resourceId,
+    title: input.title ?? "Planner chat",
+  });
+  return { created: true };
+}
+
+export async function listMastraThreadsForResource(
+  memory: MastraMemory,
+  resourceId: string,
+): Promise<PlannerThreadRow[]> {
+  const listed = await memory.listThreads({
+    filter: { resourceId },
+    perPage: false,
+  });
+  return listed.threads
+    .filter((thread) => thread.resourceId === resourceId)
+    .map((thread) => ({
+      id: thread.id,
+      title: thread.title?.trim() || "Planner chat",
+      createdAt:
+        thread.createdAt instanceof Date
+          ? thread.createdAt.toISOString()
+          : String(thread.createdAt),
+      updatedAt:
+        thread.updatedAt instanceof Date
+          ? thread.updatedAt.toISOString()
+          : String(thread.updatedAt),
+    }));
+}
+
+export async function recallPlannerChatMessages(
+  memory: MastraMemory,
+  input: { threadId: string; resourceId: string },
+): Promise<PlannerChatMessage[]> {
+  const thread = await memory.getThreadById({
+    threadId: input.threadId,
+  });
+  if (!thread || thread.resourceId !== input.resourceId) {
+    return [];
+  }
+  const recalled = await memory.recall({
+    threadId: input.threadId,
+    resourceId: input.resourceId,
+    perPage: false,
+  });
+  return mastraMessagesToChat(recalled.messages ?? []);
+}
+
+export function mastraMessagesToChat(
+  messages: Array<{
+    id?: string;
+    role?: string;
+    content?: {
+      content?: unknown;
+      parts?: Array<{ type?: string; text?: string }>;
+    };
+  }>,
+): PlannerChatMessage[] {
+  const out: PlannerChatMessage[] = [];
+  for (const message of messages) {
+    if (message.role !== "user" && message.role !== "assistant") continue;
+    const id = typeof message.id === "string" ? message.id : "";
+    if (!id) continue;
+    const direct =
+      typeof message.content?.content === "string"
+        ? message.content.content
+        : "";
+    const fromParts = (message.content?.parts ?? [])
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text)
+      .join("");
+    const content = direct.length > 0 ? direct : fromParts;
+    out.push({ id, role: message.role, content });
+  }
+  return out;
+}
