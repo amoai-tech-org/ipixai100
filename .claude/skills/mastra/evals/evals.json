@@ -55,11 +55,13 @@
     {
       "id": 6,
       "prompt": "Studio isn’t up. I need to list agents on the local Mastra server and then fetch traces. What do I start in this iPixai repo, and which mastra api commands?",
-      "expected_output": "Start npm run dev:agent (not combined npm run dev); then npx mastra api --url http://localhost:4111 agent list (and traces with --url localhost). Points at references/mastra-api.md.",
+      "expected_output": "Start npm run dev:agent (not combined npm run dev). Check the local CLI with npx --no-install mastra --version and npx --no-install mastra api --help. If api exists: npx --no-install mastra api --url http://localhost:4111 agent list and a local trace list/get. If api is missing, fall back to swagger-ui or curl /api/system/api-schema. Points at references/mastra-api.md.",
       "files": [],
       "expectations": [
         "Names `npm run dev:agent` or `mastra dev` on :4111 and forbids combined `npm run dev`",
-        "Uses `npx mastra api` with localhost:4111 (or default) and `agent list`"
+        "Checks the local CLI with `npx --no-install mastra --version` and `npx --no-install mastra api --help` before assuming `mastra api` exists",
+        "If `mastra api` is available: uses `npx --no-install mastra api --url http://localhost:4111 agent list`",
+        "If `mastra api` is available: uses a local trace command such as `npx --no-install mastra api --url http://localhost:4111 trace list` or `trace get`"
       ]
     }
   ]

@@ -23,9 +23,9 @@ Never trust training-data API shapes — Mastra APIs change between versions.
 |------|--------|
 | Location | `src/mastra/` only (not old iPix `app/src/mastra/`) |
 | Export | `export const mastra` from `src/mastra/index.ts` |
-| Storage | PostgresStore, `schemaName: "mastra"`, `disableInit: true` except disposable preview |
+| Storage | PostgresStore, `schemaName: "mastra"`, `disableInit: true`. Production must fail closed if `MASTRA_DATABASE_URL` is unset (no in-memory LibSQL). LibSQL fallback is disposable local/preview only |
 | Models | Starter pin until a provider ticket — run [`model-selection.md`](./model-selection.md) before new ids |
-| Agent IDs | `production-planner` (+ `default` alias) until convert plan adds more |
+| Agent IDs | **Current:** `weather-agent` (`default`). **Target:** `production-planner` (+ `default` alias) per convert plan — do not assume the target is registered |
 | CopilotKit | In-process `getLocalAgents({ mastra, resourceId })` — `resourceId` = `org:{orgId}::user:{userId}` |
 | Dev | `npm run dev:agent` (`:4111`) and `npm run dev:ui` (`:3000`) — never combined `npm run dev` |
 
@@ -55,7 +55,7 @@ Full iPix block: [SKILL.md § iPix-specific wiring](../SKILL.md).
 - Agent/Studio: `npm run dev:agent` (`mastra dev` on `:4111`)
 - UI: `npm run dev:ui` (`:3000`) in a second terminal
 - Typecheck: `npx tsc --noEmit` at repo root
-- Inspect: `npx mastra api --url http://localhost:4111 agent list` when `:4111` is up
+- Inspect: `npx --no-install mastra api --help` first; if `api` exists, `npx --no-install mastra api --url http://localhost:4111 agent list` when `:4111` is up
 
 ---
 

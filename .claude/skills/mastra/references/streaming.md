@@ -92,7 +92,7 @@ From [streaming/events](https://mastra.ai/docs/streaming/events):
 }
 ```
 
-Package: `@mastra/core` — use `readMastraDocs` with `projectPath: /home/sk/mdeai/mdeapp`.
+Package: `@mastra/core` — use `readMastraDocs` with `projectPath` = this repo root (`$(git rev-parse --show-toplevel)`).
 
 ---
 

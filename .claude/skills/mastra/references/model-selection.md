@@ -5,12 +5,12 @@ parent: mastra
 impact: HIGH
 impactDescription: Verify model ids against the registry, do not guess
 tags: mastra, models, provider, registry
-source: https://github.com/mastra-ai/skills/blob/main/skills/mastra/references/model-selection.md
+source: https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/model-selection.md
 ---
 
 # Model Selection Reference
 
-Upstream: [mastra-ai/skills `model-selection.md`](https://github.com/mastra-ai/skills/blob/main/skills/mastra/references/model-selection.md) (skill 2.1.0).
+Upstream: [mastra-ai/skills `model-selection.md` @ 690d5d6](https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/model-selection.md) (skill 2.1.0).
 
 Use this when choosing or validating Mastra model strings. For longer vendor notes see [`model-providers.md`](model-providers.md). **iPixai:** keep the starter model pin until a provider ticket — do not port Cloudflare `resolveAgentModel`.
 

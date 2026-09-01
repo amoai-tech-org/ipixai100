@@ -73,7 +73,7 @@ Index via MCP: `mastraDocs` path `reference/memory/`
 }
 ```
 
-Package: `@mastra/memory` — use `readMastraDocs` with `projectPath: /home/sk/mdeai/mdeapp`.
+Package: `@mastra/memory` — use `readMastraDocs` with `projectPath` = this repo root (`$(git rev-parse --show-toplevel)`).
 
 ---
 

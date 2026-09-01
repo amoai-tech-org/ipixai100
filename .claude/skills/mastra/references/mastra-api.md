@@ -1,16 +1,16 @@
 ---
 title: Mastra API CLI
-description: Load when inspecting or calling a running Mastra server via `npx mastra api` (agents, tools, traces, threads).
+description: Load when inspecting or calling a running Mastra server via `npx --no-install mastra api` (agents, tools, traces, threads).
 parent: mastra
 impact: HIGH
 impactDescription: Agent-readable inspect/call loop against Studio/API
 tags: mastra, cli, api, studio
-source: https://github.com/mastra-ai/skills/blob/main/skills/mastra/references/mastra-api.md
+source: https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/mastra-api.md
 ---
 
 # Mastra API CLI Reference
 
-Upstream: [mastra-ai/skills `mastra-api.md`](https://github.com/mastra-ai/skills/blob/main/skills/mastra/references/mastra-api.md) (skill 2.1.0). Official develop loop: [Develop](https://mastra.ai/docs/getting-started/develop.md) (`npx mastra api --url http://localhost:4111 …`).
+Upstream: [mastra-ai/skills `mastra-api.md` @ 690d5d6](https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/mastra-api.md) (skill 2.1.0). Official CLI: [`mastra api`](https://mastra.ai/reference/cli/mastra.md). Develop loop: [Develop](https://mastra.ai/docs/getting-started/develop.md).
 
 ## iPixai — how the local server is started
 
@@ -20,9 +20,19 @@ Official Mastra examples say `npm run dev` or `npx mastra dev` for Studio on `:4
 # Terminal A — Mastra Studio + API
 npm run dev:agent
 
-# Then, with :4111 up
-npx mastra api --url http://localhost:4111 agent list
+# Use the repo-pinned CLI only (package.json `mastra`). Never bare `npx mastra`.
+npx --no-install mastra --version
+npx --no-install mastra api --help
 ```
+
+If `api` exists, with `:4111` up:
+
+```bash
+npx --no-install mastra api --url http://localhost:4111 agent list
+npx --no-install mastra api --url http://localhost:4111 trace list '{"page":0,"perPage":20}'
+```
+
+If `api` is missing from this pin, do **not** run a newer registry CLI. Fallback: `http://localhost:4111/swagger-ui` or the curl preflight below.
 
 Do **not** point `mastra api` at `:3000`. Observability commands that default to `https://observability.mastra.ai` are **Mastra Cloud** — skip unless this project is actually on that platform.
 
@@ -44,28 +54,39 @@ The CLI can interact with any reachable Mastra server:
 For local servers, `mastra api` defaults to `http://localhost:4111`:
 
 ```bash
-npx mastra api agent list
+npx --no-install mastra api agent list
 ```
 
 For Mastra platform or remote servers, pass `--url`. For the sake of brevity in examples, `$MASTRA_URL` is used as a placeholder:
 
 ```bash
-npx mastra api --url $MASTRA_URL agent list
+npx --no-install mastra api --url $MASTRA_URL agent list
 ```
 
-Verify the server once with a cheap check before resource calls:
+Verify the server once with a cheap check before resource calls. Unauthenticated local Studio: a headerless curl is enough. If the server requires auth, a 401/403 is **not** “unreachable” — send the same headers the CLI would, from **already-configured env**, never by asking the user to paste a token into chat.
 
 ```bash
 MASTRA_URL="${MASTRA_URL:-http://localhost:4111}"
-curl -fsS "$MASTRA_URL/api/system/api-schema" >/dev/null
+if [ -n "${MASTRA_PLATFORM_ACCESS_TOKEN:-}" ]; then
+  curl -fsS \
+    -H "Authorization: Bearer ${MASTRA_PLATFORM_ACCESS_TOKEN}" \
+    ${MASTRA_PROJECT_ID:+-H "X-Mastra-Project-Id: ${MASTRA_PROJECT_ID}"} \
+    "$MASTRA_URL/api/system/api-schema" >/dev/null
+else
+  code=$(curl -sS -o /tmp/mastra-api-schema.json -w "%{http_code}" "$MASTRA_URL/api/system/api-schema")
+  if [ "$code" = "401" ] || [ "$code" = "403" ]; then
+    echo "Server is up but requires auth. Confirm MASTRA_PLATFORM_ACCESS_TOKEN / MASTRA_PROJECT_ID (or --header) are set in the local env — do not paste secrets into chat." >&2
+    exit 1
+  fi
+  [ "$code" = "200" ]
+fi
 ```
 
-If `$MASTRA_URL` is not reachable, start `npm run dev:agent` or ask for the correct remote URL. If authentication is required, ask the user for the necessary token or credentials.
-
-For authenticated servers, pass repeatable headers:
+If the TCP connection fails, start `npm run dev:agent` or confirm the URL. For authenticated CLI calls, pass headers from env (do not request credential values):
 
 ```bash
-npx mastra api --url "$MASTRA_URL" --header "Authorization: Bearer $TOKEN" agent list
+npx --no-install mastra api --url "$MASTRA_URL" \
+  --header "Authorization: Bearer ${MASTRA_PLATFORM_ACCESS_TOKEN}" agent list
 ```
 
 ### Target resolution
@@ -87,8 +108,9 @@ The CLI resolves Mastra Cloud credentials in this order:
 
 ## Decision flow
 
+0. **Target gate (mutations):** `create`, `update`, `delete`, `run`, `resume`, and `execute` are allowed only against `http://localhost:4111` from `npm run dev:agent`, or a **verified preview** URL. If `$MASTRA_URL` / `.mastra-project.json` might be production or the project/read-write boundary is unclear — **stop**. Do not discover or run mutating commands.
 1. Clear read-only request (`list X`, `latest X`, `get X`, `summarize recent X`): infer the resource and use the fast path first.
-2. Mutating request (`create`, `update`, `delete`, `run`, `resume`, `execute`), unclear resource/action, failed fast path, or exact syntax requested: use narrow CLI discovery.
+2. Mutating request (after the target gate), unclear resource/action, failed fast path, or exact syntax requested: use narrow CLI discovery.
 3. JSON input uncertain: use command-specific `--schema`.
 4. Route behavior confusing: inspect `/api/system/api-schema`.
 
@@ -105,28 +127,28 @@ Use conventional `list`/`get` commands first. Keep pages small and pipe through 
 Latest item:
 
 ```bash
-npx mastra api <resource> list '{"page":0,"perPage":1}' \
+npx --no-install mastra api <resource> list '{"page":0,"perPage":1}' \
   | jq '.data[0]'
 ```
 
 Recent items:
 
 ```bash
-npx mastra api <resource> list '{"page":0,"perPage":10}' \
+npx --no-install mastra api <resource> list '{"page":0,"perPage":10}' \
   | jq '.data[]'
 ```
 
 When the shape is known, project only the fields needed for the task:
 
 ```bash
-npx mastra api <resource> list '{"page":0,"perPage":10}' \
+npx --no-install mastra api <resource> list '{"page":0,"perPage":10}' \
   | jq '.data[] | {id, name, createdAt, status}'
 ```
 
 Get details:
 
 ```bash
-npx mastra api <resource> get <id> \
+npx --no-install mastra api <resource> get <id> \
   | jq '.data'
 ```
 
@@ -145,15 +167,15 @@ If a resource does not support the conventional shape, fall back to narrow `--he
 Use the narrowest discovery command that can answer the question. Example for traces:
 
 ```bash
-npx mastra api trace --help
-npx mastra api trace list --help
-npx mastra api trace list --schema
+npx --no-install mastra api trace --help
+npx --no-install mastra api trace list --help
+npx --no-install mastra api trace list --schema
 ```
 
 Use top-level help only when the resource is unknown:
 
 ```bash
-npx mastra api --help
+npx --no-install mastra api --help
 ```
 
 Read `--schema` output as the contract:

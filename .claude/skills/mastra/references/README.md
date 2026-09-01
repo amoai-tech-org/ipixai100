@@ -16,7 +16,7 @@ Read **one** reference file per task (plus [`topic-routing.md`](topic-routing.md
 | [`topic-routing.md`](topic-routing.md) | Any Mastra doc lookup — maps intent → `links.md` + local ref |
 | [`embedded-docs.md`](embedded-docs.md) | Packages installed; need version-accurate API from `node_modules/@mastra` |
 | [`core-concepts.md`](core-concepts.md) | Agent vs workflow vs tool vs memory vs storage |
-| [`mastra-api.md`](mastra-api.md) | `npx mastra api` against `npm run dev:agent` (`:4111`) |
+| [`mastra-api.md`](mastra-api.md) | Local `npx --no-install mastra api` against `npm run dev:agent` (`:4111`); check `--help` first |
 | [`model-selection.md`](model-selection.md) | Validate `provider/model` via `scripts/provider-registry.mjs` |
 | [`mcp-docs-lookup.md`](mcp-docs-lookup.md) | Using Cursor `user-mastra` MCP (`mastraDocs`, `searchMastraDocs`) |
 | [`remote-docs.md`](remote-docs.md) | No local packages; fetch from mastra.ai |
@@ -28,7 +28,7 @@ Read **one** reference file per task (plus [`topic-routing.md`](topic-routing.md
 | [`tools.md`](tools.md) | `createTool`, tool schemas, agent tools |
 | [`mcp.md`](mcp.md) | MCPClient / MCPServer overview (vendor paste — verify) |
 | [`mcp-apps.md`](mcp-apps.md) | MCP Apps / Studio iframe UIs |
-| [`agents-supervisor.md`](agents-supervisor.md) | Supervisor + subagents (Phase 2 defer for mdeapp) |
+| [`agents-supervisor.md`](agents-supervisor.md) | Supervisor + subagents — **not iPixai Core**; conversion-plan Phase 2+. Do not apply mdeapp defer rules |
 | [`multi-agent.md`](multi-agent.md) | Multi-agent concepts and patterns |
 | [`mdeai-concierge.md`](mdeai-concierge.md) | **Legacy** concierge notes — do not apply to iPixai |
 | [`copilotkit.md`](copilotkit.md) | Mastra **separate-server** + CopilotKit (not iPixai default) |

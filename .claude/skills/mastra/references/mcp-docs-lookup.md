@@ -22,7 +22,7 @@ Use **before** guessing APIs from training data. iPixai has **`user-mastra`** MC
 | Export / API surface | **`getMastraExports`** | `package`, `projectPath` | Type discovery |
 | v1 migration | **`mastraMigration`** | (see schema) | Breaking changes |
 
-**Always pass:** `projectPath` = `$(git rev-parse --show-toplevel)` (iPixai repo root — **not** `/home/sk/ipix/app` and **not** `mdeapp`).
+Pass `projectPath` **only** to tools whose schema declares it (`searchMastraDocs`, `readMastraDocs`, `listMastraPackages`, `getMastraExports`, `getMastraHelp`). Value = `$(git rev-parse --show-toplevel)` (iPixai repo root — **not** `/home/sk/ipix/app` and **not** `mdeapp`). **`mastraDocs` does not take `projectPath`** — use `paths` and optional `queryKeywords` only.
 
 ## `mastraDocs` path patterns
 
