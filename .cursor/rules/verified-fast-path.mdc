@@ -22,7 +22,7 @@ Companions: `ponytail.mdc` (smallest diff **after** the path is chosen) · `fast
 
 | # | Path | Must |
 | -- | -- | -- |
-| 0 | **Verify the problem** | Read the task and the live flow. `graphify query` this repo. Do not invent scope. |
+| 0 | **Verify the problem** | First: `PATH="$HOME/.local/bin:$PATH" graphify query "<question>"`. Then read the task and the live flow. No Read/Grep/Glob/Bash exploration before that query. Do not invent scope. |
 | 1 | **Dashboard / native feature** | Supabase Auth/RLS/extensions; Cloudinary presets/transforms/triggers/Upload Widget; Stripe Checkout/webhooks; CopilotKit Inspector; Mastra Studio. Config over code when it fully solves it. **Read-only first:** dashboard state → CLI inspect/list/diff → schema/types → **mutation last**. |
 | 2 | **Official CLI / scaffold** | `supabase`, `stripe`, Cloudinary CLI, vendor scaffold. No custom script if a CLI command exists. |
 | 3 | **Installed SDK / source / types** | `package.json` + `node_modules` types/source. No wrapper if the SDK already exports the function. Installed version beats blogs. |
@@ -43,11 +43,16 @@ Wait for the user if the faster path changes product scope, costs money, weakens
 Custom code is **blocked** until at least one concrete gap is documented:
 
 ```text
-Native path rejected:
+Prior path rejected (every applicable earlier rung, not a subset):
 - Dashboard/native: why insufficient
-- CLI: why insufficient
+- Official CLI: why insufficient
 - Installed SDK: why insufficient
+- Official docs: why insufficient
+- Official GitHub: why insufficient
 - Official example/template: why insufficient
+- Existing iPix (this repo / pinned GitHub): why insufficient
+- OSS: why insufficient
+- Smallest adapter: why insufficient
 ```
 
 Checking the boxes without a gap is not a pass.
@@ -85,7 +90,7 @@ Trust-boundary work (auth, payments, isolation, persistence, media signing, webh
 | **DONE** | Real workflow + required negative/security tests + CI + evidence |
 
 Every implement/plan task: **Correctness confidence: XX/100**.  
-**100/100 only when:** official docs verified · installed types verified · GitHub example if listed · live config/schema if relevant · positive test · negative/security test · workflow/browser/CLI proof · CI · no blocking review. Else score below 100 and name the gap.
+**100/100 only when:** official docs verified · installed types verified · GitHub example if listed · live config/schema if relevant · `npm run typecheck` (same as `tsc --noEmit`) when TypeScript is in scope · `npm run build` when applicable (ports 3000/4111 free; see `AGENTS.md`) · positive test · negative/security test · workflow/browser/runtime proof **or honest N/A** · CI · no blocking review. Else score below 100 and name the gap.
 
 ## Report (implement/plan)
 
