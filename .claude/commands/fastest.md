@@ -16,9 +16,9 @@ Always-on: `.cursor/rules/verified-fast-path.mdc` (verify the evidence required 
 
 ## Instructions
 
-1. Run `PATH="$HOME/.local/bin:$PATH" graphify query "<task topic>"` before reading the task, repository instructions, or any Read, Grep, Glob, or Bash exploration.
-2. Then inspect the current codebase to avoid rebuilding existing work.
-3. Read the full task, acceptance criteria, blockers, and linked PRs. Use the full name: **`IPI-NNN · SPEC — Title`**.
+1. Run `PATH="$HOME/.local/bin:$PATH" graphify query "<task topic>"` before any Read, Grep, Glob, or Bash exploration of the codebase.
+2. Read the full task, acceptance criteria, blockers, and linked PRs. Use the full name: **`IPI-NNN · SPEC — Title`**.
+3. Then inspect the current codebase to avoid rebuilding existing work.
 4. Load the relevant project skills and repository instructions (`AGENTS.md`, `CLAUDE.md`, matching skill from `.claude/skills/`).
 5. Verify live platform state using available MCPs, CLIs, and dashboards (Linear, Vercel, Supabase **preview only**, Mastra docs MCP, CopilotKit docs MCP). Do **not** mutate production Supabase.
 6. Fetch **current official documentation only** (Context7 / vendor MCP / vendor docs). No blogs when official docs exist.
