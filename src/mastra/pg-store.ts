@@ -1,5 +1,7 @@
-import { Pool } from "pg";
+import { parseIntoClientConfig } from "pg-connection-string";
+import { Pool, type PoolConfig } from "pg";
 import { PostgresStore } from "@mastra/pg";
+import { LibSQLStore } from "@mastra/libsql";
 
 declare global {
   // ponytail: Next HMR otherwise opens extra pools; ceiling is one process-wide Pool.
@@ -15,7 +17,19 @@ const MISSING_URL_WARNING =
 const HOSTED_MISSING_URL =
   "IPIX_MASTRA_HOSTED requires MASTRA_DATABASE_URL; refusing in-memory storage";
 
-/** Existing fashionos project — the only hosted Mastra memory cabinet. */
+const GENERIC_HOSTED_REJECT =
+  "MASTRA_DATABASE_URL is not the approved iPix Mastra Postgres project; refusing to connect";
+
+const QUERY_OVERRIDE_REJECT =
+  "MASTRA_DATABASE_URL must not override connection identity or TLS via query params; refusing to connect";
+
+const TLS_REJECT =
+  "MASTRA_DATABASE_URL TLS is not certificate-verified; refusing to connect";
+
+const PROOF_PROD_WRITE_BLOCK =
+  "Hosted proof writes to shared fashionos are blocked (AGENTS.md). Schema mastra_preview does not exist. Use local Docker without IPIX_MASTRA_HOSTED.";
+
+/** Existing fashionos project — the only hosted Mastra memory cabinet for runtime. */
 export const APPROVED_MASTRA_PROJECT_REF = "nvdlhrodvevgwdsneplk";
 export const APPROVED_MASTRA_DIRECT_HOST =
   `db.${APPROVED_MASTRA_PROJECT_REF}.supabase.co`;
@@ -23,8 +37,18 @@ export const APPROVED_MASTRA_RUNTIME_ROLE = "hyperdrive_mastra_runtime";
 export const HOSTED_MASTRA_POOL_MAX = 1;
 export const LOCAL_MASTRA_POOL_MAX = 8;
 
-const GENERIC_HOSTED_REJECT =
-  "MASTRA_DATABASE_URL is not the approved iPix Mastra Postgres project; refusing to connect";
+const IDENTITY_QUERY_KEYS = new Set([
+  "user",
+  "password",
+  "host",
+  "hostaddr",
+  "socket",
+  "database",
+  "dbname",
+  "port",
+]);
+
+const UNSAFE_SSLMODE = new Set(["disable", "no-verify", "allow", "prefer"]);
 
 export function isMastraHostedRuntime(
   env: NodeJS.ProcessEnv = process.env,
@@ -48,32 +72,21 @@ function isApprovedPoolerHostname(hostname: string): boolean {
   return hostname.toLowerCase().endsWith(".pooler.supabase.com");
 }
 
-function connectionUsername(parsed: URL): string {
-  try {
-    return decodeURIComponent(parsed.username);
-  } catch {
-    return parsed.username;
-  }
+function isForbiddenRuntimeUser(user: string): boolean {
+  const userBase = user.split(".")[0] ?? "";
+  return userBase === "postgres" || user.toLowerCase().includes("service_role");
 }
 
-function isApprovedHostedMastraUrl(parsed: URL): boolean {
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  const user = connectionUsername(parsed);
-  const userBase = user.split(".")[0] ?? "";
-  if (userBase === "postgres" || user.toLowerCase().includes("service_role")) {
-    return false;
-  }
-
+function isApprovedHostedIdentity(host: string, user: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
+  if (isForbiddenRuntimeUser(user)) return false;
   const expectedPoolerUser = `${APPROVED_MASTRA_RUNTIME_ROLE}.${APPROVED_MASTRA_PROJECT_REF}`;
-
-  if (host === APPROVED_MASTRA_DIRECT_HOST) {
+  if (h === APPROVED_MASTRA_DIRECT_HOST) {
     return user === APPROVED_MASTRA_RUNTIME_ROLE || user === expectedPoolerUser;
   }
-
-  if (isApprovedPoolerHostname(host)) {
+  if (isApprovedPoolerHostname(h)) {
     return user === expectedPoolerUser;
   }
-
   return false;
 }
 
@@ -96,15 +109,40 @@ function assertPostgresUrl(url: string): URL {
       "MASTRA_DATABASE_URL must use postgres: or postgresql:; refusing to connect",
     );
   }
-  const queryKeys = new Set(
-    [...parsed.searchParams.keys()].map((key) => key.toLowerCase()),
-  );
-  if (queryKeys.has("host") || queryKeys.has("hostaddr") || queryKeys.has("socket")) {
-    throw new Error(
-      "MASTRA_DATABASE_URL must not set host/hostaddr/socket query params; refusing to connect",
-    );
+  for (const key of parsed.searchParams.keys()) {
+    const k = key.toLowerCase();
+    if (IDENTITY_QUERY_KEYS.has(k)) {
+      throw new Error(QUERY_OVERRIDE_REJECT);
+    }
+    if (k === "sslmode" || k === "ssl") {
+      const v = (parsed.searchParams.get(key) ?? "").toLowerCase();
+      if (UNSAFE_SSLMODE.has(v) || v === "false" || v === "0") {
+        throw new Error(TLS_REJECT);
+      }
+    }
+    if (
+      k === "sslcert" ||
+      k === "sslkey" ||
+      k === "sslrootcert" ||
+      k === "sslpassword" ||
+      k === "uselibpqcompat"
+    ) {
+      throw new Error(QUERY_OVERRIDE_REJECT);
+    }
   }
   return parsed;
+}
+
+function effectiveClientConfig(url: string): PoolConfig {
+  return parseIntoClientConfig(url) as PoolConfig;
+}
+
+function assertEffectiveTls(config: PoolConfig): void {
+  const ssl = config.ssl;
+  if (ssl === false) throw new Error(TLS_REJECT);
+  if (ssl && typeof ssl === "object" && ssl.rejectUnauthorized === false) {
+    throw new Error(TLS_REJECT);
+  }
 }
 
 export function assertSafeMastraDatabaseUrl(
@@ -113,13 +151,17 @@ export function assertSafeMastraDatabaseUrl(
 ): URL {
   const parsed = assertPostgresUrl(url);
   const hosted = options?.hosted ?? isMastraHostedRuntime();
+  const effective = effectiveClientConfig(url);
+  const effectiveHost = String(effective.host ?? parsed.hostname);
+  const effectiveUser = String(effective.user ?? "");
   if (hosted) {
-    if (!isApprovedHostedMastraUrl(parsed)) {
+    assertEffectiveTls(effective);
+    if (!isApprovedHostedIdentity(effectiveHost, effectiveUser)) {
       throw new Error(GENERIC_HOSTED_REJECT);
     }
     return parsed;
   }
-  if (!isAllowedLocalMastraDatabaseHost(parsed.hostname)) {
+  if (!isAllowedLocalMastraDatabaseHost(effectiveHost)) {
     throw new Error(
       "MASTRA_DATABASE_URL host is not on the local allowlist; refusing to connect",
     );
@@ -149,6 +191,37 @@ export function requireMastraPostgresUrl(
   return url;
 }
 
+/** Proof/script writes must not hit shared fashionos until a preview cabinet exists. */
+export function assertMastraProofWritesAllowed(
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if (isMastraHostedRuntime(env)) {
+    throw new Error(PROOF_PROD_WRITE_BLOCK);
+  }
+}
+
+export function createMastraStorage() {
+  const url = requireMastraPostgresUrl();
+  if (!url) {
+    return new LibSQLStore({
+      id: "mastra-storage",
+      url: ":memory:",
+    });
+  }
+  return getMastraPostgresStore(url);
+}
+
+export function createAgentMemoryStorage() {
+  const url = requireMastraPostgresUrl();
+  if (!url) {
+    return new LibSQLStore({
+      id: "weather-agent-memory",
+      url: "file::memory:",
+    });
+  }
+  return getMastraPostgresStore(url);
+}
+
 export async function resetMastraPgSingletonsForTests(): Promise<void> {
   const pool = globalThis.__ipixMastraPgPool;
   globalThis.__ipixMastraPgPool = undefined;
@@ -171,11 +244,12 @@ export function getMastraPgPool(connectionString: string): PostgresStore["pool"]
   assertSameMastraConnectionString(connectionString);
   if (!globalThis.__ipixMastraPgPool) {
     const hosted = isMastraHostedRuntime();
-    const pool = new Pool({
-      connectionString,
-      max: hosted ? HOSTED_MASTRA_POOL_MAX : LOCAL_MASTRA_POOL_MAX,
-      ...(hosted ? { ssl: { rejectUnauthorized: true } } : {}),
-    });
+    const pool = hosted
+      ? new Pool(hostedPoolConfig(connectionString))
+      : new Pool({
+          connectionString,
+          max: LOCAL_MASTRA_POOL_MAX,
+        });
     pool.on("error", (err: Error) => {
       console.error("Mastra pg pool idle client error", err);
     });
@@ -183,6 +257,19 @@ export function getMastraPgPool(connectionString: string): PostgresStore["pool"]
     globalThis.__ipixMastraPgConnectionString = connectionString;
   }
   return globalThis.__ipixMastraPgPool;
+}
+
+function hostedPoolConfig(connectionString: string): PoolConfig {
+  const parsed = effectiveClientConfig(connectionString);
+  return {
+    host: parsed.host,
+    port: parsed.port,
+    user: parsed.user,
+    password: parsed.password,
+    database: parsed.database,
+    max: HOSTED_MASTRA_POOL_MAX,
+    ssl: { rejectUnauthorized: true },
+  };
 }
 
 export function getMastraPostgresStore(connectionString: string): PostgresStore {

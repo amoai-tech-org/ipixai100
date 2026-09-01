@@ -1,10 +1,14 @@
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { MASTRA_SCHEMA_FINGERPRINT_SQL } from "../scripts/mastra-schema-fingerprint";
+import { LibSQLStore } from "@mastra/libsql";
+import { PostgresStore } from "@mastra/pg";
 import {
   APPROVED_MASTRA_DIRECT_HOST,
   APPROVED_MASTRA_PROJECT_REF,
   HOSTED_MASTRA_POOL_MAX,
+  assertMastraProofWritesAllowed,
   assertSafeMastraDatabaseUrl,
+  createMastraStorage,
   getMastraPgPool,
   getMastraPostgresStore,
   isAllowedLocalMastraDatabaseHost,
@@ -67,17 +71,17 @@ describe("IPI-1044 local URL guard", () => {
       assertSafeMastraDatabaseUrl(
         "postgresql://postgres:pw@127.0.0.1:54342/postgres?host=db.prod.example.com",
       ),
-    ).toThrow(/host\/hostaddr\/socket/);
+    ).toThrow(/query params|host\/hostaddr\/socket/);
     expect(() =>
       assertSafeMastraDatabaseUrl(
         "postgresql://postgres:pw@127.0.0.1:54342/postgres?hostaddr=8.8.8.8",
       ),
-    ).toThrow(/host\/hostaddr\/socket/);
+    ).toThrow(/query params|host\/hostaddr\/socket/);
     expect(() =>
       assertSafeMastraDatabaseUrl(
         "postgresql://postgres:pw@127.0.0.1:54342/postgres?HOST=db.prod.example.com",
       ),
-    ).toThrow(/host\/hostaddr\/socket/);
+    ).toThrow(/query params|host\/hostaddr\/socket/);
   });
 
   it("fails closed on hosted fashionos, RDS, Neon, and supabase.com poolers", () => {
@@ -223,5 +227,44 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     expect(store).toBe(getMastraPostgresStore(APPROVED_TX_POOLER));
     expect(store.disableInit).toBe(true);
     expect((store as unknown as { schema: string }).schema).toBe("mastra");
+    expect(a.options.ssl).toEqual({ rejectUnauthorized: true });
+  });
+
+  it("rejects TLS and identity query-parameter overrides", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    expect(() =>
+      assertSafeMastraDatabaseUrl(
+        `postgresql://${APPROVED_POOLER_USER}:x@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=disable`,
+      ),
+    ).toThrow(/TLS|certificate-verified/);
+    expect(() =>
+      assertSafeMastraDatabaseUrl(
+        `postgresql://${APPROVED_POOLER_USER}:x@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=no-verify`,
+      ),
+    ).toThrow(/TLS|certificate-verified/);
+    expect(() =>
+      assertSafeMastraDatabaseUrl(`${APPROVED_TX_POOLER}&user=postgres`),
+    ).toThrow(/query params/);
+  });
+
+  it("blocks hosted proof writes to fashionos", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    expect(() => assertMastraProofWritesAllowed()).toThrow(/fashionos are blocked/);
+  });
+
+  it("createMastraStorage: hosted missing/invalid throws and does not return LibSQL", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    delete process.env.MASTRA_DATABASE_URL;
+    expect(() => createMastraStorage()).toThrow(/IPIX_MASTRA_HOSTED requires MASTRA_DATABASE_URL/);
+    process.env.MASTRA_DATABASE_URL = WRONG_PROJECT_POOLER;
+    expect(() => createMastraStorage()).toThrow(/approved iPix Mastra Postgres project/);
+  });
+
+  it("createMastraStorage: local missing URL returns LibSQL", () => {
+    delete process.env.IPIX_MASTRA_HOSTED;
+    delete process.env.MASTRA_DATABASE_URL;
+    const storage = createMastraStorage();
+    expect(storage).toBeInstanceOf(LibSQLStore);
+    expect(storage).not.toBeInstanceOf(PostgresStore);
   });
 });

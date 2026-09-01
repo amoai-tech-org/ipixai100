@@ -1,28 +1,13 @@
 import { openai } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 import { weatherTool } from "@/mastra/tools";
-import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
-import {
-  getMastraPostgresStore,
-  requireMastraPostgresUrl,
-} from "@/mastra/pg-store";
+import { createAgentMemoryStorage } from "@/mastra/pg-store";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
 });
-
-function createAgentMemoryStorage() {
-  const url = requireMastraPostgresUrl();
-  if (!url) {
-    return new LibSQLStore({
-      id: "weather-agent-memory",
-      url: "file::memory:",
-    });
-  }
-  return getMastraPostgresStore(url);
-}
 
 export const weatherAgent = new Agent({
   id: "weather-agent",
