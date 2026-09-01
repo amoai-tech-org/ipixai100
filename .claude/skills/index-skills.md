@@ -12,7 +12,7 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 
 | Skill | Why |
 |-------|-----|
-| `mastra` | Agents / Memory / workflows — **patched** for `src/mastra` + repo-root `projectPath` |
+| `mastra` | Agents / Memory / workflows — **2.1.0-ipix.1** overlay on [mastra-ai/skills](https://github.com/mastra-ai/skills) 2.1.0 (`src/mastra`, split `dev:agent`/`dev:ui`, `mastra api`) |
 | `copilotkit` | Starter chat, AG-UI, Mastra wiring |
 | `ipix-supabase` | Same project `nvdlhrodvevgwdsneplk`; RLS/RPC/CLI refs — **no prod writes** |
 | `fashion-production` | Planner / shoot domain language |

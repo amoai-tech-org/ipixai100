@@ -1,10 +1,11 @@
 ---
 name: mastra
-description: "Mastra framework: docs lookup (links.md, mastraDocs MCP, embedded docs), agents, workflows, streaming, browser, tools, memory, RAG, processors, CopilotKit guide. Verify from installed docs — never trust training-data APIs. NOT for: product intent routing (mastra-routing), Managed Agents API harness (mde-agents), non-Mastra frameworks. Load when editing src/mastra/**, Mastra tools/workflows, memory, streaming/events, browser automation, or Mastra doc URLs."
+description: "Mastra framework for iPixai: docs lookup (embedded node_modules, mastraDocs MCP, llms.txt), agents, workflows, tools, memory, PostgresStore, mastra api CLI, Studio on :4111. Use whenever editing src/mastra/**, pinning @mastra/* versions, calling npx mastra api, starting Studio, or verifying APIs. Always verify installed docs — never trust training-data APIs. In this repo use npm run dev:agent and npm run dev:ui separately — never combined npm run dev. NOT for CopilotKit v2 UI (use copilotkit skill), product intent routing, or non-Mastra frameworks."
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.1.0"
+  version: "2.1.0-ipix.1"
+  basedOn: mastra-ai/skills 2.1.0
   repository: https://github.com/mastra-ai/skills
   # Upstream authoring fields. Not in the Agent Skills spec's top-level set, so
   # they live here — `metadata` is explicitly "arbitrary key-value mapping".
@@ -60,12 +61,15 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Do **not** copy the old Mas
 | Question | Where to look |
 |----------|---------------|
 | "Where is the doc for X?" | [`links.md`](links.md) → [`references/topic-routing.md`](references/topic-routing.md) |
+| Agent vs workflow vs memory | [`references/core-concepts.md`](references/core-concepts.md) |
 | Agent / Workflow / Tool API | [`references/embedded-docs.md`](references/embedded-docs.md) |
 | Memory (threads, OM, recall) | [`references/memory.md`](references/memory.md) |
 | Workflows / HITL / suspend-resume | [`references/workflows.md`](references/workflows.md) |
 | Streaming / AG-UI bridge | [`references/streaming.md`](references/streaming.md) |
+| Model id / provider string | [`references/model-selection.md`](references/model-selection.md) then `scripts/provider-registry.mjs` |
+| Inspect running Studio/API (`mastra api`) | [`references/mastra-api.md`](references/mastra-api.md) |
 | MCP client/server | [`references/mcp.md`](references/mcp.md) + [`links.md`](links.md) |
-| CopilotKit + Mastra (in-process) | iPixai wiring above + `getLocalAgents` |
+| CopilotKit + Mastra (in-process) | iPixai wiring above + `getLocalAgents` — CopilotKit v2 UI → `copilotkit` skill |
 | Common errors | [`references/common-errors.md`](references/common-errors.md) |
 | v0→v1 migration | [`references/migration-guide.md`](references/migration-guide.md) |
 | All reference files | [`references/README.md`](references/README.md) |
@@ -82,3 +86,17 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Do **not** copy the old Mas
 | `readMastraDocs` | Browse embedded topics in installed `@mastra/*` packages |
 | `searchMastraDocs` | Keyword grep — **requires `projectPath` = this repo root** |
 | `listMastraPackages` | See which packages ship embedded docs |
+
+---
+
+## Mastra Studio and `mastra api`
+
+Official docs start Studio with `npx mastra dev` on `:4111` ([Develop](https://mastra.ai/docs/getting-started/develop.md), [Studio](https://mastra.ai/docs/studio/overview.md)). In iPixai that is **`npm run dev:agent`**. Do not run combined `npm run dev`.
+
+With the agent server up:
+
+```bash
+npx mastra api --url http://localhost:4111 agent list
+```
+
+Full CLI patterns: [`references/mastra-api.md`](references/mastra-api.md). Do not install upstream `npx skills add mastra-ai/skills` over this overlay.

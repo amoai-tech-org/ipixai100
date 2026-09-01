@@ -51,6 +51,16 @@
         "References `@mastra/mcp` / `MCPClient` and the docs server package name",
         "Links or names `https://mastra.ai/docs/mcp/overview` (or `links.md` MCP section)"
       ]
+    },
+    {
+      "id": 6,
+      "prompt": "Studio isn’t up. I need to list agents on the local Mastra server and then fetch traces. What do I start in this iPixai repo, and which mastra api commands?",
+      "expected_output": "Start npm run dev:agent (not combined npm run dev); then npx mastra api --url http://localhost:4111 agent list (and traces with --url localhost). Points at references/mastra-api.md.",
+      "files": [],
+      "expectations": [
+        "Names `npm run dev:agent` or `mastra dev` on :4111 and forbids combined `npm run dev`",
+        "Uses `npx mastra api` with localhost:4111 (or default) and `agent list`"
+      ]
     }
   ]
 }
