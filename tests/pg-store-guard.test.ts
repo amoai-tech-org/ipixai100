@@ -1,12 +1,27 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { MASTRA_SCHEMA_FINGERPRINT_SQL } from "../scripts/mastra-schema-fingerprint";
 import {
+  APPROVED_MASTRA_DIRECT_HOST,
+  APPROVED_MASTRA_PROJECT_REF,
+  HOSTED_MASTRA_POOL_MAX,
   assertSafeMastraDatabaseUrl,
   getMastraPgPool,
   getMastraPostgresStore,
   isAllowedLocalMastraDatabaseHost,
+  isMastraHostedRuntime,
+  requireMastraPostgresUrl,
   resetMastraPgSingletonsForTests,
 } from "../src/mastra/pg-store";
+
+const APPROVED_POOLER_USER = `hyperdrive_mastra_runtime.${APPROVED_MASTRA_PROJECT_REF}`;
+const APPROVED_DIRECT =
+  `postgresql://${APPROVED_POOLER_USER.split(".")[0]}:x@${APPROVED_MASTRA_DIRECT_HOST}:5432/postgres?sslmode=require`;
+const APPROVED_TX_POOLER =
+  `postgresql://${APPROVED_POOLER_USER}:supersecret@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require`;
+const WRONG_PROJECT_POOLER =
+  "postgresql://hyperdrive_mastra_runtime.wtuhdynujhszsbwxlbdi:x@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+const POSTGRES_SUPERUSER_POOLER =
+  `postgresql://postgres.${APPROVED_MASTRA_PROJECT_REF}:x@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
 
 describe("IPI-1044 local URL guard", () => {
   afterAll(async () => {
@@ -115,5 +130,98 @@ describe("IPI-1044 local URL guard", () => {
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_triggerdef/);
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).toMatch(/pg_get_constraintdef/);
     expect(MASTRA_SCHEMA_FINGERPRINT_SQL).not.toMatch(/proname = 'trigger_set_timestamps'/);
+  });
+});
+
+describe("IPI-1124 hosted URL guard and fail-closed", () => {
+  const prevHosted = process.env.IPIX_MASTRA_HOSTED;
+  const prevUrl = process.env.MASTRA_DATABASE_URL;
+
+  afterEach(async () => {
+    await resetMastraPgSingletonsForTests();
+    if (prevHosted === undefined) delete process.env.IPIX_MASTRA_HOSTED;
+    else process.env.IPIX_MASTRA_HOSTED = prevHosted;
+    if (prevUrl === undefined) delete process.env.MASTRA_DATABASE_URL;
+    else process.env.MASTRA_DATABASE_URL = prevUrl;
+  });
+
+  it("still rejects hosted fashionos URLs when IPIX_MASTRA_HOSTED is unset", () => {
+    delete process.env.IPIX_MASTRA_HOSTED;
+    expect(isMastraHostedRuntime()).toBe(false);
+    expect(() => assertSafeMastraDatabaseUrl(APPROVED_DIRECT)).toThrow(/local allowlist/);
+    expect(() => assertSafeMastraDatabaseUrl(APPROVED_TX_POOLER)).toThrow(/local allowlist/);
+  });
+
+  it("accepts the approved direct host and pooler identity only in hosted mode", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    expect(assertSafeMastraDatabaseUrl(APPROVED_DIRECT).hostname).toBe(
+      APPROVED_MASTRA_DIRECT_HOST,
+    );
+    expect(assertSafeMastraDatabaseUrl(APPROVED_TX_POOLER).port).toBe("6543");
+    expect(() =>
+      assertSafeMastraDatabaseUrl(APPROVED_TX_POOLER, { hosted: true }),
+    ).not.toThrow();
+  });
+
+  it("rejects the same pooler hostname with a different project ref", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    expect(() => assertSafeMastraDatabaseUrl(WRONG_PROJECT_POOLER)).toThrow(
+      /approved iPix Mastra Postgres project/,
+    );
+  });
+
+  it("rejects postgres superuser, RDS, Neon, and other Supabase projects in hosted mode", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    const rejected = [
+      POSTGRES_SUPERUSER_POOLER,
+      `postgresql://hyperdrive_mastra_runtime:x@db.wtuhdynujhszsbwxlbdi.supabase.co:5432/postgres`,
+      "postgresql://postgres:x@my-db.cluster-xyz.us-east-1.rds.amazonaws.com:5432/postgres",
+      "postgresql://postgres:x@ep-cool-name.us-east-1.aws.neon.tech:5432/neondb",
+      "postgresql://postgres:x@127.0.0.1:54342/postgres",
+    ];
+    for (const url of rejected) {
+      expect(() => assertSafeMastraDatabaseUrl(url, { hosted: true })).toThrow(
+        /approved iPix Mastra Postgres project/,
+      );
+    }
+  });
+
+  it("does not put passwords in thrown messages", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    expect(() => assertSafeMastraDatabaseUrl(APPROVED_TX_POOLER.replace("hyperdrive_mastra_runtime", "postgres"))).toThrow();
+    try {
+      assertSafeMastraDatabaseUrl(WRONG_PROJECT_POOLER.replace(":x@", ":supersecret@"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      expect(message).not.toContain("supersecret");
+      expect(message).not.toContain("wtuhdynujhszsbwxlbdi");
+    }
+  });
+
+  it("fails closed when hosted and the URL is missing or rejected", () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    delete process.env.MASTRA_DATABASE_URL;
+    expect(() => requireMastraPostgresUrl()).toThrow(/IPIX_MASTRA_HOSTED requires MASTRA_DATABASE_URL/);
+    process.env.MASTRA_DATABASE_URL = WRONG_PROJECT_POOLER;
+    expect(() => requireMastraPostgresUrl()).toThrow(/approved iPix Mastra Postgres project/);
+  });
+
+  it("keeps LibSQL fallback when not hosted and URL is missing", () => {
+    delete process.env.IPIX_MASTRA_HOSTED;
+    delete process.env.MASTRA_DATABASE_URL;
+    expect(requireMastraPostgresUrl()).toBeUndefined();
+  });
+
+  it("uses pool max 1 and one singleton in hosted mode", async () => {
+    process.env.IPIX_MASTRA_HOSTED = "1";
+    await resetMastraPgSingletonsForTests();
+    const a = getMastraPgPool(APPROVED_TX_POOLER);
+    const b = getMastraPgPool(APPROVED_TX_POOLER);
+    expect(a).toBe(b);
+    expect(a.options.max).toBe(HOSTED_MASTRA_POOL_MAX);
+    const store = getMastraPostgresStore(APPROVED_TX_POOLER);
+    expect(store).toBe(getMastraPostgresStore(APPROVED_TX_POOLER));
+    expect(store.disableInit).toBe(true);
+    expect((store as unknown as { schema: string }).schema).toBe("mastra");
   });
 });

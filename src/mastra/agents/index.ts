@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Memory } from "@mastra/memory";
 import {
   getMastraPostgresStore,
-  warnIfMastraDatabaseUrlMissing,
+  requireMastraPostgresUrl,
 } from "@/mastra/pg-store";
 
 export const AgentState = z.object({
@@ -14,8 +14,7 @@ export const AgentState = z.object({
 });
 
 function createAgentMemoryStorage() {
-  const url = process.env.MASTRA_DATABASE_URL;
-  warnIfMastraDatabaseUrlMissing(url);
+  const url = requireMastraPostgresUrl();
   if (!url) {
     return new LibSQLStore({
       id: "weather-agent-memory",
