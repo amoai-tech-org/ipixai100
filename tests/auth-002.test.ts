@@ -252,13 +252,11 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
       id: USER_A,
       name: "operator@example.com",
     });
-    expect(session.resourceId).toBe(
-      memoryResourceId({ userId: USER_A, orgId: ORG_A }),
-    );
+    expect(session.resourceId).toBe(`org:${ORG_A}::user:${USER_A}`);
   });
 
   it("keys Intelligence identifyUser by AUTH-002 resourceId and verified operator name", () => {
-    const resourceId = memoryResourceId({ userId: USER_A, orgId: ORG_A });
+    const resourceId = `org:${ORG_A}::user:${USER_A}`;
     expect(
       intelligenceIdentifyUser({
         resourceId,
@@ -285,7 +283,7 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
       }),
     });
     expect(operator).toEqual({ id: USER_A, name: USER_A });
-    const resourceId = memoryResourceId({ userId: USER_A, orgId: ORG_A });
+    const resourceId = `org:${ORG_A}::user:${USER_A}`;
     expect(intelligenceIdentifyUser({ resourceId, operator: operator! })).toEqual(
       { id: resourceId, name: USER_A },
     );
