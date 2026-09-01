@@ -3,7 +3,7 @@ import {
   isMastraHostedRuntime,
   requireMastraPostgresUrl,
 } from "@/mastra/pg-store";
-import { THREAD_ID } from "@/mastra/thread-persistence";
+import { canonicalizePlannerThreadId } from "@/mastra/thread-persistence";
 
 export type ThreadClaimDecision =
   | { status: "owned"; resourceId: string }
@@ -26,18 +26,24 @@ RETURNING resource_id`;
 export const CLAIM_SELECT_SQL = `SELECT resource_id FROM planner.planner_thread_claims WHERE thread_id = $1::uuid`;
 
 export function isClaimableThreadId(threadId: unknown): threadId is string {
-  return typeof threadId === "string" && THREAD_ID.test(threadId);
+  return canonicalizePlannerThreadId(threadId) !== null;
 }
 
 export function routeNeedsFirstCreateClaim(method: string): boolean {
   return method === "agent/run" || method === "agent/connect";
 }
 
+function logClaimUnavailable(op: "connect" | "insert" | "select", err?: unknown) {
+  const name = err instanceof Error ? err.name : "Error";
+  console.error("planner_thread_claim_unavailable", { op, name });
+}
+
 export async function claimPlannerThread(
   input: { threadId: unknown; resourceId: string },
   sql?: ClaimSql,
 ): Promise<ThreadClaimDecision> {
-  if (!isClaimableThreadId(input.threadId)) {
+  const threadId = canonicalizePlannerThreadId(input.threadId);
+  if (!threadId) {
     if (sql || isMastraHostedRuntime()) return { status: "invalid" };
     return { status: "owned", resourceId: input.resourceId };
   }
@@ -46,13 +52,16 @@ export async function claimPlannerThread(
   }
 
   let client = sql;
+  let op: "connect" | "insert" | "select" = "connect";
   try {
     if (!client) {
       const url = requireMastraPostgresUrl();
       if (!url) {
-        return isMastraHostedRuntime()
-          ? { status: "unavailable" }
-          : { status: "owned", resourceId: input.resourceId };
+        if (isMastraHostedRuntime()) {
+          logClaimUnavailable("connect");
+          return { status: "unavailable" };
+        }
+        return { status: "owned", resourceId: input.resourceId };
       }
       const pool = getMastraPgPool(url);
       client = {
@@ -60,8 +69,9 @@ export async function claimPlannerThread(
       };
     }
 
+    op = "insert";
     const inserted = await client.query(CLAIM_INSERT_SQL, [
-      input.threadId,
+      threadId,
       input.resourceId,
     ]);
     const winner = inserted.rows[0]?.resource_id;
@@ -71,13 +81,18 @@ export async function claimPlannerThread(
         : { status: "forbidden", resourceId: winner };
     }
 
-    const existing = await client.query(CLAIM_SELECT_SQL, [input.threadId]);
+    op = "select";
+    const existing = await client.query(CLAIM_SELECT_SQL, [threadId]);
     const owner = existing.rows[0]?.resource_id;
-    if (!owner) return { status: "unavailable" };
+    if (!owner) {
+      logClaimUnavailable("select");
+      return { status: "unavailable" };
+    }
     return owner === input.resourceId
       ? { status: "owned", resourceId: owner }
       : { status: "forbidden", resourceId: owner };
-  } catch {
+  } catch (err) {
+    logClaimUnavailable(op, err);
     return { status: "unavailable" };
   }
 }

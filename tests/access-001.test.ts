@@ -255,15 +255,14 @@ describe("IPI-1047 · ACCESS-001 thread ownership", () => {
       expected: { ok: true },
     },
     {
-      name: "allows lookup failure only on run/connect",
+      name: "denies lookup failure on run/connect",
       input: {
         threadId: "thread-new",
         callerResourceId: owner,
         owner: { status: "lookup_failed" as const },
         allowMissing: true,
-        allowLookupFailed: true,
       },
-      expected: { ok: true },
+      expected: { ok: false },
     },
     {
       name: "denies lookup failure on stop",

@@ -510,8 +510,11 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     const response = await POST(
       copilotRequest("/api/copilotkit/agent/default/run", { body: runBody() }),
     );
-    expect(response.status).toBe(200);
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "unavailable",
+      reason: "claim_unavailable",
+    });
     expect(stats.runStarted).toBe(false);
   });
 

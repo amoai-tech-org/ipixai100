@@ -3,20 +3,20 @@
 
 do $$
 declare
-  p text;
-  jwt text;
+  privilege_name text;
+  role_name text;
 begin
   if to_regclass('planner.planner_thread_claims') is null then
     raise exception 'planner.planner_thread_claims must exist';
   end if;
 
-  foreach jwt in array array['anon', 'authenticated', 'ci_acl_probe'] loop
-    foreach p in array array[
+  foreach role_name in array array['anon', 'authenticated', 'ci_acl_probe'] loop
+    foreach privilege_name in array array[
       'select', 'insert', 'update', 'delete',
       'truncate', 'references', 'trigger'
     ] loop
-      if has_table_privilege(jwt, 'planner.planner_thread_claims', p) then
-        raise exception '% must not have % on planner.planner_thread_claims', jwt, p;
+      if has_table_privilege(role_name, 'planner.planner_thread_claims', privilege_name) then
+        raise exception '% must not have % on planner.planner_thread_claims', role_name, privilege_name;
       end if;
     end loop;
   end loop;
@@ -26,9 +26,9 @@ begin
     raise exception 'hyperdrive_mastra_runtime must have SELECT, INSERT on planner.planner_thread_claims';
   end if;
 
-  foreach p in array array['update', 'delete', 'truncate'] loop
-    if has_table_privilege('hyperdrive_mastra_runtime', 'planner.planner_thread_claims', p) then
-      raise exception 'hyperdrive_mastra_runtime must not have % on planner.planner_thread_claims', p;
+  foreach privilege_name in array array['update', 'delete', 'truncate'] loop
+    if has_table_privilege('hyperdrive_mastra_runtime', 'planner.planner_thread_claims', privilege_name) then
+      raise exception 'hyperdrive_mastra_runtime must not have % on planner.planner_thread_claims', privilege_name;
     end if;
   end loop;
 end

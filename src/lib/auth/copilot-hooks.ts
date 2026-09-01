@@ -4,7 +4,7 @@ import * as threadClaim from "./thread-claim";
 import {
   authorizeThreadAccess,
   loadThreadOwner,
-  routeAllowsLookupFailed,
+  normalizeThreadLocator,
   routeAllowsMissingThread,
   routeNeedsThreadAcl,
   threadForbiddenResponse,
@@ -55,22 +55,29 @@ export function copilotAuthHooksFor(resourceId: string): CopilotRuntimeHooks {
       if (!routeNeedsThreadAcl(route.method)) return;
       if (route.method === "threads/clear") throw threadForbiddenResponse();
 
-      const threadId =
+      const rawThreadId =
         "threadId" in route
           ? route.threadId
           : await threadIdFromRequest(request);
-      if (threadId === undefined || threadId === null) {
+      if (rawThreadId === undefined || rawThreadId === null) {
         if (routeAllowsMissingThread(route.method)) return;
         throw threadForbiddenResponse();
       }
+      const threadId = normalizeThreadLocator(rawThreadId);
+      if (threadId === null) throw threadForbiddenResponse();
 
-      const owner = await loadThreadOwner(String(threadId));
+      const owner = await loadThreadOwner(threadId);
+      if (
+        owner.status === "lookup_failed" &&
+        threadClaim.routeNeedsFirstCreateClaim(route.method)
+      ) {
+        throw claimUnavailableResponse();
+      }
       const decision = authorizeThreadAccess({
         threadId,
         callerResourceId: resourceId,
         owner,
         allowMissing: routeAllowsMissingThread(route.method),
-        allowLookupFailed: routeAllowsLookupFailed(route.method),
       });
       if (!decision.ok) throw threadForbiddenResponse();
 

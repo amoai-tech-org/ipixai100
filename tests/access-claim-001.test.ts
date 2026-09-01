@@ -8,7 +8,6 @@ import * as agent from "../src/agent";
 import { POST } from "../src/app/api/copilotkit/[[...slug]]/route";
 import * as threadClaim from "../src/lib/auth/thread-claim";
 import {
-  CLAIM_INSERT_SQL,
   CLAIM_SELECT_SQL,
   claimPlannerThread,
   type ClaimSql,
@@ -163,7 +162,31 @@ describe("IPI-1127 · ACCESS-CLAIM-001 claim helper", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
+  it("canonicalizes UUID case so claim and Mastra share one locator", async () => {
+    const sql = memoryClaimStore();
+    const mixed = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+    const canonical = mixed.toLowerCase();
+    const first = await claimPlannerThread(
+      { threadId: mixed, resourceId: RESOURCE_A },
+      sql,
+    );
+    const retry = await claimPlannerThread(
+      { threadId: canonical, resourceId: RESOURCE_A },
+      sql,
+    );
+    const foreign = await claimPlannerThread(
+      { threadId: mixed, resourceId: RESOURCE_B },
+      sql,
+    );
+    expect(first).toEqual({ status: "owned", resourceId: RESOURCE_A });
+    expect(retry).toEqual({ status: "owned", resourceId: RESOURCE_A });
+    expect(foreign).toEqual({ status: "forbidden", resourceId: RESOURCE_A });
+    expect(sql.rows.get(canonical)).toBe(RESOURCE_A);
+    expect(sql.rows.has(mixed)).toBe(false);
+  });
+
   it("fails closed when the claim store throws or returns no winner", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const down = await claimPlannerThread(
       { threadId: "33333333-3333-4333-8333-333333333333", resourceId: RESOURCE_A },
       {
@@ -173,12 +196,18 @@ describe("IPI-1127 · ACCESS-CLAIM-001 claim helper", () => {
       },
     );
     expect(down).toEqual({ status: "unavailable" });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "planner_thread_claim_unavailable",
+      expect.objectContaining({ op: "insert", name: "Error" }),
+    );
 
     const vanished = await claimPlannerThread(
       { threadId: "44444444-4444-4444-8444-444444444444", resourceId: RESOURCE_A },
       { query: async () => ({ rows: [] }) },
     );
     expect(vanished).toEqual({ status: "unavailable" });
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(RESOURCE_A);
+    errorSpy.mockRestore();
   });
 });
 
@@ -223,6 +252,93 @@ describe("IPI-1127 · ACCESS-CLAIM-001 CopilotKit first-create", () => {
     });
     expect(loserDispatched).toBe(false);
     expect(sql.rows.get(threadId)).toBe(RESOURCE_A);
+  });
+
+  it("returns 503 claim_unavailable when owner lookup fails on run", async () => {
+    let ran = false;
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: createFiniteAgent(() => {
+        ran = true;
+      }),
+    });
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockRejectedValue(
+      new Error("memory down"),
+    );
+    memberships.rows = [{ org_id: ORG_A }];
+    claims.sub = USER_A;
+    const response = await POST(
+      copilotRequest(
+        "/api/copilotkit/agent/default/run",
+        runBody("99999999-9999-4999-8999-999999999999"),
+      ),
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "unavailable",
+      reason: "claim_unavailable",
+    });
+    expect(ran).toBe(false);
+  });
+
+  it("returns 503 claim_unavailable when owner lookup fails on connect", async () => {
+    let ran = false;
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: createFiniteAgent(() => {
+        ran = true;
+      }),
+    });
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockRejectedValue(
+      new Error("memory down"),
+    );
+    memberships.rows = [{ org_id: ORG_A }];
+    claims.sub = USER_A;
+    const response = await POST(
+      copilotRequest(
+        "/api/copilotkit/agent/default/connect",
+        runBody("aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1"),
+      ),
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "unavailable",
+      reason: "claim_unavailable",
+    });
+    expect(ran).toBe(false);
+  });
+
+  it("canonicalizes an uppercase UUID before ACCESS, claim, and dispatch", async () => {
+    const mixed = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+    const canonical = mixed.toLowerCase();
+    const lookedUp: string[] = [];
+    const claimed: string[] = [];
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: createFiniteAgent(),
+    });
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue({
+      getThreadById: async ({ threadId }: { threadId: string }) => {
+        lookedUp.push(threadId);
+        return null;
+      },
+      createThread: async () => ({}),
+    } as unknown as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>);
+    const sql = memoryClaimStore();
+    const originalClaim = threadClaim.claimPlannerThread;
+    vi.spyOn(threadClaim, "claimPlannerThread").mockImplementation((input) => {
+      claimed.push(String(input.threadId));
+      return originalClaim(input, sql);
+    });
+
+    memberships.rows = [{ org_id: ORG_A }];
+    claims.sub = USER_A;
+    const response = await POST(
+      copilotRequest("/api/copilotkit/agent/default/run", runBody(mixed)),
+    );
+    expect(response.status).toBe(200);
+    expect(new Set(lookedUp)).toEqual(new Set([canonical]));
+    expect(lookedUp.length).toBeGreaterThan(0);
+    expect(claimed).toEqual([canonical]);
+    expect(sql.rows.get(canonical)).toBe(RESOURCE_A);
+    expect(sql.rows.has(mixed)).toBe(false);
   });
 
   it("returns 503 claim_unavailable when the claim store fails on first create", async () => {
@@ -410,12 +526,6 @@ describe.skipIf(!concurrencyEnabled || !concurrencyUrl)(
         await poolA.end();
         await poolB.end();
       }
-    });
-
-    it("uses INSERT ON CONFLICT DO NOTHING then a second SELECT", async () => {
-      expect(CLAIM_INSERT_SQL).toMatch(/ON CONFLICT \(thread_id\) DO NOTHING/);
-      expect(CLAIM_INSERT_SQL).toMatch(/RETURNING resource_id/);
-      expect(CLAIM_SELECT_SQL).toMatch(/^SELECT resource_id/);
     });
   },
 );

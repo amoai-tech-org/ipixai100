@@ -31,6 +31,16 @@ describe("splitRunThreadIds", () => {
       mastraThreadId: clientThreadId,
     });
   });
+
+  it("uses one lowercase UUID for Mastra storage and the abort store", () => {
+    const mixed = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+    const canonical = mixed.toLowerCase();
+    const resourceId = "org:org-a::user:user-a";
+    expect(splitRunThreadIds(resourceId, mixed)).toEqual({
+      runnerThreadId: `${resourceId}\u001f${canonical}`,
+      mastraThreadId: canonical,
+    });
+  });
 });
 
 describe("ensureMastraThread + listMastraThreadsForResource", () => {
@@ -60,6 +70,20 @@ describe("ensureMastraThread + listMastraThreadsForResource", () => {
         resourceId: "org:org-b::user:user-b",
       }),
     ).rejects.toThrow("thread belongs to another resource");
+  });
+
+  it("stores an uppercase UUID as the canonical lowercase id", async () => {
+    const memory = isolatedMemory();
+    const mixed = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+    const canonical = mixed.toLowerCase();
+    const resourceId = "org:org-a::user:user-a";
+
+    await ensureMastraThread(memory, { threadId: mixed, resourceId });
+    const stored = await memory.getThreadById({ threadId: canonical });
+    const alias = await memory.getThreadById({ threadId: mixed });
+    expect(stored?.id).toBe(canonical);
+    expect(stored?.resourceId).toBe(resourceId);
+    expect(alias).toBeNull();
   });
 
   it("lists more than 50 threads for one resource", async () => {

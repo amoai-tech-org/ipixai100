@@ -1,4 +1,7 @@
-import { getPlannerMemory } from "@/mastra/thread-persistence";
+import {
+  canonicalizePlannerThreadId,
+  getPlannerMemory,
+} from "@/mastra/thread-persistence";
 
 import { forbiddenResponse } from "./unauthorized";
 
@@ -15,6 +18,13 @@ export type ThreadAccessDecision = { ok: true } | { ok: false };
 
 export function isUsableThreadId(threadId: unknown): threadId is string {
   return typeof threadId === "string" && COPILOT_THREAD_ID.test(threadId);
+}
+
+/** Canonical lowercase UUID, or the original opaque locator. */
+export function normalizeThreadLocator(threadId: unknown): string | null {
+  const canonical = canonicalizePlannerThreadId(threadId);
+  if (canonical) return canonical;
+  return isUsableThreadId(threadId) ? threadId : null;
 }
 
 export function threadForbiddenResponse(): Response {
@@ -43,18 +53,12 @@ export function routeAllowsMissingThread(method: string): boolean {
   );
 }
 
-/** run/connect may proceed when memory is down; stop must not abort a live thread. */
-export function routeAllowsLookupFailed(method: string): boolean {
-  return method === "agent/run" || method === "agent/connect";
-}
-
 /** threadId locates; stored Mastra resourceId authorizes. */
 export function authorizeThreadAccess(input: {
   threadId: unknown;
   callerResourceId: string;
   owner: ThreadOwnerLookup;
   allowMissing: boolean;
-  allowLookupFailed?: boolean;
 }): ThreadAccessDecision {
   if (!isUsableThreadId(input.threadId)) return { ok: false };
   if (input.owner.status === "owned") {
@@ -63,9 +67,6 @@ export function authorizeThreadAccess(input: {
       : { ok: false };
   }
   if (input.owner.status === "not_found" && input.allowMissing) {
-    return { ok: true };
-  }
-  if (input.owner.status === "lookup_failed" && input.allowLookupFailed) {
     return { ok: true };
   }
   return { ok: false };
@@ -77,7 +78,9 @@ export async function loadThreadOwner(
   try {
     const memory = await getPlannerMemory();
     if (!memory) return { status: "lookup_failed" };
-    const thread = await memory.getThreadById({ threadId });
+    const thread = await memory.getThreadById({
+      threadId: canonicalizePlannerThreadId(threadId) ?? threadId,
+    });
     if (!thread) return { status: "not_found" };
     const resourceId = thread.resourceId;
     return typeof resourceId === "string" && resourceId.length > 0
