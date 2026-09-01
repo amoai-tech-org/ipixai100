@@ -10,18 +10,19 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "WebFetch", "WebSearch", "Task"]
 
 **Principle:** Read-only research. Analyze the selected task and find the most efficient, verified implementation path **before writing any code**. Do not implement until the efficient path is verified — this command never edits files or commits.
 
-Always-on companion: `.cursor/rules/fastest.mdc` — **every step**, name a faster path if one exists and use it. This slash command is the full research table for a whole task. In-repo reuse: `.cursor/rules/ponytail.mdc`.
+Always-on: `.cursor/rules/verified-fast-path.mdc` (verify the evidence required by the selected rung; native vendor before old iPix/Lumina or custom) and `.cursor/rules/fastest.mdc` (if a faster path exists **without weakening evidence**, use it). This command is the full research table — **no edits**. In-repo smallest diff: `.cursor/rules/ponytail.mdc`.
 
 ---
 
 ## Instructions
 
-1. Read the full task, acceptance criteria, blockers, and linked PRs. Use the full name: **`IPI-NNN · SPEC — Title`**.
-2. Load the relevant project skills and repository instructions (`AGENTS.md`, `CLAUDE.md`, matching skill from `.claude/skills/`).
-3. Inspect the current codebase to avoid rebuilding existing work. Run `PATH="$HOME/.local/bin:$PATH" graphify query "<task topic>"` before reading source.
-4. Verify live platform state using available MCPs, CLIs, and dashboards (Linear, Vercel, Supabase **preview only**, Mastra docs MCP, CopilotKit docs MCP). Do **not** mutate production Supabase.
-5. Fetch **current official documentation only** (Context7 / vendor MCP / vendor docs). No blogs when official docs exist.
-6. Search official GitHub organizations for:
+1. Run `PATH="$HOME/.local/bin:$PATH" graphify query "<task topic>"` before any Read, Grep, Glob, or Bash exploration of the codebase.
+2. Read the full task, acceptance criteria, blockers, and linked PRs. Use the full name: **`IPI-NNN · SPEC — Title`**.
+3. Then inspect the current codebase to avoid rebuilding existing work.
+4. Load the relevant project skills and repository instructions (`AGENTS.md`, `CLAUDE.md`, matching skill from `.claude/skills/`).
+5. Verify live platform state using available MCPs, CLIs, and dashboards (Linear, Vercel, Supabase **preview only**, Mastra docs MCP, CopilotKit docs MCP). Do **not** mutate production Supabase.
+6. Fetch **current official documentation only** (Context7 / vendor MCP / vendor docs). No blogs when official docs exist.
+7. Search official GitHub organizations for:
    - maintained repositories
    - SDKs and packages
    - starter projects
@@ -30,18 +31,8 @@ Always-on companion: `.cursor/rules/fastest.mdc` — **every step**, name a fast
    - tutorials
    - recipes
    - GitHub Actions, and relevant agent tooling (workflows, skills, subagents) worth suggesting alongside them
-7. Prefer this order:
-
-```text
-Managed dashboard feature
-→ official CLI or GitHub Action
-→ official SDK/package
-→ official repository/example/recipe
-→ small adapter
-→ custom implementation only when a verified gap remains
-```
-
-8. Identify:
+8. **Path selection is not defined here.** Stop at first fit using the canonical ladder in `.cursor/rules/verified-fast-path.mdc` only. Do not keep a second ordered path in this command.
+9. Identify:
    - stale assumptions
    - duplicate work
    - existing reusable code
@@ -51,8 +42,8 @@ Managed dashboard feature
    - failure points
    - missing tests
    - simpler alternatives
-9. Do not implement until the efficient path is verified.
-10. Keep the `SUPA` label whenever the task materially involves Supabase.
+10. Do not implement until the efficient path is verified.
+11. Keep the `SUPA` label whenever the task materially involves Supabase.
 
 ---
 

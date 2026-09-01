@@ -8,4 +8,4 @@ Always-on voice: `.cursor/rules/explain.mdc` and `AGENTS.md`. When the user type
 
 # fastest
 - **fastest** (`.claude/commands/fastest.md`) — vendor path before custom code. Trigger: `/fastest`
-Always-on ladder: `.cursor/rules/fastest.mdc`. Before **each** task step, ask if a better/faster path exists and **use it**. When the user types `/fastest`, research only (no edits/commits). Prefer skip → reuse → managed/CLI/SDK → custom last. In-repo reuse details stay in `ponytail.mdc`.
+Always-on ladder: `.cursor/rules/verified-fast-path.mdc`. Once per phase: `.cursor/rules/fastest.mdc` — if a better/faster path exists, **use it**. `/fastest` is research only. Smallest diff: `ponytail.mdc`.

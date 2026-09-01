@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Linear task format (Cursor)
 
-Canonical: [`docs/linear/linear-format.md`](../../docs/linear/linear-format.md). Do not duplicate that file. Companion: `task-naming.mdc`, `fastest.mdc`, `ponytail.mdc`, `linear-governance.mdc`.
+Canonical: [`docs/linear/linear-format.md`](../../docs/linear/linear-format.md). Do not duplicate that file. Companion: `task-naming.mdc`, `verified-fast-path.mdc`, `fastest.mdc`, `ponytail.mdc`, `linear-governance.mdc`.
 
 When **creating or rewriting** a Linear IPI issue, the description **must** match that doc.
 
