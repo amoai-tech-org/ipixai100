@@ -10,6 +10,11 @@ import {
   POST,
 } from "../src/app/api/copilotkit/[[...slug]]/route";
 import {
+  intelligenceIdentifyUser,
+  requirePlannerResourceId,
+} from "../src/lib/auth/planner-session";
+import {
+  getVerifiedOperatorFromClaims,
   memoryResourceId,
 } from "../src/lib/auth/verified-operator";
 import {
@@ -236,6 +241,52 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
     const response = await GET(jsonRequest("GET"));
     expect(response.status).toBe(401);
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("returns verified operator plus AUTH-002 resourceId from the planner session", async () => {
+    memberships.rows = [{ org_id: ORG_A }];
+    const session = await requirePlannerResourceId(jsonRequest("GET"));
+    expect(session.ok).toBe(true);
+    if (!session.ok) return;
+    expect(session.operator).toEqual({
+      id: USER_A,
+      name: "operator@example.com",
+    });
+    expect(session.resourceId).toBe(`org:${ORG_A}::user:${USER_A}`);
+  });
+
+  it("keys Intelligence identifyUser by AUTH-002 resourceId and verified operator name", () => {
+    const resourceId = `org:${ORG_A}::user:${USER_A}`;
+    expect(
+      intelligenceIdentifyUser({
+        resourceId,
+        operator: { id: USER_A, name: "operator@example.com" },
+      }),
+    ).toEqual({ id: resourceId, name: "operator@example.com" });
+    expect(resourceId).not.toBe(USER_A);
+
+    const route = readFileSync(
+      join(process.cwd(), "src/app/api/copilotkit/[[...slug]]/route.ts"),
+      "utf8",
+    );
+    expect(route).toContain("intelligenceIdentifyUser");
+    expect(route).toContain("new TenantAbortRunner");
+    expect(route).toContain("identifyUser: identifyOperator");
+    expect(route).not.toMatch(/name:\s*operator\.name/);
+  });
+
+  it("uses verified subject as Intelligence name when email is absent", async () => {
+    const operator = await getVerifiedOperatorFromClaims({
+      getClaims: async () => ({
+        data: { claims: { sub: USER_A } },
+        error: null,
+      }),
+    });
+    expect(operator).toEqual({ id: USER_A, name: USER_A });
+    const resourceId = `org:${ORG_A}::user:${USER_A}`;
+    expect(intelligenceIdentifyUser({ resourceId, operator: operator! })).toEqual(
+      { id: resourceId, name: USER_A },
+    );
   });
 
   it("does not put a service-role secret in browser client source", () => {

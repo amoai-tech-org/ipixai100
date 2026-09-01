@@ -5,11 +5,23 @@ import {
   runtimeTenantDenied,
 } from "@/lib/auth/runtime-org";
 import { unauthorizedResponse } from "@/lib/auth/unauthorized";
-import { memoryResourceId } from "@/lib/auth/verified-operator";
+import {
+  memoryResourceId,
+  type VerifiedOperator,
+} from "@/lib/auth/verified-operator";
 import { createClientFromRequest } from "@/lib/supabase/server";
 
+/** Intelligence keys threads by `id`; CopilotKit also requires a non-empty `name`. */
+export function intelligenceIdentifyUser(input: {
+  resourceId: string;
+  operator: VerifiedOperator;
+}): { id: string; name: string } {
+  return { id: input.resourceId, name: input.operator.name };
+}
+
 export async function requirePlannerResourceId(request: Request): Promise<
-  { ok: true; resourceId: string } | { ok: false; response: Response }
+  | { ok: true; resourceId: string; operator: VerifiedOperator }
+  | { ok: false; response: Response }
 > {
   const operator = await getVerifiedOperatorForRequest(request);
   if (!operator) return { ok: false, response: unauthorizedResponse() };
@@ -31,5 +43,6 @@ export async function requirePlannerResourceId(request: Request): Promise<
       userId: operator.id,
       orgId: tenant.orgId,
     }),
+    operator,
   };
 }
