@@ -1,5 +1,8 @@
 import { createRequire } from "node:module";
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { RequestContext } from "@mastra/core/request-context";
+import { TABLE_SCHEMAS } from "@mastra/core/storage/constants";
 
 const require = createRequire(import.meta.url);
 
@@ -19,7 +22,7 @@ function compareVersion(
   return 0;
 }
 
-/** Matches npm peers like `>=1.34.0-0 <2.0.0-0`. Pre-release suffixes are ignored. */
+/** Matches npm peers like `>=1.63.1-0 <2.0.0-0`. Pre-release suffixes are ignored. */
 function coreSatisfiesMastraPeer(coreVersion: string, peerRange: string): boolean {
   const match = peerRange.match(/^>=\s*([0-9][^\s]*)\s+<\s*([0-9][^\s]*)$/);
   if (!match?.[1] || !match[2]) return false;
@@ -30,24 +33,197 @@ function coreSatisfiesMastraPeer(coreVersion: string, peerRange: string): boolea
   );
 }
 
+/** Catalog tables recorded in docs/mastra/db-001-matrix.md (IPI-1043, @mastra/pg@1.12.1 era). */
+const IPIX_MASTRA_CATALOG_TABLES = new Set([
+  "mastra_agent_versions",
+  "mastra_agents",
+  "mastra_ai_spans",
+  "mastra_background_tasks",
+  "mastra_channel_config",
+  "mastra_channel_installations",
+  "mastra_dataset_items",
+  "mastra_dataset_versions",
+  "mastra_datasets",
+  "mastra_experiment_results",
+  "mastra_experiments",
+  "mastra_favorites",
+  "mastra_mcp_client_versions",
+  "mastra_mcp_clients",
+  "mastra_mcp_server_versions",
+  "mastra_mcp_servers",
+  "mastra_messages",
+  "mastra_observational_memory",
+  "mastra_prompt_block_versions",
+  "mastra_prompt_blocks",
+  "mastra_resources",
+  "mastra_schedule_triggers",
+  "mastra_schedules",
+  "mastra_scorer_definition_versions",
+  "mastra_scorer_definitions",
+  "mastra_scorers",
+  "mastra_skill_blobs",
+  "mastra_skill_versions",
+  "mastra_skills",
+  "mastra_threads",
+  "mastra_workflow_definitions",
+  "mastra_workflow_snapshot",
+  "mastra_workspace_versions",
+  "mastra_workspaces",
+]);
+
+const CORE_MEMORY_TABLES = [
+  "mastra_threads",
+  "mastra_messages",
+  "mastra_resources",
+  "mastra_workflow_snapshot",
+] as const;
+
 describe("IPI-1042 runtime family", () => {
-  it("installs a peer-compatible @mastra/pg package without wiring storage", () => {
-    const pkg = require("@mastra/pg/package.json") as {
+  it("pins the peer-compatible Mastra 1.63.2 family", () => {
+    const pg = require("@mastra/pg/package.json") as {
       name: string;
       version: string;
       peerDependencies?: { "@mastra/core"?: string };
     };
+    const core = require("@mastra/core/package.json") as { version: string };
+    const memory = require("@mastra/memory/package.json") as { version: string };
+    const libsql = require("@mastra/libsql/package.json") as { version: string };
+    const client = require("@mastra/client-js/package.json") as { version: string };
+    const cli = require("mastra/package.json") as { version: string };
+    const agui = require("@ag-ui/mastra/package.json") as { version: string };
+    const copilot = require("@copilotkit/runtime/package.json") as { version: string };
 
-    expect(pkg.name).toBe("@mastra/pg");
-    expect(pkg.version).toBe("1.12.1");
-    const peer = pkg.peerDependencies?.["@mastra/core"];
+    expect(pg.name).toBe("@mastra/pg");
+    expect(pg.version).toBe("1.22.2");
+    expect(core.version).toBe("1.63.2");
+    expect(memory.version).toBe("1.28.1");
+    expect(libsql.version).toBe("1.22.2");
+    expect(client.version).toBe("1.42.4");
+    expect(cli.version).toBe("1.27.2");
+    expect(agui.version).toBe("1.1.2");
+    expect(copilot.version).toBe("1.68.1");
+
+    const peer = pg.peerDependencies?.["@mastra/core"];
     expect(peer).toBeTruthy();
-    expect(coreSatisfiesMastraPeer("1.41.0", peer ?? "")).toBe(true);
-    expect(coreSatisfiesMastraPeer("1.41.0", ">=1.34.0-0 <1.41.0")).toBe(false);
+    expect(coreSatisfiesMastraPeer("1.63.2", peer ?? "")).toBe(true);
+    expect(coreSatisfiesMastraPeer("1.63.0", peer ?? "")).toBe(false);
   });
 
-  it("can import @mastra/pg against @mastra/core@1.41.0", async () => {
+  it("can import PostgresStore from @mastra/pg@1.22.2", async () => {
     const mod = await import("@mastra/pg");
     expect(typeof mod.PostgresStore).toBe("function");
+  });
+
+  it("keeps schemaName mastra and disableInit true (no runtime DDL)", () => {
+    const src = readFileSync(new URL("../src/mastra/pg-store.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/schemaName:\s*"mastra"/);
+    expect(src).toMatch(/disableInit:\s*true/);
+    expect(src).not.toMatch(/disableInit:\s*false/);
+    expect(src).not.toMatch(/public\.mastra_/);
+  });
+
+  it("keeps tenant-scoped stop/cancel after the Mastra upgrade", () => {
+    const src = readFileSync(
+      new URL("../src/app/api/copilotkit/[[...slug]]/route.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).toContain("function wrapAbortRun");
+    expect(src).toContain("class TenantAbortRunner");
+    expect(src).toContain("detachActiveRun()");
+    expect(src).not.toMatch(/ToolSearchProcessor|search_tools|load_tool/);
+  });
+
+  it("LibSQL fallback constructors still work without MASTRA_DATABASE_URL", async () => {
+    const { LibSQLStore } = await import("@mastra/libsql");
+    const storage = new LibSQLStore({ id: "mastra-storage", url: ":memory:" });
+    const memory = new LibSQLStore({
+      id: "weather-agent-memory",
+      url: "file::memory:",
+    });
+    expect(storage).toBeDefined();
+    expect(memory).toBeDefined();
+    const mastraSrc = readFileSync(new URL("../src/mastra/index.ts", import.meta.url), "utf8");
+    const agentSrc = readFileSync(new URL("../src/mastra/agents/index.ts", import.meta.url), "utf8");
+    expect(mastraSrc).toMatch(/url:\s*":memory:"/);
+    expect(agentSrc).toMatch(/url:\s*"file::memory:"/);
+  });
+
+  it("core memory tables still exist in 1.63.2 TABLE_SCHEMAS and the recorded catalog", () => {
+    const schemaTables = new Set(Object.keys(TABLE_SCHEMAS));
+    for (const table of CORE_MEMORY_TABLES) {
+      expect(schemaTables.has(table), table).toBe(true);
+      expect(IPIX_MASTRA_CATALOG_TABLES.has(table), table).toBe(true);
+    }
+    const additive = [...schemaTables]
+      .filter((name) => !IPIX_MASTRA_CATALOG_TABLES.has(name))
+      .sort();
+    // Additive vs IPI-1043 catalog: not a merge blocker while disableInit stays true.
+    // Route IPI-1043 only if Core memory columns change or runtime init is required.
+    expect(additive).toEqual([
+      "mastra_harness_sessions",
+      "mastra_knowledge_activity",
+      "mastra_knowledge_cursors",
+      "mastra_knowledge_mentions",
+      "mastra_knowledge_nodes",
+      "mastra_knowledge_records",
+      "mastra_knowledge_semantic_outbox",
+      "mastra_notifications",
+      "mastra_thread_state",
+      "mastra_tool_provider_connections",
+      "mastra_traces",
+    ]);
+  });
+});
+
+describe("IPI-1042 weather tool", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("executes get-weather under the upgraded createTool API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) => {
+        const href = String(url);
+        if (href.includes("geocoding")) {
+          return new Response(
+            JSON.stringify({
+              results: [{ latitude: 1, longitude: 2, name: "Testville" }],
+            }),
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            current: {
+              time: "t",
+              temperature_2m: 21,
+              apparent_temperature: 20,
+              relative_humidity_2m: 50,
+              wind_speed_10m: 3,
+              wind_gusts_10m: 5,
+              weather_code: 0,
+            },
+          }),
+        );
+      }),
+    );
+
+    const { weatherTool } = await import("../src/mastra/tools");
+    expect(weatherTool.id).toBe("get-weather");
+    const execute = weatherTool.execute;
+    expect(execute).toBeTypeOf("function");
+    const result = await execute!(
+      { location: "Testville" },
+      { requestContext: new RequestContext() } as Parameters<NonNullable<typeof execute>>[1],
+    );
+    expect(result).toEqual({
+      temperature: 21,
+      feelsLike: 20,
+      humidity: 50,
+      windSpeed: 3,
+      windGust: 5,
+      conditions: "Clear sky",
+      location: "Testville",
+    });
   });
 });
