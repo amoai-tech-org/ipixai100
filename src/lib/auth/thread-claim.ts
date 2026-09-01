@@ -18,23 +18,27 @@ export type ClaimSql = {
   ) => Promise<{ rows: Array<{ resource_id: string }> }>;
 };
 
-export const CLAIM_INSERT_SQL = `INSERT INTO planner.planner_thread_claims (thread_id, resource_id)
+const CLAIM_INSERT_SQL = `INSERT INTO planner.planner_thread_claims (thread_id, resource_id)
 VALUES ($1::uuid, $2)
 ON CONFLICT (thread_id) DO NOTHING
 RETURNING resource_id`;
 
 export const CLAIM_SELECT_SQL = `SELECT resource_id FROM planner.planner_thread_claims WHERE thread_id = $1::uuid`;
 
-export function isClaimableThreadId(threadId: unknown): threadId is string {
-  return canonicalizePlannerThreadId(threadId) !== null;
-}
-
 export function routeNeedsFirstCreateClaim(method: string): boolean {
   return method === "agent/run" || method === "agent/connect";
 }
 
-function logClaimUnavailable(op: "connect" | "insert" | "select", err?: unknown) {
-  const name = err instanceof Error ? err.name : "Error";
+function logClaimUnavailable(
+  op: "connect" | "insert" | "select",
+  err?: unknown,
+) {
+  const name =
+    typeof err === "string"
+      ? err
+      : err instanceof Error
+        ? err.name
+        : "Error";
   console.error("planner_thread_claim_unavailable", { op, name });
 }
 
@@ -42,13 +46,13 @@ export async function claimPlannerThread(
   input: { threadId: unknown; resourceId: string },
   sql?: ClaimSql,
 ): Promise<ThreadClaimDecision> {
+  if (typeof input.resourceId !== "string" || input.resourceId.length === 0) {
+    return { status: "invalid" };
+  }
   const threadId = canonicalizePlannerThreadId(input.threadId);
   if (!threadId) {
     if (sql || isMastraHostedRuntime()) return { status: "invalid" };
     return { status: "owned", resourceId: input.resourceId };
-  }
-  if (typeof input.resourceId !== "string" || input.resourceId.length === 0) {
-    return { status: "invalid" };
   }
 
   let client = sql;
@@ -85,7 +89,7 @@ export async function claimPlannerThread(
     const existing = await client.query(CLAIM_SELECT_SQL, [threadId]);
     const owner = existing.rows[0]?.resource_id;
     if (!owner) {
-      logClaimUnavailable("select");
+      logClaimUnavailable("select", "empty");
       return { status: "unavailable" };
     }
     return owner === input.resourceId

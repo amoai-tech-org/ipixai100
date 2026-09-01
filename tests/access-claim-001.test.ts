@@ -99,13 +99,13 @@ function runBody(threadId: string) {
   };
 }
 
-function createFiniteAgent(onRun?: () => void) {
+function createFiniteAgent(onRun?: (input: RunAgentInput) => void) {
   class ClaimTestAgent extends AbstractAgent {
     constructor() {
       super({ agentId: "default", description: "access-claim-001" });
     }
     override run(input: RunAgentInput): Observable<BaseEvent> {
-      onRun?.();
+      onRun?.(input);
       return new Observable((subscriber) => {
         subscriber.next({
           type: EventType.RUN_STARTED,
@@ -162,6 +162,15 @@ describe("IPI-1127 · ACCESS-CLAIM-001 claim helper", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
+  it("rejects an empty resourceId before the local token bypass", async () => {
+    expect(
+      await claimPlannerThread({
+        threadId: "thread-org-a-secret",
+        resourceId: "",
+      }),
+    ).toEqual({ status: "invalid" });
+  });
+
   it("canonicalizes UUID case so claim and Mastra share one locator", async () => {
     const sql = memoryClaimStore();
     const mixed = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
@@ -206,6 +215,10 @@ describe("IPI-1127 · ACCESS-CLAIM-001 claim helper", () => {
       { query: async () => ({ rows: [] }) },
     );
     expect(vanished).toEqual({ status: "unavailable" });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "planner_thread_claim_unavailable",
+      expect.objectContaining({ op: "select", name: "empty" }),
+    );
     expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(RESOURCE_A);
     errorSpy.mockRestore();
   });
@@ -311,9 +324,22 @@ describe("IPI-1127 · ACCESS-CLAIM-001 CopilotKit first-create", () => {
     const canonical = mixed.toLowerCase();
     const lookedUp: string[] = [];
     const claimed: string[] = [];
+    const dispatchedThreadIds: string[] = [];
     vi.spyOn(agent, "createLocalAgents").mockReturnValue({
-      default: createFiniteAgent(),
+      default: createFiniteAgent((input) => {
+        dispatchedThreadIds.push(input.threadId);
+      }),
     });
+    const originalSplit = threadPersistence.splitRunThreadIds;
+    vi.spyOn(threadPersistence, "splitRunThreadIds").mockImplementation(
+      (resourceId, clientThreadId) => {
+        const split = originalSplit(resourceId, clientThreadId);
+        if (split.mastraThreadId === canonical) {
+          dispatchedThreadIds.push(split.mastraThreadId);
+        }
+        return split;
+      },
+    );
     vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue({
       getThreadById: async ({ threadId }: { threadId: string }) => {
         lookedUp.push(threadId);
@@ -334,9 +360,11 @@ describe("IPI-1127 · ACCESS-CLAIM-001 CopilotKit first-create", () => {
       copilotRequest("/api/copilotkit/agent/default/run", runBody(mixed)),
     );
     expect(response.status).toBe(200);
-    expect(new Set(lookedUp)).toEqual(new Set([canonical]));
-    expect(lookedUp.length).toBeGreaterThan(0);
+    expect(lookedUp[0]).toBe(canonical);
+    expect(lookedUp).toContain(mixed);
     expect(claimed).toEqual([canonical]);
+    expect(dispatchedThreadIds.length).toBeGreaterThan(0);
+    expect(dispatchedThreadIds.every((id) => id === canonical)).toBe(true);
     expect(sql.rows.get(canonical)).toBe(RESOURCE_A);
     expect(sql.rows.has(mixed)).toBe(false);
   });

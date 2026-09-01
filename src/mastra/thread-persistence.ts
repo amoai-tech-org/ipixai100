@@ -20,6 +20,25 @@ function mastraThreadKey(threadId: string): string {
   return canonicalizePlannerThreadId(threadId) ?? threadId;
 }
 
+/** Canonical UUID plus the uppercase spelling used by pre-canonical Mastra rows. */
+function mastraThreadLookupIds(threadId: string): string[] {
+  const canonical = canonicalizePlannerThreadId(threadId);
+  if (!canonical) return [threadId];
+  const legacy = canonical.toUpperCase();
+  return legacy === canonical ? [canonical] : [canonical, legacy];
+}
+
+export async function findMastraThread(
+  memory: MastraMemory,
+  threadId: string,
+) {
+  for (const id of mastraThreadLookupIds(threadId)) {
+    const thread = await memory.getThreadById({ threadId: id });
+    if (thread) return thread;
+  }
+  return null;
+}
+
 export function splitRunThreadIds(resourceId: string, clientThreadId: string) {
   const mastraThreadId = mastraThreadKey(clientThreadId);
   return {
@@ -37,9 +56,7 @@ export async function ensureMastraThread(
   input: { threadId: string; resourceId: string; title?: string },
 ): Promise<{ created: boolean }> {
   const threadId = mastraThreadKey(input.threadId);
-  const existing = await memory.getThreadById({
-    threadId,
-  });
+  const existing = await findMastraThread(memory, input.threadId);
   if (existing) {
     if (existing.resourceId !== input.resourceId) {
       throw new Error("thread belongs to another resource");
@@ -82,15 +99,12 @@ export async function recallPlannerChatMessages(
   memory: MastraMemory,
   input: { threadId: string; resourceId: string },
 ): Promise<PlannerChatMessage[]> {
-  const threadId = mastraThreadKey(input.threadId);
-  const thread = await memory.getThreadById({
-    threadId,
-  });
+  const thread = await findMastraThread(memory, input.threadId);
   if (!thread || thread.resourceId !== input.resourceId) {
     return [];
   }
   const recalled = await memory.recall({
-    threadId,
+    threadId: thread.id,
     resourceId: input.resourceId,
     perPage: false,
   });

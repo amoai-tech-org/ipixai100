@@ -86,6 +86,35 @@ describe("ensureMastraThread + listMastraThreadsForResource", () => {
     expect(alias).toBeNull();
   });
 
+  it("keeps an existing uppercase UUID owned by Org A when Org B uses lowercase", async () => {
+    const memory = isolatedMemory();
+    const mixed = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+    const canonical = mixed.toLowerCase();
+    const ownerA = "org:org-a::user:user-a";
+    const ownerB = "org:org-b::user:user-b";
+
+    await memory.createThread({
+      threadId: mixed,
+      resourceId: ownerA,
+      title: "legacy",
+    });
+
+    await expect(
+      ensureMastraThread(memory, { threadId: canonical, resourceId: ownerB }),
+    ).rejects.toThrow("thread belongs to another resource");
+
+    const stored = await memory.getThreadById({ threadId: mixed });
+    const alias = await memory.getThreadById({ threadId: canonical });
+    expect(stored?.resourceId).toBe(ownerA);
+    expect(alias).toBeNull();
+
+    const sameOwner = await ensureMastraThread(memory, {
+      threadId: canonical,
+      resourceId: ownerA,
+    });
+    expect(sameOwner.created).toBe(false);
+  });
+
   it("lists more than 50 threads for one resource", async () => {
     const memory = isolatedMemory();
     const resourceId = "org:org-a::user:user-a";

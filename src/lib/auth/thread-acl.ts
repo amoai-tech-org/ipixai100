@@ -1,5 +1,6 @@
 import {
   canonicalizePlannerThreadId,
+  findMastraThread,
   getPlannerMemory,
 } from "@/mastra/thread-persistence";
 
@@ -78,9 +79,7 @@ export async function loadThreadOwner(
   try {
     const memory = await getPlannerMemory();
     if (!memory) return { status: "lookup_failed" };
-    const thread = await memory.getThreadById({
-      threadId: canonicalizePlannerThreadId(threadId) ?? threadId,
-    });
+    const thread = await findMastraThread(memory, threadId);
     if (!thread) return { status: "not_found" };
     const resourceId = thread.resourceId;
     return typeof resourceId === "string" && resourceId.length > 0
