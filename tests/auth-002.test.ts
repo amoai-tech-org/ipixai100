@@ -125,6 +125,13 @@ describe("IPI-1046 · AUTH-002 tenant identity", () => {
     }
   });
 
+  it("accepts the fashionos Acme seed org id (not RFC version-4)", () => {
+    const acme = "00000000-0000-0000-0000-000000000001";
+    expect(
+      resolveTrustedRuntimeOrg({ membershipOrgIds: [acme] }),
+    ).toEqual({ status: "ok", orgId: acme });
+  });
+
   it("maps zero memberships to onboarding for product bootstrap, not a fake org", () => {
     const resolution = resolveTrustedRuntimeOrg({
       membershipOrgIds: [],
