@@ -49,4 +49,4 @@ Read **one** reference file per task (plus [`topic-routing.md`](topic-routing.md
 | [`rag-mastra.md`](rag-mastra.md) | RAG overview (Phase 2 defer) |
 | [`rag-pgvector.md`](rag-pgvector.md) | PgVector embedding storage |
 
-**iPixai rule:** Production Planner + OpenAI starter pin (until a provider ticket) + CopilotKit in-process `getLocalAgents` + `resourceId` `org:…::user:…`. Ignore Gemini-only / CopilotKit 1.55.2 / `mdeapp` leftovers in older reference files.
+**iPixai rule:** Current registered agent is starter `weather-agent` (`default`). `production-planner` is the conversion-plan **target**, not an available ID. OpenAI starter pin (until a provider ticket) + CopilotKit in-process `getLocalAgents` + `resourceId` `org:…::user:…`. Ignore Gemini-only / CopilotKit 1.55.2 / `mdeapp` leftovers in older reference files.

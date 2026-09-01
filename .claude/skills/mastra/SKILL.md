@@ -47,7 +47,7 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Do **not** copy the old Mas
 
 - **Starter:** CopilotKit `examples/integrations/mastra` — `export const mastra` from `src/mastra/index.ts`
 - **CopilotKit:** `MastraAgent.getLocalAgents({ mastra, resourceId })` — `resourceId` = `org:{orgId}::user:{userId}`, never hardcoded `"default"` in Core
-- **Storage:** PostgresStore (`schemaName: "mastra"`, `disableInit: true`). Production **fail closed** when `MASTRA_DATABASE_URL` is unset (no in-memory LibSQL). LibSQL fallback is disposable preview only. No Worker/Hyperdrive storage switch
+- **Storage:** Production backend is PostgresStore (`schemaName: "mastra"`, `disableInit: true`). Missing `MASTRA_DATABASE_URL` must **abort startup** — do not let `createMastraStorage` / `createAgentMemoryStorage` build in-memory LibSQLStore. LibSQL is allowed only for an env a task marks as disposable preview. The current starter still warns-and-falls-back; do not copy that into production. No Worker/Hyperdrive storage switch
 - **Model:** starter pin until a provider ticket — do not port Cloudflare `resolveAgentModel`
 - **Agents:** current starter registry is `weather-agent` (`default` → that agent). Conversion-plan **target** is `production-planner` (+ `default` alias) — do not treat target IDs as already registered. More IDs only per convert plan
 - **Tools:** compute-only shoot tools first; domain writes via SECURITY DEFINER RPCs + user JWT

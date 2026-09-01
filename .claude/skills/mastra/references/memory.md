@@ -1,6 +1,6 @@
 ---
 title: Mastra memory — docs + reference
-description: Load when configuring Mastra Memory, working memory, threads, or storage. mdeapp Phase 1 = thread-scoped working memory only.
+description: Load when configuring Mastra Memory, working memory, threads, or storage. iPixai Core = thread-scoped working memory only.
 parent: mastra
 impact: HIGH
 impactDescription: Doc URLs and reference API for @mastra/memory
@@ -9,7 +9,7 @@ tags: mastra, memory, working-memory, observational-memory
 
 # Mastra memory — docs & reference index
 
-**mdeai Phase 1 concierge:** thread-scoped **working memory** (Zod in agent + `src/lib/types.ts`) only. Do **not** enable observational memory, semantic recall, or multi-user threads in production unless a task opens Phase 2.
+**iPixai Core:** thread-scoped **working memory** only (starter `weather-agent` until Planner lands). Do **not** enable observational memory, semantic recall, or multi-user threads unless a convert-plan ticket opens that work.
 
 **Lookup order:** [`mcp-docs-lookup.md`](mcp-docs-lookup.md) → **`mastraDocs`** paths below → [`links.md`](../links.md).
 

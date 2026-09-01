@@ -23,7 +23,7 @@ Never trust training-data API shapes — Mastra APIs change between versions.
 |------|--------|
 | Location | `src/mastra/` only (not old iPix `app/src/mastra/`) |
 | Export | `export const mastra` from `src/mastra/index.ts` |
-| Storage | PostgresStore, `schemaName: "mastra"`, `disableInit: true`. Production must fail closed if `MASTRA_DATABASE_URL` is unset (no in-memory LibSQL). LibSQL fallback is disposable local/preview only |
+| Storage | PostgresStore, `schemaName: "mastra"`, `disableInit: true`. Missing `MASTRA_DATABASE_URL` must abort (no in-memory LibSQL). LibSQL only if a task marks the env as disposable preview |
 | Models | Starter pin until a provider ticket — run [`model-selection.md`](./model-selection.md) before new ids |
 | Agent IDs | **Current:** `weather-agent` (`default`). **Target:** `production-planner` (+ `default` alias) per convert plan — do not assume the target is registered |
 | CopilotKit | In-process `getLocalAgents({ mastra, resourceId })` — `resourceId` = `org:{orgId}::user:{userId}` |

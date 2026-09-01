@@ -32,4 +32,4 @@ Use for defined processes such as pipelines, approvals, ETL, multi-step business
 
 - **Current registry:** starter `weather-agent` (`default` → that agent). **Conversion-plan target:** Production Planner (`production-planner`, plus `default` alias) — not registered until the convert plan lands it.
 - Tools stay **compute-only** until HITL RPCs; domain writes go through SECURITY DEFINER RPCs + user JWT.
-- Storage on the real path is **PostgresStore** (`schemaName: "mastra"`, `disableInit: true`). Production (`NODE_ENV=production`) must **fail closed** when `MASTRA_DATABASE_URL` is unset — do not fall back to in-memory LibSQLStore. In-memory LibSQL is allowed **only** for disposable local/preview when the URL is unset. Do not copy that fallback into production.
+- Storage on the real path is **PostgresStore** (`schemaName: "mastra"`, `disableInit: true`). Missing `MASTRA_DATABASE_URL` must **abort startup** — do not construct in-memory LibSQLStore. LibSQL is allowed only when a task marks the env as disposable preview. The current starter still warns-and-falls-back; do not copy that into production.

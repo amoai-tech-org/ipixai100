@@ -67,26 +67,33 @@ Verify the server once with a cheap check before resource calls. Unauthenticated
 
 ```bash
 MASTRA_URL="${MASTRA_URL:-http://localhost:4111}"
-if [ -n "${MASTRA_PLATFORM_ACCESS_TOKEN:-}" ]; then
+# Local unauthenticated Studio: headerless curl is enough.
+# Explicit platform URL: both env vars required (--url does not load .mastra-project.json).
+if [ "$MASTRA_URL" != "http://localhost:4111" ]; then
+  : "${MASTRA_PLATFORM_ACCESS_TOKEN:?set in local env — do not paste into chat}"
+  : "${MASTRA_PROJECT_ID:?set in local env — do not paste into chat}"
   curl -fsS \
     -H "Authorization: Bearer ${MASTRA_PLATFORM_ACCESS_TOKEN}" \
-    ${MASTRA_PROJECT_ID:+-H "X-Mastra-Project-Id: ${MASTRA_PROJECT_ID}"} \
+    -H "X-Mastra-Project-Id: ${MASTRA_PROJECT_ID}" \
     "$MASTRA_URL/api/system/api-schema" >/dev/null
 else
   code=$(curl -sS -o /tmp/mastra-api-schema.json -w "%{http_code}" "$MASTRA_URL/api/system/api-schema")
   if [ "$code" = "401" ] || [ "$code" = "403" ]; then
-    echo "Server is up but requires auth. Confirm MASTRA_PLATFORM_ACCESS_TOKEN / MASTRA_PROJECT_ID (or --header) are set in the local env — do not paste secrets into chat." >&2
+    echo "Server is up but requires auth. Confirm MASTRA_PLATFORM_ACCESS_TOKEN and MASTRA_PROJECT_ID are set in the local env — do not paste secrets into chat." >&2
     exit 1
   fi
   [ "$code" = "200" ]
 fi
 ```
 
-If the TCP connection fails, start `npm run dev:agent` or confirm the URL. For authenticated CLI calls, pass headers from env (do not request credential values):
+If the TCP connection fails, start `npm run dev:agent` or confirm the URL. For authenticated CLI calls against an explicit `--url`, pass **both** headers from env (do not request credential values):
 
 ```bash
+: "${MASTRA_PLATFORM_ACCESS_TOKEN:?set in local env}"
+: "${MASTRA_PROJECT_ID:?set in local env}"
 npx --no-install mastra api --url "$MASTRA_URL" \
-  --header "Authorization: Bearer ${MASTRA_PLATFORM_ACCESS_TOKEN}" agent list
+  --header "Authorization: Bearer ${MASTRA_PLATFORM_ACCESS_TOKEN}" \
+  --header "X-Mastra-Project-Id: ${MASTRA_PROJECT_ID}" agent list
 ```
 
 ### Target resolution
