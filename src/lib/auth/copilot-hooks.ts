@@ -3,6 +3,7 @@ import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
 import {
   authorizeThreadAccess,
   loadThreadOwner,
+  routeAllowsLookupFailed,
   routeAllowsMissingThread,
   routeNeedsThreadAcl,
   threadForbiddenResponse,
@@ -68,6 +69,7 @@ export const copilotAuthHooks: CopilotRuntimeHooks = {
       callerResourceId: session.resourceId,
       owner,
       allowMissing: routeAllowsMissingThread(route.method),
+      allowLookupFailed: routeAllowsLookupFailed(route.method),
     });
     if (!decision.ok) throw threadForbiddenResponse();
   },

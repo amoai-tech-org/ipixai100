@@ -21,7 +21,12 @@ export async function GET(
     return Response.json({ error: "invalid_thread" }, { status: 400 });
   }
 
-  const memory = await getPlannerMemory();
+  let memory;
+  try {
+    memory = await getPlannerMemory();
+  } catch {
+    return Response.json({ error: "memory_unavailable" }, { status: 503 });
+  }
   if (!memory) {
     return Response.json({ error: "memory_unavailable" }, { status: 503 });
   }

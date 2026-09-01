@@ -43,12 +43,18 @@ export function routeAllowsMissingThread(method: string): boolean {
   );
 }
 
+/** run/connect may proceed when memory is down; stop must not abort a live thread. */
+export function routeAllowsLookupFailed(method: string): boolean {
+  return method === "agent/run" || method === "agent/connect";
+}
+
 /** threadId locates; stored Mastra resourceId authorizes. */
 export function authorizeThreadAccess(input: {
   threadId: unknown;
   callerResourceId: string;
   owner: ThreadOwnerLookup;
   allowMissing: boolean;
+  allowLookupFailed?: boolean;
 }): ThreadAccessDecision {
   if (!isUsableThreadId(input.threadId)) return { ok: false };
   if (input.owner.status === "owned") {
@@ -56,13 +62,10 @@ export function authorizeThreadAccess(input: {
       ? { ok: true }
       : { ok: false };
   }
-  // run/connect/stop: missing or lookup failure is not a foreign-owner denial.
-  // The runner still fail-closes (memory_unavailable / pending Stop).
-  if (
-    input.allowMissing &&
-    (input.owner.status === "not_found" ||
-      input.owner.status === "lookup_failed")
-  ) {
+  if (input.owner.status === "not_found" && input.allowMissing) {
+    return { ok: true };
+  }
+  if (input.owner.status === "lookup_failed" && input.allowLookupFailed) {
     return { ok: true };
   }
   return { ok: false };

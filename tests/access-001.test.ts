@@ -243,8 +243,17 @@ describe("IPI-1047 · ACCESS-001 thread ownership", () => {
         callerResourceId: owner,
         owner: { status: "lookup_failed" },
         allowMissing: true,
+        allowLookupFailed: true,
       }),
     ).toEqual({ ok: true });
+    expect(
+      authorizeThreadAccess({
+        threadId: "thread-new",
+        callerResourceId: owner,
+        owner: { status: "lookup_failed" },
+        allowMissing: true,
+      }),
+    ).toEqual({ ok: false });
     expect(
       authorizeThreadAccess({
         threadId: "thread-new",
@@ -489,5 +498,43 @@ describe("IPI-1047 · ACCESS-001 thread ownership", () => {
     });
     assertEmptyOfOrgA(deniedBody);
     expect(ran).toBe(false);
+  });
+
+  it("returns 403 for stop when owner lookup fails", async () => {
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: createFiniteAgent(),
+    });
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockRejectedValue(
+      new Error("memory down"),
+    );
+    await asOrgA();
+    const response = await POST(
+      copilotRequest("/api/copilotkit/agent/default/stop/thread-access-stop-lookup", {
+        method: "POST",
+      }),
+    );
+    expect(response.status).toBe(403);
+    const deniedBody = await response.json();
+    expect(deniedBody).toEqual({
+      error: "forbidden",
+      reason: "thread_forbidden",
+    });
+    assertEmptyOfOrgA(deniedBody);
+  });
+
+  it("returns 503 memory_unavailable when planner /messages memory rejects", async () => {
+    const threadId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockRejectedValue(
+      new Error("memory down"),
+    );
+    await asOrgA();
+    const response = await getPlannerMessages(
+      copilotRequest(`/api/planner/threads/${threadId}/messages`, {
+        method: "GET",
+      }),
+      { params: Promise.resolve({ threadId }) },
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "memory_unavailable" });
   });
 });
