@@ -1,6 +1,6 @@
 ---
 title: Mastra docs MCP lookup
-description: Load before using Cursor user-mastra MCP tools; set projectPath to mdeapp.
+description: Load before using Cursor user-mastra MCP tools; set projectPath to this repo root.
 parent: mastra
 impact: HIGH
 impactDescription: When to use user-mastra MCP vs embedded vs links.md
@@ -9,7 +9,7 @@ tags: mastra, mcp, docs
 
 # Mastra docs — MCP lookup matrix
 
-Use **before** guessing APIs from training data. mdeai has **`user-mastra`** MCP (Cursor) and optional **`@mastra/mcp-docs-server`** (stdio).
+Use **before** guessing APIs from training data. iPixai has **`user-mastra`** MCP (Cursor). Optional **`@mastra/mcp-docs-server`** is for agent-in-app MCP, not a substitute for installed types.
 
 ## Tool pick (Cursor `user-mastra`)
 
@@ -18,11 +18,11 @@ Use **before** guessing APIs from training data. mdeai has **`user-mastra`** MCP
 | Full doc page by path | **`mastraDocs`** | `paths: ["docs/agents/overview"]` | Best for known URLs; returns markdown + related paths |
 | Browse embedded guides | **`readMastraDocs`** | `package`, `projectPath`, optional `topic` | `@mastra/core`, `@mastra/memory`, … |
 | Keyword search in installed docs | **`searchMastraDocs`** | `query`, **`projectPath`** | Often empty if embedded tree sparse — fall back to `mastraDocs` |
-| List installed packages | **`listMastraPackages`** | `projectPath` | mdeapp: core, memory, server, deployer, loggers |
+| List installed packages | **`listMastraPackages`** | `projectPath` | `@mastra/core`, `@mastra/memory`, `@mastra/pg`, … |
 | Export / API surface | **`getMastraExports`** | `package`, `projectPath` | Type discovery |
 | v1 migration | **`mastraMigration`** | (see schema) | Breaking changes |
 
-**Always pass:** `projectPath: "/home/sk/mdeai/mdeapp"` (or repo-relative `mdeapp` from workspace root).
+Pass `projectPath` **only** to tools whose schema declares it (`searchMastraDocs`, `readMastraDocs`, `listMastraPackages`, `getMastraExports`, `getMastraHelp`). Value = `$(git rev-parse --show-toplevel)` (iPixai repo root — **not** `/home/sk/ipix/app` and **not** `mdeapp`). **`mastraDocs` does not take `projectPath`** — use `paths` and optional `queryKeywords` only.
 
 ## `mastraDocs` path patterns
 
@@ -52,13 +52,13 @@ Optional: `queryKeywords: ["CopilotKit", "stream"]` for related-path hints.
 2. `curl -sL https://mastra.ai/llms.txt`
 3. Firecrawl / browser on `https://mastra.ai/docs/...` or `https://mastra.ai/examples/v0/...` (examples **not** in `mastraDocs`)
 
-## mdeai CopilotKit pattern (critical)
+## iPixai CopilotKit pattern (critical)
 
-Official CopilotKit guide shows **standalone Mastra server** + `registerCopilotKit({ path: '/chat' })` on `:4111`.
+Official CopilotKit + Mastra guides often show a **standalone Mastra server** + `/chat` on `:4111`.
 
-**mdeapp Phase 1** uses **in-process** Pattern 1: `MastraAgent.getLocalAgents({ mastra })` in Next.js `/api/copilotkit` — **not** `:4111/chat`.
+**iPixai Core** uses **in-process** `MastraAgent.getLocalAgents({ mastra, resourceId })` in Next.js `/api/copilotkit` — **not** `:4111/chat`. `resourceId` is `org:{orgId}::user:{userId}`.
 
-Load: [`copilotkit-integrations` → mastra.md](../../copilotkit/references/integrations/references/integrations/mastra.md) before changing runtime wiring.
+CopilotKit v2 UI (`useComponent`, slots, headless) → **`copilotkit` skill**, not these Mastra refs.
 
 If you deploy a **bundled** Mastra server with CopilotKit, externalize `@copilotkit/runtime` in bundler config (see official CopilotKit guide deployment section).
 
@@ -66,6 +66,6 @@ If you deploy a **bundled** Mastra server with CopilotKit, externalize `@copilot
 
 Built-in processor API lives under `reference/processors/` — e.g. `pii-detector`, `prompt-injection-detector`, `moderation-processor`, `token-limiter-processor`, `semantic-recall-processor`, `working-memory-processor`. Start from [`docs/agents/processors`](https://mastra.ai/docs/agents/processors).
 
-## Observational memory vs mdeai working memory
+## Observational memory vs iPixai working memory
 
-Observational Memory (`@mastra/memory@1.1.0+`) compresses long threads with Observer/Reflector agents. **Phase 1 concierge** uses **thread-scoped working memory (Zod)** + Supabase hybrid search — not OM. Bookmark OM for Phase 2; do not swap without task spec.
+Observational Memory (`@mastra/memory`) can compress long threads with Observer/Reflector agents. **iPixai Core** uses PostgresStore memory with org/user `resourceId` — do not swap in OM or Gemini-only concierge patterns without a convert-plan ticket.

@@ -9,7 +9,7 @@ tags: mastra, streaming, sse, events, tool-streaming
 
 # Mastra streaming — docs & reference index
 
-**mdeai Phase 1:** Camila's `/chat` streams via **CopilotKit + AG-UI** (`getLocalAgents` in-process). Mastra `Agent.stream()` events (`text-delta`, `tool-call`, `tool-result`) bridge through the runtime — read [events](https://mastra.ai/docs/streaming/events) + [tool streaming](https://mastra.ai/docs/streaming/tool-streaming) when debugging generative UI or tool progress. **Background task streaming** is Phase 2 unless a task enables `backgroundTaskManager`.
+**iPixai Core:** CopilotKit + AG-UI streams via in-process `getLocalAgents` in `src/app/api/copilotkit/[[...slug]]/route.ts`. Mastra `Agent.stream()` events (`text-delta`, `tool-call`, `tool-result`) bridge through that runtime — read [events](https://mastra.ai/docs/streaming/events) + [tool streaming](https://mastra.ai/docs/streaming/tool-streaming) when debugging. **Background task streaming** waits for a convert-plan ticket unless a task enables `backgroundTaskManager`.
 
 **Lookup order:** [`mcp-docs-lookup.md`](mcp-docs-lookup.md) → **`mastraDocs`** paths below → [`links.md`](../links.md).
 
@@ -92,7 +92,7 @@ From [streaming/events](https://mastra.ai/docs/streaming/events):
 }
 ```
 
-Package: `@mastra/core` — use `readMastraDocs` with `projectPath: /home/sk/mdeai/mdeapp`.
+Package: `@mastra/core` — use `readMastraDocs` with `projectPath` = this repo root (`$(git rev-parse --show-toplevel)`).
 
 ---
 
@@ -100,7 +100,7 @@ Package: `@mastra/core` — use `readMastraDocs` with `projectPath: /home/sk/mde
 
 | Artifact | Path |
 | --- | --- |
-| CopilotKit runtime (AG-UI bridge) | `mdeapp/src/app/api/copilotkit/route.ts` |
-| CopilotKit integration skill | `copilotkit-integrations` → `references/integrations/mastra.md` |
-| Tool definitions (writer hooks) | `mdeapp/src/mastra/tools/**` |
+| CopilotKit runtime (AG-UI bridge) | `src/app/api/copilotkit/[[...slug]]/route.ts` |
+| CopilotKit integration skill | [`copilotkit`](../../copilotkit/SKILL.md) → [`references/integrations/mastra.md`](../../copilotkit/references/integrations/references/integrations/mastra.md) |
+| Tool definitions | `src/mastra/tools/**` |
 | AI SDK v5 bridge | `toAISdkV5Stream()` from `@mastra/ai-sdk` — see [overview](https://mastra.ai/docs/streaming/overview) |

@@ -27,7 +27,7 @@ Use this file to jump from a **task or question** to the right **official URL ta
 | Studio UI, deploy Studio, Studio auth | [Studio](../links.md#studio) | — |
 | Editor (stored agents, prompts, tools) | [Editor](../links.md#editor-stored-agents-prompts-tools) | — |
 | Agent behavior, tools, output, supervisor, HITL-ish | [Agents](../links.md#agents) | [`embedded-docs.md`](embedded-docs.md) → Agent |
-| **CopilotKit + Mastra (official guide)** | [Guides — build your UI](../links.md#guides-build-your-ui) · [mdeai stack table](../links.md#mdeai-stack-not-in-supatabs-paste--load-first-for-this-repo) | [`../copilotkit-integrations/references/integrations/mastra.md`](../../copilotkit/references/integrations/references/integrations/mastra.md) for mdeapp Pattern 1 |
+| **CopilotKit + Mastra** | [Guides — build your UI](../links.md#guides-build-your-ui) | **copilotkit** skill — iPixai is in-process `getLocalAgents` (`src/app/api/copilotkit/[[...slug]]/route.ts`), not a separate Mastra `/chat` server |
 | A2A / ACP / supervisor (Phase 2 defer for mdeai) | [Agents](../links.md#agents) · [Supatabs Agents](../links.md#agents-1) | Document only — do not wire in Phase 1 concierge |
 | DAG steps, suspend/resume, errors, HITL | [Workflows](../links.md#workflows) · [Reference — workflows](../links.md#reference--workflows) | [`references/workflows.md`](workflows.md) · [`embedded-docs.md`](embedded-docs.md) → Workflow |
 | Message history, storage, recall | [Memory](../links.md#memory) · [Reference — memory](../links.md#reference--memory) | [`references/memory.md`](memory.md) · [`embedded-docs.md`](embedded-docs.md) → Memory |
@@ -35,7 +35,7 @@ Use this file to jump from a **task or question** to the right **official URL ta
 | Chunking, vectors, retrieval | [RAG](../links.md#rag) | — |
 | HTTP server, client, routes, request context | [Server & client](../links.md#server-client) | [`supabase-auth.md`](supabase-auth.md) for Supabase auth |
 | MCP, MCPClient, MCP apps, workspace skills | [MCP & workspaces](../links.md#mcp-workspaces) | [`workspace.md`](workspace.md), [`workspace-skills.md`](workspace-skills.md) |
-| Mastra docs MCP (`mastraDocs`, embedded search) | [`references/mcp-docs-lookup.md`](mcp-docs-lookup.md) | Always `projectPath` → `mdeapp` |
+| Mastra docs MCP (`mastraDocs`, embedded search) | [`references/mcp-docs-lookup.md`](mcp-docs-lookup.md) | `mastraDocs`: `paths` + optional `queryKeywords` only. `projectPath` = this repo root **only** on tools that declare it |
 | SSE / streams, tool-call events, AG-UI | [Streaming](../links.md#streaming) · [Reference — streaming](../links.md#reference--streaming) | [`references/streaming.md`](streaming.md) |
 | Logs, traces, evals, datasets, CI | [Observability & evals](../links.md#observability-evals) | — |
 | Production / cloud | [Deployment](../links.md#deployment) | [`remote-docs.md`](remote-docs.md) |
@@ -76,14 +76,13 @@ Use this file to jump from a **task or question** to the right **official URL ta
 
 ---
 
-## mdeai repo pointers
+## iPixai repo pointers
 
 | Artifact | Location |
 | --- | --- |
-| Runtime app | `my-mastra-app/` (from repo root) |
-| Mastra PRD / tasks | `tasks/prompts/mastra/` |
-
-(See [`links.md` § mdeai repository](../links.md#mdeai-repository).)
+| Mastra runtime | `src/mastra/` (`npm run dev:agent` → Studio `:4111`) |
+| CopilotKit route | `src/app/api/copilotkit/[[...slug]]/route.ts` |
+| Conversion SSOT | `docs/mastra/10-mastra-convert.md` |
 
 ---
 
