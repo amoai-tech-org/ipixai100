@@ -479,8 +479,11 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
         { method: "POST" },
       ),
     );
-    expect(stopResponse.status).toBe(200);
-    expect(await stopResponse.json()).toMatchObject({ stopped: false });
+    expect(stopResponse.status).toBe(403);
+    expect(await stopResponse.json()).toEqual({
+      error: "forbidden",
+      reason: "thread_forbidden",
+    });
     expect(stats.aborted).toBe(false);
 
     claims.sub = USER_A;
@@ -523,15 +526,15 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    vi.spyOn(threadPersistence, "getPlannerMemory").mockImplementation(
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue({
+      getThreadById: async () => null,
+    } as unknown as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>);
+    vi.spyOn(threadPersistence, "ensureMastraThread").mockImplementation(
       async () => {
         await gate;
-        return {} as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>;
+        return { created: true };
       },
     );
-    vi.spyOn(threadPersistence, "ensureMastraThread").mockResolvedValue({
-      created: true,
-    });
     memberships.rows = [{ org_id: ORG_A }];
     const body = runBody();
 
@@ -587,9 +590,9 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     const ensureSpy = vi
       .spyOn(threadPersistence, "ensureMastraThread")
       .mockResolvedValue({ created: true });
-    vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue(
-      {} as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>,
-    );
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue({
+      getThreadById: async () => null,
+    } as unknown as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>);
     memberships.rows = [{ org_id: ORG_A }];
     try {
       const body = runBody();

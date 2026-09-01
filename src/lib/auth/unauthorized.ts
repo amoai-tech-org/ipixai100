@@ -6,7 +6,7 @@ export function unauthorizedResponse(): Response {
 }
 
 export function forbiddenResponse(
-  reason: "needs_onboarding" | "needs_org_selection",
+  reason: "needs_onboarding" | "needs_org_selection" | "thread_forbidden",
 ): Response {
   return new Response(JSON.stringify({ error: "forbidden", reason }), {
     status: 403,

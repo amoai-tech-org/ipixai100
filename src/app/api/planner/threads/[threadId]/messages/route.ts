@@ -1,5 +1,9 @@
 import { requirePlannerResourceId } from "@/lib/auth/planner-session";
 import {
+  loadThreadOwner,
+  threadForbiddenResponse,
+} from "@/lib/auth/thread-acl";
+import {
   THREAD_ID,
   getPlannerMemory,
   recallPlannerChatMessages,
@@ -20,6 +24,14 @@ export async function GET(
   const memory = await getPlannerMemory();
   if (!memory) {
     return Response.json({ error: "memory_unavailable" }, { status: 503 });
+  }
+
+  const owner = await loadThreadOwner(threadId);
+  if (
+    owner.status !== "owned" ||
+    owner.resourceId !== session.resourceId
+  ) {
+    return threadForbiddenResponse();
   }
 
   const messages = await recallPlannerChatMessages(memory, {
