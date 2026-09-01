@@ -2,8 +2,55 @@
 
 **Ticket:** [IPI-1043 · DB-001 — Prove Mastra Can Use the iPix Postgres Schema Safely](https://linear.app/amo100/issue/IPI-1043/ipi-1043-db-001-prove-mastra-can-use-the-ipix-postgres-schema-safely)
 
-**Date:** 2026-08-25  
-**Git SSOT:** `origin/main` `054da4eed3eaffc988aae9325a1c3a4e069c95fd` — **IPI-1042 · RUNTIME-001 — Pin `@mastra/pg` 1.12.1 so it loads with Core 1.41.0** (merge of PR #6). Dirty `/home/sk/ipixai` is not SSOT.
+---
+
+## Recertification 2026-09-01 (`@mastra/pg@1.22.2`)
+
+**Git SSOT:** `origin/main` `615877b69892ae9ccc111af963ce026a7fff87d0` — **IPI-1042 · RUNTIME-001 — Pin ipixai to the Mastra 1.63.2 family** (PR #25).
+
+The 2026-08-25 matrix below was written against `@mastra/pg@1.12.1` / `@mastra/core@1.41.0`. That pin is **stale**. Installed contract after PR #25:
+
+| Package | Installed |
+|---------|-----------|
+| `@mastra/pg` | `1.22.2` |
+| `@mastra/core` | `1.63.2` |
+| `@mastra/memory` | `1.28.1` |
+| `@mastra/libsql` | `1.22.2` |
+
+Constructor still proven from `node_modules/@mastra/pg/dist/shared/config.d.ts`: required `id`; `schemaName?` (runtime default remains **`public`**); `disableInit?`; injected `pool` via `PoolInstanceConfig`. Live code on this SHA already wires that in `src/mastra/pg-store.ts` (`schemaName: "mastra"`, `disableInit: true`, singleton `pg.Pool`). This recertification does **not** construct a store or call `init()`.
+
+### Catalogs this run (read-only SELECT / `list_tables`)
+
+| Env | Result |
+|-----|--------|
+| Hosted fashionos `nvdlhrodvevgwdsneplk` | **34** `mastra.*` tables. **Zero** `public.mastra_*`. Required core memory columns and indexes **MATCH** `TABLE_SCHEMAS` from `@mastra/core@1.63.2`. Additive `*Z` columns remain **CHANGE** (below). Row counts: threads 45, messages 103, snapshots 6140, resources 0. |
+| Hosted planner-staging `wtuhdynujhszsbwxlbdi` | **34** `mastra.*` (empty Core rows) **plus leftover `public.mastra_*` shadows** (almost all 0 rows; `public.mastra_workflow_snapshot` has 1). Staging shadows are **not** the runtime target. |
+| Local Docker `127.0.0.1:54342` | **NOT VERIFIED this run** (no listener). 2026-08-25 probe still the last local fingerprint. |
+
+### `TABLE_SCHEMAS` grew 35 → 44 names
+
+**MISSING** on iPix `mastra` vs `@mastra/core@1.63.2` (not Core memory blockers with `disableInit: true`):
+
+`mastra_notifications`, `mastra_traces`, `mastra_tool_provider_connections`, `mastra_thread_state`, `mastra_harness_sessions`, `mastra_knowledge_activity`, `mastra_knowledge_cursors`, `mastra_knowledge_mentions`, `mastra_knowledge_nodes`, `mastra_knowledge_records`, `mastra_knowledge_semantic_outbox`.
+
+**EXTRA:** `mastra_observational_memory` (still not in Core `TABLE_SCHEMAS`).
+
+**MATCH (load-bearing memory):** `mastra_threads`, `mastra_messages`, `mastra_resources`, `mastra_workflow_snapshot` required columns + PKs + `(resourceId, createdAt DESC)` / `(thread_id, createdAt DESC)` indexes. Snapshot uniqueness still named `public_mastra_workflow_snapshot_workflow_name_run_id_key` (**CHANGE** name, **MATCH** columns). Additive `*Z` timestamptz columns remain **CHANGE**.
+
+### `public.mastra_*` investigation
+
+Fashionos production catalog has **no** `public.mastra_*`. Planner-staging still has a full shadow set. Installed PostgresStore with `schemaName: "mastra"` qualifies `mastra.mastra_*` and does **not** need `public.mastra_*`. Do not GRANT `mastra` to `anon`. Do not point hosted iPixai at staging `public`.
+
+### Recert verdict
+
+**GO for local PG-001 shipped code path and 2026-08-25 fingerprint** (already shipped in **IPI-1044 · PG-001 — Make iPix AI Conversations Survive Server Restarts** on this SHA). Current local recertification on `@mastra/pg@1.22.2` is **UNVERIFIED** (no Docker probe this run). **GO for hosted `mastra.*` column contract** on fashionos. **NO-GO for hosted writes** until **IPI-1124 · MASTRA-HOST-PG-001 — Run Mastra Memory on Shared Supabase Postgres in Hosted iPix** (allowlist, pooler, least-privilege role, fail-closed — not this ticket).
+
+Historical 1.12.1 write-up is preserved below as the original PR #7 evidence.
+
+---
+
+**Original date:** 2026-08-25  
+**Original Git SSOT:** `origin/main` `054da4eed3eaffc988aae9325a1c3a4e069c95fd` — **IPI-1042 · RUNTIME-001 — Pin `@mastra/pg` 1.12.1 so it loads with Core 1.41.0** (merge of PR #6). Dirty `/home/sk/ipixai` is not SSOT.
 
 This file is the **MATCH / CHANGE / MISSING** contract. It does **not** wire `PostgresStore`, call `init()`, or write Postgres.
 
