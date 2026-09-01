@@ -23,7 +23,7 @@ Constructor still proven from `node_modules/@mastra/pg/dist/shared/config.d.ts`:
 
 | Env | Result |
 |-----|--------|
-| Hosted fashionos `nvdlhrodvevgwdsneplk` | **34** `mastra.*` tables. **Zero** `public.mastra_*`. Core memory columns/indexes **MATCH** `TABLE_SCHEMAS` from `@mastra/core@1.63.2`. Row counts: threads 45, messages 103, snapshots 6140, resources 0. |
+| Hosted fashionos `nvdlhrodvevgwdsneplk` | **34** `mastra.*` tables. **Zero** `public.mastra_*`. Required core memory columns and indexes **MATCH** `TABLE_SCHEMAS` from `@mastra/core@1.63.2`. Additive `*Z` columns remain **CHANGE** (below). Row counts: threads 45, messages 103, snapshots 6140, resources 0. |
 | Hosted planner-staging `wtuhdynujhszsbwxlbdi` | **34** `mastra.*` (empty Core rows) **plus leftover `public.mastra_*` shadows** (almost all 0 rows; `public.mastra_workflow_snapshot` has 1). Staging shadows are **not** the runtime target. |
 | Local Docker `127.0.0.1:54342` | **NOT VERIFIED this run** (no listener). 2026-08-25 probe still the last local fingerprint. |
 
@@ -43,7 +43,7 @@ Fashionos production catalog has **no** `public.mastra_*`. Planner-staging still
 
 ### Recert verdict
 
-**GO for local PG-001 path** (already shipped in **IPI-1044 · PG-001** on this SHA). **GO for hosted `mastra.*` column contract** on fashionos. **NO-GO for hosted writes** until **IPI-1124 · MASTRA-HOST-PG-001** (allowlist, pooler, least-privilege role, fail-closed — not this ticket).
+**GO for local PG-001 shipped code path and 2026-08-25 fingerprint** (already shipped in **IPI-1044 · PG-001 — Make iPix AI Conversations Survive Server Restarts** on this SHA). Current local recertification on `@mastra/pg@1.22.2` is **UNVERIFIED** (no Docker probe this run). **GO for hosted `mastra.*` column contract** on fashionos. **NO-GO for hosted writes** until **IPI-1124 · MASTRA-HOST-PG-001 — Run Mastra Memory on Shared Supabase Postgres in Hosted iPix** (allowlist, pooler, least-privilege role, fail-closed — not this ticket).
 
 Historical 1.12.1 write-up is preserved below as the original PR #7 evidence.
 
