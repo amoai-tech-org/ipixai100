@@ -113,7 +113,7 @@ function PlannerSurface() {
             {threadId ? <RestoreMastraHistory threadId={threadId} /> : null}
             {threadId ? (
               <CopilotSidebar
-                defaultOpen={true}
+                defaultOpen={false}
                 threadId={threadId}
                 labels={{
                   modalHeaderTitle: "Popup Assistant",
