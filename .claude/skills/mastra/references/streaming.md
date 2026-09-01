@@ -101,6 +101,6 @@ Package: `@mastra/core` — use `readMastraDocs` with `projectPath` = this repo 
 | Artifact | Path |
 | --- | --- |
 | CopilotKit runtime (AG-UI bridge) | `src/app/api/copilotkit/[[...slug]]/route.ts` |
-| CopilotKit integration skill | [`copilotkit`](../../copilotkit/SKILL.md) → `references/integrations/references/integrations/mastra.md` |
+| CopilotKit integration skill | [`copilotkit`](../../copilotkit/SKILL.md) → [`references/integrations/mastra.md`](../../copilotkit/references/integrations/references/integrations/mastra.md) |
 | Tool definitions | `src/mastra/tools/**` |
 | AI SDK v5 bridge | `toAISdkV5Stream()` from `@mastra/ai-sdk` — see [overview](https://mastra.ai/docs/streaming/overview) |

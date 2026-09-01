@@ -84,8 +84,6 @@ Use this file to jump from a **task or question** to the right **official URL ta
 | CopilotKit route | `src/app/api/copilotkit/[[...slug]]/route.ts` |
 | Conversion SSOT | `docs/mastra/10-mastra-convert.md` |
 
-(See [`links.md` § mdeai repository](../links.md#mdeai-repository).)
-
 ---
 
 ## When links 404
