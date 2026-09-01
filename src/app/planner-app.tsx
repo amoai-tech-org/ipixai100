@@ -121,7 +121,9 @@ function PlannerSurface() {
                     "👋 Hi, there! You're chatting with an agent.",
                 }}
               />
-            ) : null}
+            ) : (
+              <p role="status">Loading conversation…</p>
+            )}
           </main>
         </div>
       </div>

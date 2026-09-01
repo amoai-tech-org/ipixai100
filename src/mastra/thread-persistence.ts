@@ -48,7 +48,7 @@ export async function listMastraThreadsForResource(
 ): Promise<PlannerThreadRow[]> {
   const listed = await memory.listThreads({
     filter: { resourceId },
-    perPage: 50,
+    perPage: false,
   });
   return listed.threads
     .filter((thread) => thread.resourceId === resourceId)

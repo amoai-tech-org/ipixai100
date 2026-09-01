@@ -3,6 +3,10 @@ import { Memory } from "@mastra/memory";
 import { describe, expect, it } from "vitest";
 
 import {
+  plannerThreadStorageKey,
+  resolvePlannerThreadId,
+} from "../src/mastra/thread-types";
+import {
   ensureMastraThread,
   listMastraThreadsForResource,
   mastraMessagesToChat,
@@ -49,6 +53,61 @@ describe("ensureMastraThread + listMastraThreadsForResource", () => {
       "org:org-b::user:user-b",
     );
     expect(other).toEqual([]);
+
+    await expect(
+      ensureMastraThread(memory, {
+        threadId,
+        resourceId: "org:org-b::user:user-b",
+      }),
+    ).rejects.toThrow("thread belongs to another resource");
+  });
+
+  it("lists more than 50 threads for one resource", async () => {
+    const memory = isolatedMemory();
+    const resourceId = "org:org-a::user:user-a";
+    const ids = Array.from({ length: 52 }, (_, index) =>
+      `cccccccc-cccc-4ccc-8ccc-${index.toString().padStart(12, "0")}`,
+    );
+    for (const threadId of ids) {
+      await ensureMastraThread(memory, { threadId, resourceId });
+    }
+    const listed = await listMastraThreadsForResource(memory, resourceId);
+    expect(listed).toHaveLength(52);
+  });
+});
+
+describe("resolvePlannerThreadId", () => {
+  const rowA = { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" };
+  const rowB = { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" };
+  const orphan = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+  it("uses the stored id when it is in the listed rows", () => {
+    expect(resolvePlannerThreadId([rowA, rowB], rowB.id)).toBe(rowB.id);
+  });
+
+  it("uses the first listed row when the stored id is absent", () => {
+    expect(resolvePlannerThreadId([rowA, rowB], orphan)).toBe(rowA.id);
+  });
+
+  it("does not reuse a stored id when the list is empty", () => {
+    const next = resolvePlannerThreadId([], orphan);
+    expect(next).not.toBe(orphan);
+    expect(next).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it("generates an id when there are no rows and no stored id", () => {
+    const next = resolvePlannerThreadId([], null);
+    expect(next).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it("scopes localStorage keys to the signed-in resource", () => {
+    expect(plannerThreadStorageKey("org:a::user:u")).toBe(
+      "ipix.planner.threadId:org:a::user:u",
+    );
   });
 });
 

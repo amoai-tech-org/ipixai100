@@ -9,6 +9,7 @@ import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 import { GET, POST } from "../src/app/api/copilotkit/[[...slug]]/route";
 import { infoListsDefaultAgent } from "../src/lib/auth/copilot-mount";
 import { memoryResourceId } from "../src/lib/auth/verified-operator";
+import * as threadPersistence from "../src/mastra/thread-persistence";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -491,6 +492,65 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
       ),
     );
     expect(await ownerStop.json()).toMatchObject({ stopped: true });
+  });
+
+  it("does not start the agent when planner memory is unavailable", async () => {
+    const { agent: streamAgent, stats } = createStreamHarness();
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: streamAgent,
+    });
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue(
+      undefined,
+    );
+    memberships.rows = [{ org_id: ORG_A }];
+
+    const response = await POST(
+      copilotRequest("/api/copilotkit/agent/default/run", { body: runBody() }),
+    );
+    expect(response.status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(stats.runStarted).toBe(false);
+  });
+
+  it("does not start a run stopped while thread storage is initializing", async () => {
+    const { agent: streamAgent, stats } = createStreamHarness({
+      finiteChunks: 0,
+    });
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: streamAgent,
+    });
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockImplementation(
+      async () => {
+        await gate;
+        return {} as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>;
+      },
+    );
+    vi.spyOn(threadPersistence, "ensureMastraThread").mockResolvedValue({
+      created: true,
+    });
+    memberships.rows = [{ org_id: ORG_A }];
+    const body = runBody();
+
+    const runPromise = POST(
+      copilotRequest("/api/copilotkit/agent/default/run", { body }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const stopResponse = await POST(
+      copilotRequest(
+        `/api/copilotkit/agent/default/stop/${encodeURIComponent(body.threadId)}`,
+        { method: "POST" },
+      ),
+    );
+    expect(stopResponse.status).toBe(200);
+    expect(await stopResponse.json()).toMatchObject({ stopped: true });
+    release();
+    await runPromise;
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(stats.runStarted).toBe(false);
   });
 
   it("stops a run even when abort arrives before runner registration", async () => {

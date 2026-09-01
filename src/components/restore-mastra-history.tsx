@@ -8,23 +8,33 @@ import type { PlannerChatMessage } from "@/mastra/thread-types";
 export function RestoreMastraHistory({ threadId }: { threadId: string }) {
   const { agent } = useAgent({ agentId: "default" });
   const agentRef = useRef(agent);
-  agentRef.current = agent;
 
   useEffect(() => {
-    let cancelled = false;
+    agentRef.current = agent;
+  }, [agent]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const startedWith = agentRef.current.messages?.length ?? 0;
     void (async () => {
-      const response = await fetch(
-        `/api/planner/threads/${encodeURIComponent(threadId)}/messages`,
-        { credentials: "include" },
-      );
-      if (!response.ok || cancelled) return;
-      const body = (await response.json()) as { messages?: PlannerChatMessage[] };
-      const messages = body.messages ?? [];
-      if (cancelled || messages.length === 0) return;
-      agentRef.current.setMessages(messages);
+      try {
+        const response = await fetch(
+          `/api/planner/threads/${encodeURIComponent(threadId)}/messages`,
+          { credentials: "include", signal: controller.signal },
+        );
+        if (!response.ok || controller.signal.aborted) return;
+        const body = (await response.json()) as {
+          messages?: PlannerChatMessage[];
+        };
+        if (controller.signal.aborted) return;
+        if ((agentRef.current.messages?.length ?? 0) > startedWith) return;
+        agentRef.current.setMessages(body.messages ?? []);
+      } catch {
+        if (controller.signal.aborted) return;
+      }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [threadId]);
 

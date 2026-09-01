@@ -81,8 +81,19 @@
 @media (max-width: 768px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 40dvh) minmax(0, 1fr);
+  }
+  .threadsDrawer {
+    grid-column: auto;
+    height: auto;
+    max-height: 40dvh;
+    border-right: 0;
+    border-bottom: 1px solid var(--border, #e5e5e5);
   }
   .mainPanel {
     grid-column: auto;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
   }
 }

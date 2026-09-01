@@ -14,5 +14,5 @@ export async function GET(request: Request) {
   }
 
   const threads = await listMastraThreadsForResource(memory, session.resourceId);
-  return Response.json({ threads });
+  return Response.json({ resourceId: session.resourceId, threads });
 }

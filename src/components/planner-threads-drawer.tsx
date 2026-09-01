@@ -3,11 +3,13 @@
 import { useAgent } from "@copilotkit/react-core/v2";
 import { useEffect, useRef, useState } from "react";
 
-import type { PlannerThreadRow } from "@/mastra/thread-types";
+import {
+  plannerThreadStorageKey,
+  resolvePlannerThreadId,
+  type PlannerThreadRow,
+} from "@/mastra/thread-types";
 
 import styles from "../app/page.module.css";
-
-const LAST_THREAD_KEY = "ipix.planner.threadId";
 
 type PlannerThreadsDrawerProps = {
   threadId: string | null;
@@ -22,57 +24,65 @@ export function PlannerThreadsDrawer({
   const messageCount = agent.messages?.length ?? 0;
   const [threads, setThreads] = useState<PlannerThreadRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resourceId, setResourceId] = useState<string | null>(null);
   const pickedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     void (async () => {
       try {
         const response = await fetch("/api/planner/threads", {
           credentials: "include",
+          signal: controller.signal,
         });
         if (!response.ok) {
           throw new Error(`threads ${response.status}`);
         }
-        const body = (await response.json()) as { threads?: PlannerThreadRow[] };
-        if (cancelled) return;
+        const body = (await response.json()) as {
+          resourceId?: string;
+          threads?: PlannerThreadRow[];
+        };
+        if (controller.signal.aborted) return;
         const rows = body.threads ?? [];
+        const scopedResourceId =
+          typeof body.resourceId === "string" ? body.resourceId : "";
+        setResourceId(scopedResourceId || null);
         setThreads(rows);
         setError(null);
         if (pickedRef.current) return;
         pickedRef.current = true;
-        const stored = window.localStorage.getItem(LAST_THREAD_KEY);
-        const next =
-          rows.find((row) => row.id === stored)?.id ??
-          rows[0]?.id ??
-          stored ??
-          crypto.randomUUID();
+        const stored =
+          scopedResourceId.length > 0
+            ? window.localStorage.getItem(
+                plannerThreadStorageKey(scopedResourceId),
+              )
+            : null;
+        const next = resolvePlannerThreadId(rows, stored);
         onThreadId(next);
-        window.localStorage.setItem(LAST_THREAD_KEY, next);
+        if (scopedResourceId.length > 0) {
+          window.localStorage.setItem(
+            plannerThreadStorageKey(scopedResourceId),
+            next,
+          );
+        }
       } catch (cause) {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setError(cause instanceof Error ? cause.message : "threads failed");
         setThreads([]);
         if (pickedRef.current) return;
         pickedRef.current = true;
-        const fallback =
-          window.localStorage.getItem(LAST_THREAD_KEY) ?? crypto.randomUUID();
-        onThreadId(fallback);
+        onThreadId(crypto.randomUUID());
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [onThreadId, messageCount]);
 
-  function select(id: string) {
-    window.localStorage.setItem(LAST_THREAD_KEY, id);
-    onThreadId(id);
-  }
-
-  function startNew() {
-    const id = crypto.randomUUID();
-    window.localStorage.setItem(LAST_THREAD_KEY, id);
+  function activate(id: string) {
+    if (resourceId) {
+      window.localStorage.setItem(plannerThreadStorageKey(resourceId), id);
+    }
     onThreadId(id);
   }
 
@@ -80,7 +90,7 @@ export function PlannerThreadsDrawer({
     <aside className={styles.threadsDrawer} aria-label="Conversation threads">
       <div className={styles.threadsDrawerHeader}>
         <strong>Threads</strong>
-        <button type="button" onClick={startNew}>
+        <button type="button" onClick={() => activate(crypto.randomUUID())}>
           New
         </button>
       </div>
@@ -96,10 +106,11 @@ export function PlannerThreadsDrawer({
             <li key={row.id}>
               <button
                 type="button"
+                aria-current={row.id === threadId ? "true" : undefined}
                 className={
                   row.id === threadId ? styles.threadActive : styles.threadButton
                 }
-                onClick={() => select(row.id)}
+                onClick={() => activate(row.id)}
               >
                 {row.title}
               </button>
