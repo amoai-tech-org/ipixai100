@@ -140,6 +140,7 @@ describe("IPI-1044 local URL guard", () => {
 describe("IPI-1124 hosted URL guard and fail-closed", () => {
   const prevHosted = process.env.IPIX_MASTRA_HOSTED;
   const prevUrl = process.env.MASTRA_DATABASE_URL;
+  const prevSessionProof = process.env.IPIX_MASTRA_PROOF_SESSION_POOLER;
 
   afterEach(async () => {
     await resetMastraPgSingletonsForTests();
@@ -147,6 +148,8 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     else process.env.IPIX_MASTRA_HOSTED = prevHosted;
     if (prevUrl === undefined) delete process.env.MASTRA_DATABASE_URL;
     else process.env.MASTRA_DATABASE_URL = prevUrl;
+    if (prevSessionProof === undefined) delete process.env.IPIX_MASTRA_PROOF_SESSION_POOLER;
+    else process.env.IPIX_MASTRA_PROOF_SESSION_POOLER = prevSessionProof;
   });
 
   it("still rejects hosted fashionos URLs when IPIX_MASTRA_HOSTED is unset", () => {
@@ -227,7 +230,10 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     expect(store).toBe(getMastraPostgresStore(APPROVED_TX_POOLER));
     expect(store.disableInit).toBe(true);
     expect((store as unknown as { schema: string }).schema).toBe("mastra");
-    expect(a.options.ssl).toEqual({ rejectUnauthorized: true });
+    expect(a.options.ssl).toEqual({
+      rejectUnauthorized: true,
+      ca: expect.stringContaining("BEGIN CERTIFICATE"),
+    });
   });
 
   it("rejects TLS and identity query-parameter overrides", () => {
@@ -247,9 +253,22 @@ describe("IPI-1124 hosted URL guard and fail-closed", () => {
     ).toThrow(/query params/);
   });
 
-  it("blocks hosted proof writes to fashionos", () => {
+  it("allows hosted golden proof only on clerk 6543, not postgres or session-first", () => {
     process.env.IPIX_MASTRA_HOSTED = "1";
-    expect(() => assertMastraProofWritesAllowed()).toThrow(/fashionos are blocked/);
+    delete process.env.MASTRA_DATABASE_URL;
+    delete process.env.IPIX_MASTRA_PROOF_SESSION_POOLER;
+    expect(() => assertMastraProofWritesAllowed()).toThrow(/MASTRA_DATABASE_URL/);
+    process.env.MASTRA_DATABASE_URL = POSTGRES_SUPERUSER_POOLER;
+    expect(() => assertMastraProofWritesAllowed()).toThrow(
+      /approved iPix Mastra Postgres project/,
+    );
+    process.env.MASTRA_DATABASE_URL = APPROVED_TX_POOLER.replace(":6543/", ":5432/");
+    expect(() => assertMastraProofWritesAllowed()).toThrow(/6543 first/);
+    process.env.MASTRA_DATABASE_URL = APPROVED_TX_POOLER;
+    expect(() => assertMastraProofWritesAllowed()).not.toThrow();
+    process.env.MASTRA_DATABASE_URL = APPROVED_TX_POOLER.replace(":6543/", ":5432/");
+    process.env.IPIX_MASTRA_PROOF_SESSION_POOLER = "1";
+    expect(() => assertMastraProofWritesAllowed()).not.toThrow();
   });
 
   it("createMastraStorage: hosted missing/invalid throws and does not return LibSQL", () => {

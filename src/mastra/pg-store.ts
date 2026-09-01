@@ -2,6 +2,7 @@ import { parseIntoClientConfig } from "pg-connection-string";
 import { Pool, type PoolConfig } from "pg";
 import { PostgresStore } from "@mastra/pg";
 import { LibSQLStore } from "@mastra/libsql";
+import { SUPABASE_PROD_CA_2021 } from "./supabase-prod-ca-2021";
 
 declare global {
   // ponytail: Next HMR otherwise opens extra pools; ceiling is one process-wide Pool.
@@ -26,8 +27,11 @@ const QUERY_OVERRIDE_REJECT =
 const TLS_REJECT =
   "MASTRA_DATABASE_URL TLS is not certificate-verified; refusing to connect";
 
-const PROOF_PROD_WRITE_BLOCK =
-  "Hosted proof writes to shared fashionos are blocked (AGENTS.md). Schema mastra_preview does not exist. Use local Docker without IPIX_MASTRA_HOSTED.";
+const PROOF_HOSTED_NEEDS_URL =
+  "Hosted golden proof requires MASTRA_DATABASE_URL";
+
+const PROOF_HOSTED_PORT_BLOCK =
+  "Hosted golden proof must use transaction pooler port 6543 first; set IPIX_MASTRA_PROOF_SESSION_POOLER=1 only after a recorded 6543 failure";
 
 /** Existing fashionos project — the only hosted Mastra memory cabinet for runtime. */
 export const APPROVED_MASTRA_PROJECT_REF = "nvdlhrodvevgwdsneplk";
@@ -191,12 +195,24 @@ export function requireMastraPostgresUrl(
   return url;
 }
 
-/** Proof/script writes must not hit shared fashionos until a preview cabinet exists. */
+/**
+ * Hosted golden proof (IPI-1124 A): clerk role + fashionos identity + 6543 first.
+ * Runtime still rejects postgres/service_role via assertSafeMastraDatabaseUrl.
+ */
 export function assertMastraProofWritesAllowed(
   env: NodeJS.ProcessEnv = process.env,
 ): void {
-  if (isMastraHostedRuntime(env)) {
-    throw new Error(PROOF_PROD_WRITE_BLOCK);
+  if (!isMastraHostedRuntime(env)) return;
+  const url = env.MASTRA_DATABASE_URL;
+  if (!url?.trim()) {
+    throw new Error(PROOF_HOSTED_NEEDS_URL);
+  }
+  const parsed = assertSafeMastraDatabaseUrl(url, { hosted: true });
+  const port = parsed.port === "" ? 5432 : Number(parsed.port);
+  const sessionFallback =
+    env.IPIX_MASTRA_PROOF_SESSION_POOLER?.trim() === "1";
+  if (port !== 6543 && !(sessionFallback && port === 5432)) {
+    throw new Error(PROOF_HOSTED_PORT_BLOCK);
   }
 }
 
@@ -268,7 +284,7 @@ function hostedPoolConfig(connectionString: string): PoolConfig {
     password: parsed.password,
     database: parsed.database,
     max: HOSTED_MASTRA_POOL_MAX,
-    ssl: { rejectUnauthorized: true },
+    ssl: { rejectUnauthorized: true, ca: SUPABASE_PROD_CA_2021 },
   };
 }
 

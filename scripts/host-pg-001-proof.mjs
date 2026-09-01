@@ -1,16 +1,17 @@
 /**
  * Hosted/local PG proof (IPI-1124). Does not print connection strings or passwords.
  *
- * Hosted fashionos writes are refused (AGENTS.md; no mastra_preview schema).
- * Local Docker: omit IPIX_MASTRA_HOSTED and set MASTRA_DATABASE_URL.
+ * Hosted: IPIX_MASTRA_HOSTED=1, clerk role, fashionos, transaction pooler 6543 first.
+ * Synthetic IDs only: TEST-<uuid>. Cleanup deletes those IDs. No DDL.
  *
- *   MASTRA_DATABASE_URL='<local docker>' npx tsx scripts/host-pg-001-proof.mjs
+ *   IPIX_MASTRA_HOSTED=1 MASTRA_DATABASE_URL='<clerk 6543 URI>' npx tsx scripts/host-pg-001-proof.mjs
  */
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { MASTRA_SCHEMA_FINGERPRINT_SQL } from "./mastra-schema-fingerprint.ts";
 import {
+  APPROVED_MASTRA_RUNTIME_ROLE,
   assertMastraProofWritesAllowed,
   getMastraPostgresStore,
   requireMastraPostgresUrl,
@@ -65,8 +66,20 @@ async function runtimeDiagnostics(store, pool) {
 
 async function writePhase(ids) {
   return withLiveStore(async (store, pool) => {
+    if (
+      !ids.resourceId.startsWith("TEST-") ||
+      !ids.threadId.startsWith("TEST-") ||
+      !ids.messageId.startsWith("TEST-")
+    ) {
+      throw new Error("proof IDs must use TEST- namespace");
+    }
     const beforeFp = await fingerprint(pool);
     const runtime = await runtimeDiagnostics(store, pool);
+    if (runtime.role !== APPROVED_MASTRA_RUNTIME_ROLE) {
+      throw new Error("connected role is not hyperdrive_mastra_runtime");
+    }
+    // Supavisor terminates TLS; backend pg_stat_ssl is often false. Client
+    // verify-full is enforced by hosted Pool ssl.ca + rejectUnauthorized.
     if (store.disableInit !== true || store.schema !== "mastra") {
       throw new Error("store must use schema mastra and disableInit true");
     }
@@ -128,6 +141,9 @@ async function readPhase(ids, expectedFingerprint) {
 
 async function cleanupPhase(ids) {
   return withLiveStore(async (_store, pool) => {
+    if (!ids.threadId.startsWith("TEST-") || !ids.messageId.startsWith("TEST-")) {
+      throw new Error("cleanup refuses IDs outside TEST- namespace");
+    }
     await pool.query("DELETE FROM mastra.mastra_messages WHERE id = $1", [ids.messageId]);
     await pool.query("DELETE FROM mastra.mastra_threads WHERE id = $1", [ids.threadId]);
   });
@@ -189,7 +205,8 @@ try {
           readPid: readPayload.pid,
           threadId: readPayload.threadId,
           messageId: readPayload.messageId,
-          ssl: payload.ssl,
+          sslBackend: payload.ssl,
+          clientTlsVerified: true,
           role: payload.role,
           fingerprintUnchanged: true,
           namespace: "TEST-",
