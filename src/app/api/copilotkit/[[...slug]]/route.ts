@@ -7,18 +7,10 @@ import {
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createLocalAgents } from "@/agent";
 import {
-  copilotAuthHooks,
-  getVerifiedOperatorForRequest,
+  copilotAuthHooksFor,
   identifyOperator,
 } from "@/lib/auth/copilot-hooks";
-import { memoryResourceId } from "@/lib/auth/verified-operator";
-import {
-  listMembershipOrgIdsFromServerClient,
-  resolveRuntimeTenant,
-  runtimeTenantDenied,
-} from "@/lib/auth/runtime-org";
-import { unauthorizedResponse } from "@/lib/auth/unauthorized";
-import { createClientFromRequest } from "@/lib/supabase/server";
+import { requirePlannerResourceId } from "@/lib/auth/planner-session";
 import { handle } from "hono/vercel";
 import { Observable } from "rxjs";
 
@@ -200,21 +192,10 @@ class TenantAbortRunner extends InMemoryAgentRunner {
 }
 
 async function handleCopilot(request: Request) {
-  const operator = await getVerifiedOperatorForRequest(request);
-  if (!operator) return unauthorizedResponse();
+  const session = await requirePlannerResourceId(request);
+  if (!session.ok) return session.response;
 
-  const supabase = createClientFromRequest(request);
-  if (!supabase) return unauthorizedResponse();
-
-  const tenant = await resolveRuntimeTenant({
-    listOrgIds: () => listMembershipOrgIdsFromServerClient(supabase, operator.id),
-  });
-  if (tenant.status !== "ok") return runtimeTenantDenied(tenant);
-
-  const resourceId = memoryResourceId({
-    userId: operator.id,
-    orgId: tenant.orgId,
-  });
+  const resourceId = session.resourceId;
   const agents = attachRunnerAbort(createLocalAgents(resourceId));
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN;
   const intelligenceKey = process.env.INTELLIGENCE_API_KEY;
@@ -244,7 +225,7 @@ async function handleCopilot(request: Request) {
   const app = createCopilotEndpoint({
     runtime,
     basePath: "/api/copilotkit",
-    hooks: copilotAuthHooks,
+    hooks: copilotAuthHooksFor(resourceId),
   });
 
   return handle(app)(request);

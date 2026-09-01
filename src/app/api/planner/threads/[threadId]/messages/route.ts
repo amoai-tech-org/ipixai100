@@ -33,6 +33,9 @@ export async function GET(
   }
 
   const owner = await loadThreadOwner(threadId);
+  if (owner.status === "lookup_failed") {
+    return Response.json({ error: "memory_unavailable" }, { status: 503 });
+  }
   const decision = authorizeThreadAccess({
     threadId,
     callerResourceId: session.resourceId,

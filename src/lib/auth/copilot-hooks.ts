@@ -41,36 +41,34 @@ export async function identifyOperator(request: Request) {
   return operator;
 }
 
-export const copilotAuthHooks: CopilotRuntimeHooks = {
-  onRequest: async ({ request }) => {
-    const operator = await getVerifiedOperatorForRequest(request);
-    if (!operator) throw unauthorizedResponse();
-  },
-  onBeforeHandler: async ({ request, route }) => {
-    if (!routeNeedsThreadAcl(route.method)) return;
-    if (route.method === "threads/clear") throw threadForbiddenResponse();
+export function copilotAuthHooksFor(resourceId: string): CopilotRuntimeHooks {
+  return {
+    onRequest: async ({ request }) => {
+      const operator = await getVerifiedOperatorForRequest(request);
+      if (!operator) throw unauthorizedResponse();
+    },
+    onBeforeHandler: async ({ request, route }) => {
+      if (!routeNeedsThreadAcl(route.method)) return;
+      if (route.method === "threads/clear") throw threadForbiddenResponse();
 
-    const threadId =
-      "threadId" in route
-        ? route.threadId
-        : await threadIdFromRequest(request);
-    if (threadId === undefined || threadId === null) {
-      if (routeAllowsMissingThread(route.method)) return;
-      throw threadForbiddenResponse();
-    }
+      const threadId =
+        "threadId" in route
+          ? route.threadId
+          : await threadIdFromRequest(request);
+      if (threadId === undefined || threadId === null) {
+        if (routeAllowsMissingThread(route.method)) return;
+        throw threadForbiddenResponse();
+      }
 
-    const { requirePlannerResourceId } = await import("./planner-session");
-    const session = await requirePlannerResourceId(request);
-    if (!session.ok) throw session.response;
-
-    const owner = await loadThreadOwner(String(threadId));
-    const decision = authorizeThreadAccess({
-      threadId,
-      callerResourceId: session.resourceId,
-      owner,
-      allowMissing: routeAllowsMissingThread(route.method),
-      allowLookupFailed: routeAllowsLookupFailed(route.method),
-    });
-    if (!decision.ok) throw threadForbiddenResponse();
-  },
-};
+      const owner = await loadThreadOwner(String(threadId));
+      const decision = authorizeThreadAccess({
+        threadId,
+        callerResourceId: resourceId,
+        owner,
+        allowMissing: routeAllowsMissingThread(route.method),
+        allowLookupFailed: routeAllowsLookupFailed(route.method),
+      });
+      if (!decision.ok) throw threadForbiddenResponse();
+    },
+  };
+}

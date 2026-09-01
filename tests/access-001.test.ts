@@ -210,66 +210,83 @@ async function asOrgB() {
 }
 
 describe("IPI-1047 · ACCESS-001 thread ownership", () => {
-  it("authorizes from stored resourceId, not possession of threadId", () => {
-    const owner = memoryResourceId({ userId: USER_A, orgId: ORG_A });
-    const other = memoryResourceId({ userId: USER_B, orgId: ORG_B });
-    expect(
-      authorizeThreadAccess({
+  const owner = memoryResourceId({ userId: USER_A, orgId: ORG_A });
+  const other = memoryResourceId({ userId: USER_B, orgId: ORG_B });
+
+  it.each([
+    {
+      name: "allows the stored owner",
+      input: {
         threadId: "thread-org-a",
         callerResourceId: owner,
-        owner: { status: "owned", resourceId: owner },
+        owner: { status: "owned" as const, resourceId: owner },
         allowMissing: false,
-      }),
-    ).toEqual({ ok: true });
-    expect(
-      authorizeThreadAccess({
+      },
+      expected: { ok: true },
+    },
+    {
+      name: "denies a foreign owner even when missing threads are allowed",
+      input: {
         threadId: "thread-org-a",
         callerResourceId: other,
-        owner: { status: "owned", resourceId: owner },
+        owner: { status: "owned" as const, resourceId: owner },
         allowMissing: true,
-      }),
-    ).toEqual({ ok: false });
-    expect(
-      authorizeThreadAccess({
+      },
+      expected: { ok: false },
+    },
+    {
+      name: "allows a missing thread when the route may create",
+      input: {
         threadId: "thread-new",
         callerResourceId: owner,
-        owner: { status: "not_found" },
+        owner: { status: "not_found" as const },
         allowMissing: true,
-      }),
-    ).toEqual({ ok: true });
-    expect(
-      authorizeThreadAccess({
+      },
+      expected: { ok: true },
+    },
+    {
+      name: "allows lookup failure only on run/connect",
+      input: {
         threadId: "thread-new",
         callerResourceId: owner,
-        owner: { status: "lookup_failed" },
+        owner: { status: "lookup_failed" as const },
         allowMissing: true,
         allowLookupFailed: true,
-      }),
-    ).toEqual({ ok: true });
-    expect(
-      authorizeThreadAccess({
+      },
+      expected: { ok: true },
+    },
+    {
+      name: "denies lookup failure on stop",
+      input: {
         threadId: "thread-new",
         callerResourceId: owner,
-        owner: { status: "lookup_failed" },
+        owner: { status: "lookup_failed" as const },
         allowMissing: true,
-      }),
-    ).toEqual({ ok: false });
-    expect(
-      authorizeThreadAccess({
+      },
+      expected: { ok: false },
+    },
+    {
+      name: "denies lookup failure on read routes",
+      input: {
         threadId: "thread-new",
         callerResourceId: owner,
-        owner: { status: "lookup_failed" },
+        owner: { status: "lookup_failed" as const },
         allowMissing: false,
-      }),
-    ).toEqual({ ok: false });
-    expect(
-      authorizeThreadAccess({
+      },
+      expected: { ok: false },
+    },
+    {
+      name: "denies an unowned thread",
+      input: {
         threadId: "thread-unowned",
         callerResourceId: owner,
-        owner: { status: "unowned" },
+        owner: { status: "unowned" as const },
         allowMissing: true,
-      }),
-    ).toEqual({ ok: false });
+      },
+      expected: { ok: false },
+    },
+  ])("$name", ({ input, expected }) => {
+    expect(authorizeThreadAccess(input)).toEqual(expected);
   });
 
   it("fails closed on malformed thread IDs", () => {
@@ -527,6 +544,24 @@ describe("IPI-1047 · ACCESS-001 thread ownership", () => {
     vi.spyOn(threadPersistence, "getPlannerMemory").mockRejectedValue(
       new Error("memory down"),
     );
+    await asOrgA();
+    const response = await getPlannerMessages(
+      copilotRequest(`/api/planner/threads/${threadId}/messages`, {
+        method: "GET",
+      }),
+      { params: Promise.resolve({ threadId }) },
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "memory_unavailable" });
+  });
+
+  it("returns 503 memory_unavailable when getThreadById rejects", async () => {
+    const threadId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    vi.spyOn(threadPersistence, "getPlannerMemory").mockResolvedValue({
+      getThreadById: async () => {
+        throw new Error("thread lookup down");
+      },
+    } as unknown as Awaited<ReturnType<typeof threadPersistence.getPlannerMemory>>);
     await asOrgA();
     const response = await getPlannerMessages(
       copilotRequest(`/api/planner/threads/${threadId}/messages`, {
