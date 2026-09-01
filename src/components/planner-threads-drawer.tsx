@@ -3,6 +3,7 @@
 import { useAgent } from "@copilotkit/react-core/v2";
 import { useEffect, useRef, useState } from "react";
 
+import { ErrorState } from "@/components/ui/error-state";
 import {
   plannerThreadStorageKey,
   resolvePlannerThreadId,
@@ -25,10 +26,13 @@ export function PlannerThreadsDrawer({
   const [threads, setThreads] = useState<PlannerThreadRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resourceId, setResourceId] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const pickedRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
+    setError(null);
+    setThreads(null);
     void (async () => {
       try {
         const response = await fetch("/api/planner/threads", {
@@ -65,19 +69,16 @@ export function PlannerThreadsDrawer({
             next,
           );
         }
-      } catch (cause) {
+      } catch {
         if (controller.signal.aborted) return;
-        setError(cause instanceof Error ? cause.message : "threads failed");
+        setError("Could not load saved conversations. Try again.");
         setThreads([]);
-        if (pickedRef.current) return;
-        pickedRef.current = true;
-        onThreadId(crypto.randomUUID());
       }
     })();
     return () => {
       controller.abort();
     };
-  }, [onThreadId, messageCount]);
+  }, [onThreadId, messageCount, retryKey]);
 
   function activate(id: string) {
     if (resourceId) {
@@ -94,12 +95,15 @@ export function PlannerThreadsDrawer({
           New
         </button>
       </div>
-      <p role="alert" aria-live="assertive" aria-atomic="true">
-        {error ?? ""}
-      </p>
-      {threads === null ? (
+      {error ? (
+        <ErrorState
+          title="Could not load threads"
+          message={error}
+          onRetry={() => setRetryKey((n) => n + 1)}
+        />
+      ) : threads === null ? (
         <p>Loading threads…</p>
-      ) : error ? null : threads.length === 0 ? (
+      ) : threads.length === 0 ? (
         <p>No saved threads yet.</p>
       ) : (
         <ul className={styles.threadsList}>
