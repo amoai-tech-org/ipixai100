@@ -89,6 +89,7 @@ describe("RestoreMastraHistory", () => {
       expect(screen.getByText("Sign in required to load this conversation.")).toBeDefined(),
     );
     expect(screen.queryByLabelText("Restored conversation")).toBeNull();
+    expect(agent.messages).toEqual([]);
   });
 
   it("skips fetch for an unpersisted new conversation", async () => {
@@ -167,6 +168,34 @@ describe("RestoreMastraHistory", () => {
     expect(screen.queryByLabelText("Restored conversation")).toBeNull();
     expect(agent.messages).toEqual([
       { id: "live", role: "user", content: "typed-after-error" },
+    ]);
+  });
+
+  it("does not replace a same-length live update with stale history", async () => {
+    let resolveFetch: (value: unknown) => void = () => {};
+    const pending = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockReturnValue(
+        pending.then(() => ({
+          ok: true,
+          json: async () => ({ messages: history }),
+        })),
+      ),
+    );
+
+    agent.messages = [{ id: "m1", role: "user", content: "hello" }];
+    render(<RestoreMastraHistory threadId="thread-a" />);
+    agent.messages = [{ id: "m1", role: "user", content: "hello-streamed" }];
+    resolveFetch(undefined);
+
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByLabelText("Restored conversation")).toBeNull();
+    expect(agent.messages).toEqual([
+      { id: "m1", role: "user", content: "hello-streamed" },
     ]);
   });
 });

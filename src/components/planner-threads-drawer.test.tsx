@@ -117,6 +117,35 @@ describe("PlannerThreadsDrawer", () => {
     expect(onThreadId).not.toHaveBeenCalledWith(rowA.id, replayTrue);
   });
 
+  it("keeps New while the initial thread list request is still pending", async () => {
+    let resolveFirst: (value: unknown) => void = () => {};
+    const pending = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(pending));
+    const onThreadId = vi.fn();
+    render(
+      <PlannerThreadsDrawer threadId={null} onThreadId={onThreadId} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
+    const created = onThreadId.mock.calls.at(-1)?.[0] as string;
+    expect(onThreadId.mock.calls.at(-1)?.[1]).toEqual({
+      threadId: created,
+      replay: false,
+    });
+    resolveFirst({
+      ok: true,
+      json: async () => ({
+        resourceId: "org:a::user:a",
+        threads: [rowA],
+      }),
+    });
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onThreadId.mock.calls.at(-1)?.[0]).toBe(created);
+    expect(onThreadId).not.toHaveBeenCalledWith(rowA.id, replayTrue);
+  });
+
   it("only New creates a client UUID", async () => {
     vi.stubGlobal(
       "fetch",

@@ -16,6 +16,22 @@ function replayErrorMessage(status: number) {
   return "Could not load this conversation. Try again.";
 }
 
+function conversationRevision(messages: unknown) {
+  if (!Array.isArray(messages)) return "";
+  return messages
+    .map((message) => {
+      if (!message || typeof message !== "object") return "";
+      const row = message as { id?: unknown; content?: unknown };
+      const id = typeof row.id === "string" ? row.id : "";
+      const content =
+        typeof row.content === "string"
+          ? row.content
+          : JSON.stringify(row.content ?? "");
+      return `${id}:${content}`;
+    })
+    .join("\n");
+}
+
 export function RestoreMastraHistory({
   threadId,
   replay = true,
@@ -25,7 +41,7 @@ export function RestoreMastraHistory({
 }) {
   const { agent } = useAgent({ agentId: "default" });
   const agentRef = useRef(agent);
-  const baselineRef = useRef<number | null>(null);
+  const baselineRevisionRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [restored, setRestored] = useState<PlannerChatMessage[] | null>(null);
@@ -35,7 +51,7 @@ export function RestoreMastraHistory({
   }, [agent]);
 
   useEffect(() => {
-    baselineRef.current = null;
+    baselineRevisionRef.current = null;
     setRestored(null);
     setError(null);
   }, [threadId]);
@@ -43,10 +59,12 @@ export function RestoreMastraHistory({
   useEffect(() => {
     if (!replay) return;
     const controller = new AbortController();
-    if (baselineRef.current === null) {
-      baselineRef.current = agentRef.current.messages?.length ?? 0;
+    if (baselineRevisionRef.current === null) {
+      baselineRevisionRef.current = conversationRevision(
+        agentRef.current.messages,
+      );
     }
-    const startedWith = baselineRef.current;
+    const startedRevision = baselineRevisionRef.current;
     setError(null);
     void (async () => {
       try {
@@ -63,7 +81,11 @@ export function RestoreMastraHistory({
           messages?: PlannerChatMessage[];
         };
         if (controller.signal.aborted) return;
-        if ((agentRef.current.messages?.length ?? 0) > startedWith) return;
+        if (
+          conversationRevision(agentRef.current.messages) !== startedRevision
+        ) {
+          return;
+        }
         const messages = body.messages ?? [];
         agentRef.current.setMessages(messages);
         setRestored(messages);
