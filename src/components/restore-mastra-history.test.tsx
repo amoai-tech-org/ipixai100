@@ -92,6 +92,21 @@ describe("RestoreMastraHistory", () => {
     expect(agent.messages).toEqual([]);
   });
 
+  it("shows a retryable error when messages is not an array", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ messages: { secret: "not-an-array" } }),
+      }),
+    );
+    render(<RestoreMastraHistory threadId="thread-a" />);
+    await waitFor(() => expect(screen.getByTestId("error-state")).toBeDefined());
+    expect(screen.queryByLabelText("Restored conversation")).toBeNull();
+    expect(screen.queryByText("not-an-array")).toBeNull();
+    expect(agent.messages).toEqual([]);
+  });
+
   it("skips fetch for an unpersisted new conversation", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

@@ -34,7 +34,10 @@ export function PlannerThreadsDrawer({
   const [retryKey, setRetryKey] = useState(0);
   const pickedRef = useRef(false);
   const threadsRef = useRef(threads);
-  threadsRef.current = threads;
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
 
   useEffect(() => {
     const controller = new AbortController();

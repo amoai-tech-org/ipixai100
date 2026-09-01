@@ -78,15 +78,19 @@ export function RestoreMastraHistory({
           return;
         }
         const body = (await response.json()) as {
-          messages?: PlannerChatMessage[];
+          messages?: unknown;
         };
         if (controller.signal.aborted) return;
+        if (body.messages !== undefined && !Array.isArray(body.messages)) {
+          setError("Could not load this conversation. Try again.");
+          return;
+        }
         if (
           conversationRevision(agentRef.current.messages) !== startedRevision
         ) {
           return;
         }
-        const messages = body.messages ?? [];
+        const messages = (body.messages ?? []) as PlannerChatMessage[];
         agentRef.current.setMessages(messages);
         setRestored(messages);
       } catch {
