@@ -10,7 +10,10 @@ import {
   copilotAuthHooksFor,
   identifyOperator,
 } from "@/lib/auth/copilot-hooks";
-import { requirePlannerResourceId } from "@/lib/auth/planner-session";
+import {
+  intelligenceIdentifyUser,
+  requirePlannerResourceId,
+} from "@/lib/auth/planner-session";
 import { handle } from "hono/vercel";
 import { Observable } from "rxjs";
 
@@ -196,6 +199,7 @@ async function handleCopilot(request: Request) {
   if (!session.ok) return session.response;
 
   const resourceId = session.resourceId;
+  const operator = session.operator;
   const agents = attachRunnerAbort(createLocalAgents(resourceId));
   const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN;
   const intelligenceKey = process.env.INTELLIGENCE_API_KEY;
@@ -208,12 +212,9 @@ async function handleCopilot(request: Request) {
           agents,
           // Intelligence keys threads by identifyUser.id (not TenantAbortRunner).
           // AUTH-002 org+user resourceId so Org B cannot attach to Org A.
-          // Do not fall back to operator.id: that identity is not tenant-scoped.
-          // Pre-fix user-only Intelligence history is an intentional reset.
-          identifyUser: async () => ({
-            id: resourceId,
-            name: operator.name,
-          }),
+          // Display name is the verified operator email/sub, not a dummy string.
+          identifyUser: async () =>
+            intelligenceIdentifyUser({ resourceId, operator }),
           intelligence: new CopilotKitIntelligence({
             apiKey: intelligenceKey,
             apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
