@@ -1,6 +1,22 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+function mockMobileNav(matches: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches: query.includes("767") ? matches : false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}
 
 vi.mock("./operator-panel.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
@@ -44,6 +60,7 @@ describe("OperatorPanel", () => {
     const plannerLinks = screen.getAllByRole("link", { name: "Open Planner" });
     expect(plannerLinks.length).toBeGreaterThan(0);
     expect(plannerLinks.every((link) => link.getAttribute("href") === "/")).toBe(true);
+    expect(plannerLinks.every((link) => link.getAttribute("target") === "_blank")).toBe(true);
     for (const item of OPERATOR_NAV) {
       expect(screen.getByRole("link", { name: item.label })).toBeDefined();
     }
@@ -60,6 +77,21 @@ describe("OperatorPanel", () => {
     expect(screen.getByRole("button", { name: "Close menu" })).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
     expect(screen.getByRole("button", { name: "Menu" })).toBeDefined();
+  });
+
+  it("makes closed mobile navigation inert and restores it when open", async () => {
+    mockMobileNav(true);
+    render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+    const nav = document.getElementById("operator-nav");
+    expect(nav).toBeTruthy();
+    await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(false));
+    expect(screen.getByRole("link", { name: "Home" })).toBeDefined();
   });
 });
 

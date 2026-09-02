@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,9 +10,46 @@ import { cn } from "@/lib/utils";
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import styles from "./operator-panel.module.css";
 
+const MOBILE_NAV = "(max-width: 767px)";
+
+function useMobileNav() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(MOBILE_NAV);
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return isMobile;
+}
+
+function OpenPlannerLink({
+  className,
+  onClick,
+}: {
+  className?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href="/"
+      target="_blank"
+      rel="noreferrer"
+      className={className}
+      onClick={onClick}
+    >
+      Open Planner
+    </Link>
+  );
+}
+
 export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
+  const isMobile = useMobileNav();
+  const navInert = isMobile && !navOpen;
 
   return (
     <div className={styles.shell} data-testid="operator-panel">
@@ -43,6 +80,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
         id="operator-nav"
         className={`${styles.nav} ${navOpen ? styles.navOpen : ""}`}
         aria-label="App navigation"
+        inert={navInert ? true : undefined}
       >
         <div className={styles.navHeader}>
           <span className={styles.brand}>iPix</span>
@@ -65,13 +103,10 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
           })}
         </ul>
         <div className={styles.footer}>
-          <Link
-            href="/"
+          <OpenPlannerLink
             className={cn(buttonVariants({ variant: "secondary", size: "sm" }), styles.signOut)}
             onClick={() => setNavOpen(false)}
-          >
-            Open Planner
-          </Link>
+          />
           <form action="/auth/sign-out" method="post">
             <Button type="submit" variant="ghost" size="sm" className={styles.signOut}>
               Sign out
@@ -87,9 +122,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
         <p className={styles.railBody}>
           Planner chat stays in its own screen. Open it without replacing this workspace.
         </p>
-        <Link href="/" className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
-          Open Planner
-        </Link>
+        <OpenPlannerLink className={cn(buttonVariants({ variant: "secondary", size: "sm" }))} />
       </aside>
     </div>
   );

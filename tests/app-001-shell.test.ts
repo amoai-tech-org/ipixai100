@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+import { createElement } from "react";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const redirect = vi.hoisted(() =>
   vi.fn((url: string) => {
@@ -12,15 +11,42 @@ const redirect = vi.hoisted(() =>
 
 const getVerifiedOperatorFromCookies = vi.hoisted(() => vi.fn());
 
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({
+  redirect,
+  usePathname: () => "/app",
+}));
+
+vi.mock("next/link", () => ({
+  default: ({
+    href,
+    children,
+    ...props
+  }: {
+    href: string;
+    children: React.ReactNode;
+    [key: string]: unknown;
+  }) => createElement("a", { href, ...props }, children),
+}));
+
+vi.mock("../src/components/operator-panel/operator-panel.module.css", () => ({
+  default: new Proxy({}, { get: (_, key) => String(key) }),
+}));
+
+vi.mock("../src/app/planner-app", () => ({
+  PlannerApp: () => createElement("div", { "data-testid": "planner-app" }, "Planner"),
+}));
 
 vi.mock("../src/lib/auth/copilot-hooks", () => ({
   getVerifiedOperatorFromCookies,
 }));
 
+import AppLayout from "../src/app/app/layout";
+import HomePage from "../src/app/page";
 import { requireAppWorkspace } from "../src/lib/auth/app-shell";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
+
+afterEach(() => cleanup());
 
 beforeEach(() => {
   redirect.mockClear();
@@ -35,18 +61,28 @@ describe("requireAppWorkspace", () => {
   });
 
   it("returns the signed-in operator", async () => {
-    const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     await expect(requireAppWorkspace()).resolves.toEqual(operator);
     expect(redirect).not.toHaveBeenCalled();
   });
 });
 
-describe("APP-001 marketing split", () => {
-  it("does not wrap / or the root layout in OperatorPanel", () => {
-    const page = readFileSync(join(ROOT, "src/app/page.tsx"), "utf8");
-    const layout = readFileSync(join(ROOT, "src/app/layout.tsx"), "utf8");
-    expect(page).not.toMatch(/OperatorPanel/);
-    expect(layout).not.toMatch(/OperatorPanel/);
+describe("APP-001 route split", () => {
+  it("signed-in /app layout exposes the operator workspace around children", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    const ui = await AppLayout({
+      children: createElement("p", null, "Workspace body"),
+    });
+    render(ui);
+    expect(screen.getByTestId("operator-panel")).toBeDefined();
+    expect(screen.getByText("Workspace body")).toBeDefined();
+  });
+
+  it("signed-in / does not expose the operator workspace", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    const ui = await HomePage();
+    render(ui);
+    expect(screen.queryByTestId("operator-panel")).toBeNull();
+    expect(screen.getByTestId("planner-app")).toBeDefined();
   });
 });
