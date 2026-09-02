@@ -8,6 +8,21 @@ declare
   role_name text;
   tbl text;
   comment_text text;
+  required_service text[] := array[
+    'public.assets:select',
+    'public.assets:insert',
+    'public.assets:update',
+    'public.assets:delete',
+    'public.cloudinary_assets:select',
+    'public.cloudinary_assets:insert',
+    'public.cloudinary_assets:update',
+    'public.cloudinary_assets:delete',
+    'public.asset_events:select',
+    'public.asset_events:insert'
+  ];
+  entry text;
+  entry_tbl text;
+  entry_priv text;
 begin
   foreach tbl in array array[
     'public.assets',
@@ -30,7 +45,7 @@ begin
     end loop;
   end loop;
 
-  -- authenticated: no admin-like / provider-mirror writes
+  -- authenticated: no admin-like privileges on assets
   foreach privilege_name in array array[
     'delete', 'truncate', 'references', 'trigger'
   ] loop
@@ -39,20 +54,15 @@ begin
     end if;
   end loop;
 
-  foreach privilege_name in array array[
-    'insert', 'update', 'delete', 'truncate', 'references', 'trigger'
-  ] loop
-    if has_table_privilege('authenticated', 'public.cloudinary_assets', privilege_name) then
-      raise exception 'authenticated must not have % on public.cloudinary_assets', privilege_name;
-    end if;
-  end loop;
-
-  foreach privilege_name in array array[
-    'insert', 'update', 'delete', 'truncate', 'references', 'trigger'
-  ] loop
-    if has_table_privilege('authenticated', 'public.asset_events', privilege_name) then
-      raise exception 'authenticated must not have % on public.asset_events', privilege_name;
-    end if;
+  -- authenticated: no DML / admin on provider mirror + events (same privilege set)
+  foreach tbl in array array['public.cloudinary_assets', 'public.asset_events'] loop
+    foreach privilege_name in array array[
+      'insert', 'update', 'delete', 'truncate', 'references', 'trigger'
+    ] loop
+      if has_table_privilege('authenticated', tbl, privilege_name) then
+        raise exception 'authenticated must not have % on %', privilege_name, tbl;
+      end if;
+    end loop;
   end loop;
 
   if not has_table_privilege('authenticated', 'public.assets', 'select')
@@ -69,10 +79,13 @@ begin
     raise exception 'authenticated must keep SELECT on public.asset_events';
   end if;
 
-  if not has_table_privilege('service_role', 'public.cloudinary_assets', 'insert')
-     or not has_table_privilege('service_role', 'public.cloudinary_assets', 'update') then
-    raise exception 'service_role must retain INSERT, UPDATE on public.cloudinary_assets';
-  end if;
+  foreach entry in array required_service loop
+    entry_tbl := split_part(entry, ':', 1);
+    entry_priv := split_part(entry, ':', 2);
+    if not has_table_privilege('service_role', entry_tbl, entry_priv) then
+      raise exception 'service_role must retain % on %', entry_priv, entry_tbl;
+    end if;
+  end loop;
 
   -- write policies must be gone for authenticated cloudinary mirror
   if exists (
@@ -82,6 +95,42 @@ begin
       and policyname in ('ca_insert_via_brand', 'ca_update_via_brand', 'ca_delete_via_brand')
   ) then
     raise exception 'authenticated cloudinary_assets write policies must be dropped';
+  end if;
+
+  -- org-scoped read policies must exist (not open USING true)
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'assets' and policyname = 'assets_select'
+  ) or not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'assets' and policyname = 'assets_insert'
+  ) or not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'assets' and policyname = 'assets_update'
+  ) or not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'cloudinary_assets' and policyname = 'ca_select_via_brand'
+  ) or not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'asset_events' and policyname = 'asset_events_select'
+  ) then
+    raise exception 'org-scoped media policies must exist after migration';
+  end if;
+
+  if exists (
+    select 1
+    from pg_policy pol
+    join pg_class c on c.oid = pol.polrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname in ('assets', 'cloudinary_assets', 'asset_events')
+      and pol.polname in (
+        'assets_select', 'assets_insert', 'assets_update',
+        'ca_select_via_brand', 'asset_events_select'
+      )
+      and pg_get_expr(pol.polqual, pol.polrelid) = 'true'
+  ) then
+    raise exception 'media read/write policies must not use open USING (true)';
   end if;
 
   select col_description('public.cloudinary_assets'::regclass, a.attnum)

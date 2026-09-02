@@ -115,7 +115,8 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:17
+        # Pin reviewed postgres 17 digest (mutable tag rejected on this job).
+        image: postgres@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
         env:
           POSTGRES_PASSWORD: postgres
         ports:

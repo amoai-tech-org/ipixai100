@@ -3,11 +3,14 @@
 -- Purpose (forward-only; do not edit applied history):
 --   1) Least-privilege table grants for public.assets / cloudinary_assets / asset_events
 --   2) Drop authenticated DML policies on cloudinary_assets (server/webhook owns mirror writes)
---   3) Correct stale delivery_type comment (approval is NOT a public ACL flip)
---   4) Add nullable assets.v2_shoot_id → shoot.shoots (keep legacy shoot_id → public.shoots)
---   5) Revoke authenticated EXECUTE on get_brand_assets (membership-union SECURITY DEFINER)
+--   3) Ensure org-scoped read/write policies on media tables (replace open USING(true) if present)
+--   4) Correct stale delivery_type comment (approval is NOT a public ACL flip)
+--   5) Add nullable assets.v2_shoot_id → shoot.shoots (keep legacy shoot_id → public.shoots)
+--   6) Guard same-brand invariant from assets AND shoot.shoots.brand_id changes
+--   7) Revoke authenticated EXECUTE on get_brand_assets (membership-union SECURITY DEFINER)
 --
--- Does NOT: swap/drop assets.shoot_id FK; mutate Cloudinary ACL; invent a third shoot model.
+-- Does NOT: swap/drop assets.shoot_id FK; mutate Cloudinary ACL; invent a third shoot model;
+-- invent trusted-active-org RLS (AUTH-002 / app layer). Membership uses is_org_member.
 
 -- ---------------------------------------------------------------------------
 -- 1) Table privileges
@@ -32,7 +35,7 @@ grant select, insert on table public.asset_events to service_role;
 grant select, insert, update, delete on table public.assets to service_role;
 
 -- ---------------------------------------------------------------------------
--- 2) cloudinary_assets write policies (authenticated) — remove client DML path
+-- 2) Policies — drop client mirror DML; ensure org-scoped media policies
 -- ---------------------------------------------------------------------------
 
 drop policy if exists ca_insert_via_brand on public.cloudinary_assets;
@@ -42,6 +45,76 @@ drop policy if exists ca_delete_via_brand on public.cloudinary_assets;
 -- Dead USING (false) anon policies — grants already revoked; drop for clarity.
 drop policy if exists anon_select_assets on public.assets;
 drop policy if exists anon_select_cloudinary_assets on public.cloudinary_assets;
+
+-- Replace any open/stale policies with production-shaped org membership checks.
+drop policy if exists assets_select on public.assets;
+create policy assets_select on public.assets
+  for select to authenticated
+  using (
+    exists (
+      select 1 from public.brands b
+      where b.id = assets.brand_id
+        and public.is_org_member(b.org_id)
+    )
+  );
+
+drop policy if exists assets_insert on public.assets;
+create policy assets_insert on public.assets
+  for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.brands b
+      where b.id = assets.brand_id
+        and public.is_org_member(b.org_id)
+    )
+  );
+
+drop policy if exists assets_update on public.assets;
+create policy assets_update on public.assets
+  for update to authenticated
+  using (
+    exists (
+      select 1 from public.brands b
+      where b.id = assets.brand_id
+        and public.is_org_member(b.org_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.brands b
+      where b.id = assets.brand_id
+        and public.is_org_member(b.org_id)
+    )
+  );
+
+drop policy if exists ca_select_via_brand on public.cloudinary_assets;
+create policy ca_select_via_brand on public.cloudinary_assets
+  for select to authenticated
+  using (
+    exists (
+      select 1
+      from public.assets a
+      join public.brands b on b.id = a.brand_id
+      where a.id = cloudinary_assets.asset_id
+        and (
+          (b.org_id is null and b.user_id = (select auth.uid()))
+          or (b.org_id is not null and public.is_org_member(b.org_id))
+        )
+    )
+  );
+
+drop policy if exists asset_events_select on public.asset_events;
+create policy asset_events_select on public.asset_events
+  for select to authenticated
+  using (
+    exists (
+      select 1
+      from public.assets a
+      join public.brands b on b.id = a.brand_id
+      where a.id = asset_events.asset_id
+        and public.is_org_member(b.org_id)
+    )
+  );
 
 -- ---------------------------------------------------------------------------
 -- 3) delivery_type contract
@@ -77,6 +150,8 @@ begin
 end
 $fk$;
 
+-- Regular CREATE INDEX (not CONCURRENTLY): Supabase CLI wraps migrations in a
+-- transaction; CONCURRENTLY cannot run inside one. Media row counts are small.
 create index if not exists assets_v2_shoot_id_idx
   on public.assets (v2_shoot_id)
   where v2_shoot_id is not null;
@@ -119,6 +194,38 @@ create trigger assets_v2_shoot_brand_guard
 
 revoke all on function public.assets_v2_shoot_brand_guard() from public, anon, authenticated;
 grant execute on function public.assets_v2_shoot_brand_guard() to postgres, service_role;
+
+-- Reverse guard: changing shoot.shoots.brand_id must not orphan linked assets.
+create or replace function public.shoot_v2_assets_brand_guard()
+returns trigger
+language plpgsql
+set search_path to 'public', 'shoot'
+as $fn$
+begin
+  if tg_op = 'UPDATE'
+     and new.brand_id is distinct from old.brand_id
+     and exists (
+       select 1
+       from public.assets a
+       where a.v2_shoot_id = new.id
+         and a.brand_id is distinct from new.brand_id
+     ) then
+    raise exception 'shoot.shoots.brand_id change blocked: linked assets.v2_shoot_id rows exist for another brand'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$fn$;
+
+drop trigger if exists shoot_v2_assets_brand_guard on shoot.shoots;
+create trigger shoot_v2_assets_brand_guard
+  before update of brand_id
+  on shoot.shoots
+  for each row
+  execute function public.shoot_v2_assets_brand_guard();
+
+revoke all on function public.shoot_v2_assets_brand_guard() from public, anon, authenticated;
+grant execute on function public.shoot_v2_assets_brand_guard() to postgres, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 5) get_brand_assets — no browser EXECUTE (active-org V2 must not use it)

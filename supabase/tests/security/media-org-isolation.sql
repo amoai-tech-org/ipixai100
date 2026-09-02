@@ -1,75 +1,8 @@
--- IPI-1122 · org A/B isolation + active-org bypass + v2_shoot brand guard.
--- Seeds ephemeral tenants inside a transaction and rolls back.
+-- IPI-1122 · org A/B isolation against migration-installed policies (not test-installed).
+-- Seed + migration own is_org_member and RLS. This file only inserts fixtures and asserts.
 -- Runner: .github/workflows/ci.yml job media-harden-acl (after migration).
 
 begin;
-
-create extension if not exists pgcrypto;
-
-create table if not exists public.orgs (
-  id uuid primary key default gen_random_uuid()
-);
-
-create table if not exists public.org_members (
-  org_id uuid not null references public.orgs (id) on delete cascade,
-  user_id uuid not null,
-  primary key (org_id, user_id)
-);
-
-create table if not exists public.brands (
-  id uuid primary key default gen_random_uuid(),
-  org_id uuid references public.orgs (id),
-  user_id uuid
-);
-
--- CI stub: authenticated must read brands/org_members for RLS EXISTS checks.
-grant select on table public.orgs to authenticated;
-grant select on table public.org_members to authenticated;
-grant select on table public.brands to authenticated;
-
--- Minimal org membership helper used by RLS (matches production name).
--- Tables must exist first: language sql validates relations at CREATE FUNCTION.
-create or replace function public.is_org_member(p_org_id uuid)
-returns boolean
-language sql
-stable
-security invoker
-set search_path to 'public'
-as $$
-  select exists (
-    select 1
-    from public.org_members m
-    where m.org_id = p_org_id
-      and m.user_id = nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-  );
-$$;
-
--- Ensure RLS policies exist for isolation proof (idempotent for CI stubs).
-alter table public.assets enable row level security;
-alter table public.cloudinary_assets enable row level security;
-
-drop policy if exists assets_select on public.assets;
-create policy assets_select on public.assets
-  for select to authenticated
-  using (
-    exists (
-      select 1 from public.brands b
-      where b.id = assets.brand_id and public.is_org_member(b.org_id)
-    )
-  );
-
-drop policy if exists ca_select_via_brand on public.cloudinary_assets;
-create policy ca_select_via_brand on public.cloudinary_assets
-  for select to authenticated
-  using (
-    exists (
-      select 1
-      from public.assets a
-      join public.brands b on b.id = a.brand_id
-      where a.id = cloudinary_assets.asset_id
-        and public.is_org_member(b.org_id)
-    )
-  );
 
 do $$
 declare
@@ -81,6 +14,8 @@ declare
   user_ab uuid := gen_random_uuid();
   asset_a uuid := gen_random_uuid();
   asset_b uuid := gen_random_uuid();
+  event_a uuid := gen_random_uuid();
+  event_b uuid := gen_random_uuid();
   shoot_a uuid := gen_random_uuid();
   shoot_b uuid := gen_random_uuid();
   seen int;
@@ -106,12 +41,18 @@ begin
 
   insert into public.cloudinary_assets (
     id, asset_id, public_id, secure_url, resource_type, delivery_type, status, approval, moderation_status
-  ) values (
-    gen_random_uuid(), asset_a, 'ipix/a', 'https://res.example/a', 'image',
-    'authenticated', 'active', 'pending', 'pending'
-  );
+  ) values
+    (gen_random_uuid(), asset_a, 'ipix/a', 'https://res.example/a', 'image',
+     'authenticated', 'active', 'pending', 'pending'),
+    (gen_random_uuid(), asset_b, 'ipix/b', 'https://res.example/b', 'image',
+     'authenticated', 'active', 'pending', 'pending');
 
-  -- Org A member cannot see Org B assets
+  insert into public.asset_events (id, asset_id, kind)
+  values
+    (event_a, asset_a, 'upload'),
+    (event_b, asset_b, 'upload');
+
+  -- Org A member cannot see Org B assets / mirror / events
   execute 'set local role authenticated';
   perform set_config('request.jwt.claim.sub', user_a::text, true);
 
@@ -123,6 +64,42 @@ begin
   select count(*) into seen from public.assets where id = asset_a;
   if seen <> 1 then
     raise exception 'org A member must read org A assets';
+  end if;
+
+  select count(*) into seen from public.cloudinary_assets where asset_id = asset_b;
+  if seen <> 0 then
+    raise exception 'org A member must not read org B cloudinary_assets';
+  end if;
+
+  select count(*) into seen from public.asset_events where id = event_b;
+  if seen <> 0 then
+    raise exception 'org A member must not read org B asset_events';
+  end if;
+
+  select count(*) into seen from public.asset_events where id = event_a;
+  if seen <> 1 then
+    raise exception 'org A member must read org A asset_events';
+  end if;
+
+  -- authenticated INSERT/UPDATE only within own org (assets policies)
+  begin
+    insert into public.assets (id, brand_id, url, asset_type, status)
+    values (gen_random_uuid(), brand_b, 'https://example.test/x', 'image', 'ready');
+    raise exception 'org A member must not insert assets for org B brand';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm ilike '%policy%' or sqlerrm ilike '%permission denied%' then
+        null;
+      else
+        raise;
+      end if;
+  end;
+
+  update public.assets set status = 'archived' where id = asset_a;
+  if not found then
+    raise exception 'org A member must update own org assets';
   end if;
 
   -- Active-org: multi-member would see A+B under membership RLS; V2 filters trusted org.
@@ -192,6 +169,39 @@ begin
 
   -- Same-brand link accepted
   update public.assets set v2_shoot_id = shoot_a where id = asset_a;
+
+  -- NULL brand_id while v2_shoot_id set must fail with 23514
+  begin
+    update public.assets set brand_id = null where id = asset_a;
+    raise exception 'null brand_id with v2_shoot_id must be rejected';
+  exception
+    when check_violation then
+      null;
+    when others then
+      if sqlstate = '23514' then
+        null;
+      else
+        raise;
+      end if;
+  end;
+
+  -- Restore brand for shoot reassignment check
+  update public.assets set brand_id = brand_a, v2_shoot_id = shoot_a where id = asset_a;
+
+  -- shoot.shoots.brand_id reassignment blocked while linked assets exist
+  begin
+    update shoot.shoots set brand_id = brand_b where id = shoot_a;
+    raise exception 'shoot brand reassignment with linked assets must be rejected';
+  exception
+    when check_violation then
+      null;
+    when others then
+      if sqlstate = '23514' then
+        null;
+      else
+        raise;
+      end if;
+  end;
 end
 $$;
 

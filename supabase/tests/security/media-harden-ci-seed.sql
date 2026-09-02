@@ -1,5 +1,6 @@
 -- CI-only seed for IPI-1122 media harden proofs.
 -- Creates insecure pre-state matching production gaps, then migration hardens it.
+-- Includes production-shaped auth.uid / is_org_member / brands so migration RLS can apply.
 
 create extension if not exists pgcrypto;
 
@@ -20,7 +21,52 @@ begin
 end
 $roles$;
 
+create schema if not exists auth;
 create schema if not exists shoot;
+
+-- JWT claim bridge used by production is_org_member / policies.
+create or replace function auth.uid()
+returns uuid
+language sql
+stable
+as $$
+  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+$$;
+
+create table if not exists public.orgs (
+  id uuid primary key default gen_random_uuid()
+);
+
+create table if not exists public.org_members (
+  org_id uuid not null references public.orgs (id) on delete cascade,
+  user_id uuid not null,
+  primary key (org_id, user_id)
+);
+
+create table if not exists public.brands (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid references public.orgs (id),
+  user_id uuid
+);
+
+grant select on table public.orgs to authenticated;
+grant select on table public.org_members to authenticated;
+grant select on table public.brands to authenticated;
+
+-- Production-shaped helper (SECURITY DEFINER + auth.uid).
+create or replace function public.is_org_member(p_org_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select exists (
+    select 1 from public.org_members
+    where org_id = p_org_id
+      and user_id = (select auth.uid())
+  );
+$$;
 
 create table if not exists public.shoots (
   id uuid primary key default gen_random_uuid()
@@ -90,11 +136,21 @@ alter table public.assets enable row level security;
 alter table public.cloudinary_assets enable row level security;
 alter table public.asset_events enable row level security;
 
+-- Insecure / open policies that the migration must replace or drop.
 drop policy if exists anon_select_assets on public.assets;
 create policy anon_select_assets on public.assets for select to anon using (false);
 
 drop policy if exists anon_select_cloudinary_assets on public.cloudinary_assets;
 create policy anon_select_cloudinary_assets on public.cloudinary_assets for select to anon using (false);
+
+drop policy if exists assets_select on public.assets;
+create policy assets_select on public.assets for select to authenticated using (true);
+
+drop policy if exists assets_insert on public.assets;
+create policy assets_insert on public.assets for insert to authenticated with check (true);
+
+drop policy if exists assets_update on public.assets;
+create policy assets_update on public.assets for update to authenticated using (true) with check (true);
 
 drop policy if exists ca_insert_via_brand on public.cloudinary_assets;
 create policy ca_insert_via_brand on public.cloudinary_assets
