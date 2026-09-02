@@ -2,6 +2,8 @@
 
 import { TriangleAlert } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import styles from "./error-state.module.css";
 
 /** Generic error state with an optional retry action (RF-A7b). Required by
@@ -23,15 +25,15 @@ export function ErrorState({
   retryLabel = "Try again",
 }: Props) {
   return (
-    <div className={styles.root} role="alert" data-testid="error-state">
+    <Alert variant="destructive" className={styles.root} data-testid="error-state">
       <TriangleAlert size={28} strokeWidth={1.7} className={styles.icon} aria-hidden />
-      <p className={styles.title}>{title}</p>
-      <p className={styles.message}>{message}</p>
+      <AlertTitle className={styles.title}>{title}</AlertTitle>
+      <AlertDescription className={styles.message}>{message}</AlertDescription>
       {onRetry ? (
         <button type="button" onClick={onRetry} className={styles.retry}>
           {retryLabel}
         </button>
       ) : null}
-    </div>
+    </Alert>
   );
 }

@@ -1,42 +1,126 @@
 "use client";
 
 import { useAgent } from "@copilotkit/react-core/v2";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { ErrorState } from "@/components/ui/error-state";
 import type { PlannerChatMessage } from "@/mastra/thread-types";
 
-export function RestoreMastraHistory({ threadId }: { threadId: string }) {
+function replayErrorMessage(status: number) {
+  if (status === 403) {
+    return "This conversation is not available for your organization.";
+  }
+  if (status === 401) {
+    return "Sign in required to load this conversation.";
+  }
+  return "Could not load this conversation. Try again.";
+}
+
+function conversationRevision(messages: unknown) {
+  if (!Array.isArray(messages)) return "";
+  return messages
+    .map((message) => {
+      if (!message || typeof message !== "object") return "";
+      const row = message as { id?: unknown; content?: unknown };
+      const id = typeof row.id === "string" ? row.id : "";
+      const content =
+        typeof row.content === "string"
+          ? row.content
+          : JSON.stringify(row.content ?? "");
+      return JSON.stringify([id, content]);
+    })
+    .join("\n");
+}
+
+export function RestoreMastraHistory({
+  threadId,
+  replay = true,
+}: {
+  threadId: string;
+  replay?: boolean;
+}) {
   const { agent } = useAgent({ agentId: "default" });
   const agentRef = useRef(agent);
+  const baselineRevisionRef = useRef<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const [restored, setRestored] = useState<PlannerChatMessage[] | null>(null);
 
   useEffect(() => {
     agentRef.current = agent;
   }, [agent]);
 
   useEffect(() => {
+    baselineRevisionRef.current = null;
+    setRestored(null);
+    setError(null);
+  }, [threadId]);
+
+  useEffect(() => {
+    if (!replay) return;
     const controller = new AbortController();
-    const startedWith = agentRef.current.messages?.length ?? 0;
+    if (baselineRevisionRef.current === null) {
+      baselineRevisionRef.current = conversationRevision(
+        agentRef.current.messages,
+      );
+    }
+    const startedRevision = baselineRevisionRef.current;
+    setError(null);
     void (async () => {
       try {
         const response = await fetch(
           `/api/planner/threads/${encodeURIComponent(threadId)}/messages`,
           { credentials: "include", signal: controller.signal },
         );
-        if (!response.ok || controller.signal.aborted) return;
+        if (controller.signal.aborted) return;
+        if (!response.ok) {
+          setError(replayErrorMessage(response.status));
+          return;
+        }
         const body = (await response.json()) as {
-          messages?: PlannerChatMessage[];
+          messages?: unknown;
         };
         if (controller.signal.aborted) return;
-        if ((agentRef.current.messages?.length ?? 0) > startedWith) return;
-        agentRef.current.setMessages(body.messages ?? []);
+        if (body.messages !== undefined && !Array.isArray(body.messages)) {
+          setError("Could not load this conversation. Try again.");
+          return;
+        }
+        if (
+          conversationRevision(agentRef.current.messages) !== startedRevision
+        ) {
+          return;
+        }
+        const messages = (body.messages ?? []) as PlannerChatMessage[];
+        agentRef.current.setMessages(messages);
+        setRestored(messages);
       } catch {
         if (controller.signal.aborted) return;
+        setError("Could not load this conversation. Try again.");
       }
     })();
     return () => {
       controller.abort();
     };
-  }, [threadId]);
+  }, [threadId, retryKey, replay]);
 
-  return null;
+  if (!replay) return null;
+
+  return (
+    <>
+      {restored ? (
+        <ol aria-label="Restored conversation" className="sr-only">
+          {restored.map((message) => (
+            <li key={message.id}>{message.content}</li>
+          ))}
+        </ol>
+      ) : null}
+      {error ? (
+        <ErrorState
+          title="Could not restore conversation"
+          message={error}
+          onRetry={() => setRetryKey((n) => n + 1)}
+        />
+      ) : null}
+    </>
+  );
 }

@@ -3,6 +3,7 @@
 import { useAgent } from "@copilotkit/react-core/v2";
 import { useEffect, useRef, useState } from "react";
 
+import { ErrorState } from "@/components/ui/error-state";
 import {
   plannerThreadStorageKey,
   resolvePlannerThreadId,
@@ -11,9 +12,14 @@ import {
 
 import styles from "../app/page.module.css";
 
+export type PlannerThreadSelection = {
+  threadId: string;
+  replay: boolean;
+};
+
 type PlannerThreadsDrawerProps = {
   threadId: string | null;
-  onThreadId: (threadId: string) => void;
+  onThreadId: (threadId: string, selection: PlannerThreadSelection) => void;
 };
 
 export function PlannerThreadsDrawer({
@@ -25,10 +31,21 @@ export function PlannerThreadsDrawer({
   const [threads, setThreads] = useState<PlannerThreadRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resourceId, setResourceId] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const pickedRef = useRef(false);
+  const threadsRef = useRef(threads);
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
 
   useEffect(() => {
     const controller = new AbortController();
+    const hadList = threadsRef.current !== null;
+    setError(null);
+    if (!hadList) {
+      setThreads(null);
+    }
     void (async () => {
       try {
         const response = await fetch("/api/planner/threads", {
@@ -58,48 +75,52 @@ export function PlannerThreadsDrawer({
               )
             : null;
         const next = resolvePlannerThreadId(rows, stored);
-        onThreadId(next);
+        const replay = rows.some((row) => row.id === next);
+        onThreadId(next, { threadId: next, replay });
         if (scopedResourceId.length > 0) {
           window.localStorage.setItem(
             plannerThreadStorageKey(scopedResourceId),
             next,
           );
         }
-      } catch (cause) {
+      } catch {
         if (controller.signal.aborted) return;
-        setError(cause instanceof Error ? cause.message : "threads failed");
-        setThreads([]);
-        if (pickedRef.current) return;
-        pickedRef.current = true;
-        onThreadId(crypto.randomUUID());
+        setError("Could not load saved conversations. Try again.");
+        if (threadsRef.current === null) {
+          setThreads([]);
+        }
       }
     })();
     return () => {
       controller.abort();
     };
-  }, [onThreadId, messageCount]);
+  }, [onThreadId, messageCount, retryKey]);
 
-  function activate(id: string) {
+  function activate(id: string, replay: boolean) {
+    pickedRef.current = true;
     if (resourceId) {
       window.localStorage.setItem(plannerThreadStorageKey(resourceId), id);
     }
-    onThreadId(id);
+    onThreadId(id, { threadId: id, replay });
   }
 
   return (
     <aside className={styles.threadsDrawer} aria-label="Conversation threads">
       <div className={styles.threadsDrawerHeader}>
         <strong>Threads</strong>
-        <button type="button" onClick={() => activate(crypto.randomUUID())}>
+        <button type="button" onClick={() => activate(crypto.randomUUID(), false)}>
           New
         </button>
       </div>
-      <p role="alert" aria-live="assertive" aria-atomic="true">
-        {error ?? ""}
-      </p>
-      {threads === null ? (
+      {error ? (
+        <ErrorState
+          title="Could not load threads"
+          message={error}
+          onRetry={() => setRetryKey((n) => n + 1)}
+        />
+      ) : threads === null ? (
         <p>Loading threads…</p>
-      ) : error ? null : threads.length === 0 ? (
+      ) : threads.length === 0 ? (
         <p>No saved threads yet.</p>
       ) : (
         <ul className={styles.threadsList}>
@@ -111,7 +132,7 @@ export function PlannerThreadsDrawer({
                 className={
                   row.id === threadId ? styles.threadActive : styles.threadButton
                 }
-                onClick={() => activate(row.id)}
+                onClick={() => activate(row.id, true)}
               >
                 {row.title}
               </button>
