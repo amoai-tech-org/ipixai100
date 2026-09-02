@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloudinary getting started preview</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
+      .pair { display: grid; gap: 1.5rem; grid-template-columns: 1fr 1fr; }
+      figure { margin: 0; }
+      img { width: 100%; height: auto; background: #f4f4f5; }
+      pre { background: #0f172a; color: #e2e8f0; padding: 1rem; overflow: auto; }
+      #stats { margin-top: 1rem; }
+      @media (max-width: 800px) { .pair { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <!-- Side-by-side original vs Cloudinary-optimized delivery of the same public ID -->
+    <h1>Cloudinary delivery preview</h1>
+    <p>
+      Durable verification artifact for <code>ipix-cloudinary</code>
+      (<strong>IPI-1108 · CLD-FOUNDATION-001</strong>). Public sample
+      <code>samples/waves</code> only. This page does not upload.
+      <code>ai_powerstart</code> is an unsigned Power Start validation preset
+      only and must never be used for production operator uploads.
+    </p>
+    <p>
+      Original vs transformed. The Accept header below asks the browser for AVIF/WebP so
+      <code>f_auto,q_auto</code> can pick a smaller format.
+    </p>
+    <div class="pair">
+      <figure>
+        <img
+          id="original"
+          alt="Original Cloudinary asset"
+          src="https://res.cloudinary.com/ipix-cloudinary/image/upload/samples/waves"
+        />
+        <figcaption>Original</figcaption>
+      </figure>
+      <figure>
+        <img
+          id="transformed"
+          alt="Transformed Cloudinary asset"
+          src="https://res.cloudinary.com/ipix-cloudinary/image/upload/b_gen_fill,c_pad,w_1000,h_1000,y_-100/l_text:Arial_72_bold:Adapt%20everywhere,co_white/e_shadow:50/fl_layer_apply,g_south_west,x_80,y_140/l_text:Arial_34:Dynamic%20media%20built%20in%20real%20time,co_rgb:E9D5FF/e_shadow:35/fl_layer_apply,g_south_west,x_84,y_90/f_auto,q_auto/samples/waves"
+        />
+        <figcaption>Transformed + optimized</figcaption>
+      </figure>
+    </div>
+    <div id="stats">Measuring…</div>
+
+    <!-- Next.js SDK: getCldImageUrl matches CldImage; cloud name comes from NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME -->
+    <h2 id="stage-5-integration-snippet">Next.js SDK snippet</h2>
+    <pre><code>import { getCldImageUrl } from "next-cloudinary";
+
+const url = getCldImageUrl({
+  src: "samples/waves",
+  rawTransformations: [
+    "b_gen_fill,c_pad,w_1000,h_1000,y_-100/l_text:Arial_72_bold:Adapt everywhere,co_white/e_shadow:50/fl_layer_apply,g_south_west,x_80,y_140/l_text:Arial_34:Dynamic media built in real time,co_rgb:E9D5FF/e_shadow:35/fl_layer_apply,g_south_west,x_84,y_90",
+  ],
+});</code></pre>
+
+    <script>
+      // Fetch both URLs with a Chrome-like Accept header, then measure bytes and bitmap size.
+      const ACCEPT =
+        "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8";
+      const originalUrl =
+        "https://res.cloudinary.com/ipix-cloudinary/image/upload/samples/waves";
+      const transformedUrl =
+        "https://res.cloudinary.com/ipix-cloudinary/image/upload/b_gen_fill,c_pad,w_1000,h_1000,y_-100/l_text:Arial_72_bold:Adapt%20everywhere,co_white/e_shadow:50/fl_layer_apply,g_south_west,x_80,y_140/l_text:Arial_34:Dynamic%20media%20built%20in%20real%20time,co_rgb:E9D5FF/e_shadow:35/fl_layer_apply,g_south_west,x_84,y_90/f_auto,q_auto/samples/waves";
+
+      async function measure(url) {
+        const res = await fetch(url, { headers: { Accept: ACCEPT } });
+        const buf = await res.arrayBuffer();
+        let width = null;
+        let height = null;
+        try {
+          const bitmap = await createImageBitmap(new Blob([buf], { type: res.headers.get("content-type") }));
+          width = bitmap.width;
+          height = bitmap.height;
+          bitmap.close();
+        } catch (err) {
+          // createImageBitmap is optional; byte size still proves delivery.
+        }
+        return {
+          status: res.status,
+          bytes: buf.byteLength,
+          contentType: res.headers.get("content-type"),
+          width,
+          height,
+        };
+      }
+
+      (async () => {
+        const original = await measure(originalUrl);
+        const transformed = await measure(transformedUrl);
+        const savings =
+          original.bytes && transformed.bytes
+            ? (((original.bytes - transformed.bytes) / original.bytes) * 100).toFixed(1)
+            : "n/a";
+        document.getElementById("stats").textContent =
+          `Original ${original.bytes} bytes ${original.contentType} ${original.width}×${original.height} → ` +
+          `transformed ${transformed.bytes} bytes ${transformed.contentType} ${transformed.width}×${transformed.height} (${savings}% smaller)`;
+      })();
+    </script>
+  </body>
+</html>
