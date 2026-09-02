@@ -66,7 +66,7 @@ Next.js App Router (Node / Vercel)
 
 - **Chat/UI runtime:** CopilotKit (`@copilotkit/*`) — not a custom Worker Copilot SSE shim.
 - **Dev:** `npm run dev:ui` (port 3000) and `npm run dev:agent` (port 4111) in **separate** terminals. Combined `npm run dev` is blocked (**DEV-STAB-001**).
-- **Media:** Cloudinary signed uploads `[PROPOSED]` (ADR-005). Do not invent a second CDN pipeline.
+- **Media:** Cloudinary signed uploads — layer PRD [cloudinary/prd.md](./cloudinary/prd.md) (ADR-005). **IPI-1108** is **Todo**; packages not on the lockfile yet. Do not invent a second CDN pipeline.
 - **Models:** OpenAI SDK in the starter today; production routing via Cloudflare AI Gateway (Gemini failover) `[PROPOSED]`.
 
 ---
@@ -79,7 +79,7 @@ Fashion production runs on spreadsheets, email, and tools that do not know Brand
 
 ### 2.1 Pillars
 
-1. **Node-first `[VERIFIED]`** — ADR-001. Cloudflare = DNS/CDN/WAF/R2/AI Gateway only until gold persistence exists on Node.
+1. **Vercel + Node `[VERIFIED]`** — ADR-001. CopilotKit/Mastra host is **Vercel**. Cloudflare = DNS/CDN/WAF (and optional AI Gateway later). **Workers are not the AI host** — **IPI-1121** is future.
 2. **Supabase tenancy `[REQUIRED]`** — ADR-003. Org from membership, server-side. Fail closed. Not verified while `identifyUser` returns `demo-user`.
 3. **Mastra memory vs domain `[VERIFIED]`** — ADR-002. `mastra.*` is conversation/traces; `shoot.*` / `planner.*` / `talent.*` / `crm.*` are product truth.
 4. **HITL writes `[REQUIRED]`** — Approval cards → RPC. No agent `INSERT` into domain tables.
@@ -128,7 +128,7 @@ Fashion production runs on spreadsheets, email, and tools that do not know Brand
 - Custom storefront (Medusa/Mercur stays commerce).
 - General-purpose shell agents, A2A/ACP, GraphRAG, extra vector DBs, observational memory in Core.
 - Full WhatsApp automation, invoices/payments/contracts in Core.
-- Cloudflare Worker as the AI host before Node gold.
+- Cloudflare Workers as the CopilotKit/Mastra host (**IPI-1121**) — future only; current host is **Vercel**.
 - Catalog / collections / PDP / events / `/app/model` / `/app/roster` in Core/MVP nav.
 
 ---
