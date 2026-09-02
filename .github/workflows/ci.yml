@@ -103,7 +103,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/migrations/20260825095051_ipi897_revoke_planner_default_privileges.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            -f supabase/migrations/20260901180000_ipi1127_planner_thread_claims.sql
+            -f supabase/migrations/20260901183613_ipi1127_planner_thread_claims.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/security/default-planner-privileges.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
@@ -153,6 +153,6 @@ jobs:
           grant connect on database postgres to hyperdrive_mastra_runtime;
           SQL
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            -f supabase/migrations/20260901180000_ipi1127_planner_thread_claims.sql
+            -f supabase/migrations/20260901183613_ipi1127_planner_thread_claims.sql
       - run: npm ci
       - run: npx vitest run tests/access-claim-001.test.ts
