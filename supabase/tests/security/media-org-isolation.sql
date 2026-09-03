@@ -10,12 +10,16 @@ declare
   org_b uuid := gen_random_uuid();
   brand_a uuid := gen_random_uuid();
   brand_b uuid := gen_random_uuid();
+  brand_owner uuid := gen_random_uuid();
   user_a uuid := gen_random_uuid();
   user_ab uuid := gen_random_uuid();
+  user_owner uuid := gen_random_uuid();
   asset_a uuid := gen_random_uuid();
   asset_b uuid := gen_random_uuid();
+  asset_owner uuid := gen_random_uuid();
   event_a uuid := gen_random_uuid();
   event_b uuid := gen_random_uuid();
+  event_owner uuid := gen_random_uuid();
   shoot_a uuid := gen_random_uuid();
   shoot_b uuid := gen_random_uuid();
   seen int;
@@ -64,6 +68,11 @@ begin
   select count(*) into seen from public.assets where id = asset_a;
   if seen <> 1 then
     raise exception 'org A member must read org A assets';
+  end if;
+
+  select count(*) into seen from public.cloudinary_assets where asset_id = asset_a;
+  if seen <> 1 then
+    raise exception 'org A member must read org A cloudinary_assets';
   end if;
 
   select count(*) into seen from public.cloudinary_assets where asset_id = asset_b;
@@ -202,6 +211,50 @@ begin
         raise;
       end if;
   end;
+
+  -- Organization-less brand owner path (brands.org_id IS NULL)
+  insert into public.brands (id, org_id, user_id)
+  values (brand_owner, null, user_owner);
+
+  insert into public.assets (id, brand_id, url, asset_type, status)
+  values (asset_owner, brand_owner, 'https://example.test/owner', 'image', 'ready');
+
+  insert into public.cloudinary_assets (
+    id, asset_id, public_id, secure_url, resource_type, delivery_type, status, approval, moderation_status
+  ) values (
+    gen_random_uuid(), asset_owner, 'ipix/owner', 'https://res.example/owner', 'image',
+    'authenticated', 'active', 'pending', 'pending'
+  );
+
+  insert into public.asset_events (id, asset_id, kind)
+  values (event_owner, asset_owner, 'upload');
+
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claim.sub', user_owner::text, true);
+
+  select count(*) into seen from public.assets where id = asset_owner;
+  if seen <> 1 then
+    raise exception 'org-less brand owner must read own assets';
+  end if;
+
+  select count(*) into seen from public.cloudinary_assets where asset_id = asset_owner;
+  if seen <> 1 then
+    raise exception 'org-less brand owner must read own cloudinary_assets via assets join';
+  end if;
+
+  select count(*) into seen from public.asset_events where id = event_owner;
+  if seen <> 1 then
+    raise exception 'org-less brand owner must read own asset_events';
+  end if;
+
+  -- Non-owner cannot read org-less brand media
+  perform set_config('request.jwt.claim.sub', user_a::text, true);
+  select count(*) into seen from public.assets where id = asset_owner;
+  if seen <> 0 then
+    raise exception 'non-owner must not read org-less brand assets';
+  end if;
+
+  execute 'reset role';
 end
 $$;
 

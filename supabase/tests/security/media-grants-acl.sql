@@ -128,9 +128,12 @@ begin
         'assets_select', 'assets_insert', 'assets_update',
         'ca_select_via_brand', 'asset_events_select'
       )
-      and pg_get_expr(pol.polqual, pol.polrelid) = 'true'
+      and (
+        pg_get_expr(pol.polqual, pol.polrelid) = 'true'
+        or pg_get_expr(pol.polwithcheck, pol.polrelid) = 'true'
+      )
   ) then
-    raise exception 'media read/write policies must not use open USING (true)';
+    raise exception 'media policies must not use open USING (true) or WITH CHECK (true)';
   end if;
 
   select col_description('public.cloudinary_assets'::regclass, a.attnum)

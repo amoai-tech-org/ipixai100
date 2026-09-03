@@ -46,7 +46,8 @@ drop policy if exists ca_delete_via_brand on public.cloudinary_assets;
 drop policy if exists anon_select_assets on public.assets;
 drop policy if exists anon_select_cloudinary_assets on public.cloudinary_assets;
 
--- Replace any open/stale policies with production-shaped org membership checks.
+-- Replace any open/stale policies with org-member OR user-owned brand (org_id null) checks.
+-- Owner path must live on assets too so ca_select's assets join is not blocked by assets RLS.
 drop policy if exists assets_select on public.assets;
 create policy assets_select on public.assets
   for select to authenticated
@@ -54,7 +55,10 @@ create policy assets_select on public.assets
     exists (
       select 1 from public.brands b
       where b.id = assets.brand_id
-        and public.is_org_member(b.org_id)
+        and (
+          (b.org_id is null and b.user_id = (select auth.uid()))
+          or (b.org_id is not null and public.is_org_member(b.org_id))
+        )
     )
   );
 
@@ -65,7 +69,10 @@ create policy assets_insert on public.assets
     exists (
       select 1 from public.brands b
       where b.id = assets.brand_id
-        and public.is_org_member(b.org_id)
+        and (
+          (b.org_id is null and b.user_id = (select auth.uid()))
+          or (b.org_id is not null and public.is_org_member(b.org_id))
+        )
     )
   );
 
@@ -76,14 +83,20 @@ create policy assets_update on public.assets
     exists (
       select 1 from public.brands b
       where b.id = assets.brand_id
-        and public.is_org_member(b.org_id)
+        and (
+          (b.org_id is null and b.user_id = (select auth.uid()))
+          or (b.org_id is not null and public.is_org_member(b.org_id))
+        )
     )
   )
   with check (
     exists (
       select 1 from public.brands b
       where b.id = assets.brand_id
-        and public.is_org_member(b.org_id)
+        and (
+          (b.org_id is null and b.user_id = (select auth.uid()))
+          or (b.org_id is not null and public.is_org_member(b.org_id))
+        )
     )
   );
 
@@ -112,7 +125,10 @@ create policy asset_events_select on public.asset_events
       from public.assets a
       join public.brands b on b.id = a.brand_id
       where a.id = asset_events.asset_id
-        and public.is_org_member(b.org_id)
+        and (
+          (b.org_id is null and b.user_id = (select auth.uid()))
+          or (b.org_id is not null and public.is_org_member(b.org_id))
+        )
     )
   );
 

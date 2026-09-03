@@ -113,6 +113,8 @@ jobs:
   media-harden-acl:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     services:
       postgres:
         # Pin reviewed postgres 17 digest (mutable tag rejected on this job).
