@@ -13,6 +13,13 @@
 # testing
 /coverage
 
+# playwright — https://playwright.dev/docs/test-configuration
+/playwright/.auth/
+/playwright-report/
+/blob-report/
+/test-results/
+/.playwright-cli/
+
 # next.js
 /.next/
 /out/
