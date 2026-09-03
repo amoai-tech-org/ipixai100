@@ -166,7 +166,7 @@ All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linea
 2. Has `SET search_path` configured (prevents search-path injection)
 3. Contains an explicit auth check — either `auth.uid()` directly, or via a helper (`is_org_member`, `is_at_least`, `is_org_owner`, `is_org_editor_or_above`, `is_assigned`, `is_organizer_team_member`, or `claim_token` validation)
 
-**Historical note:** [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) originally listed 34 functions. `get_brand_assets` was removed from this set by [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (authenticated EXECUTE revoked — the function now requires `service_role`), leaving 33 live authenticated DEFINER functions.
+**Historical note:** The advisor originally reported 37 `authenticated_security_definer_function_executable` findings. `get_brand_assets` was removed from this set by [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (authenticated EXECUTE revoked — the function now requires `service_role`), leaving 33 live authenticated DEFINER functions.
 
 **Body-level authorization audit: UNVERIFIED.** This register confirms each function has `SECURITY DEFINER` (via `prosecdef = true`), `SET search_path` (via `proconfig` containing `search_path`), and an authenticated EXECUTE grant (via `has_function_privilege`). It does **not** verify that every function body enforces row-level ownership, org scoping, or write-safety at runtime — that requires executing each function as a signed-out caller, which is **NOT VERIFIED** here. A dedicated body-audit pass (tracked as optional follow-up in [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029)) is required before treating any function as fully authorized.
 
