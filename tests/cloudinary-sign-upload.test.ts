@@ -425,6 +425,7 @@ describe("IPI-1110 · CLD-SIGN-001 v2_shoot_owned_by_brand RPC contract", () => 
     // unsigned → false, Org A → true, Org B+Org A ids → false, anon/PUBLIC no EXECUTE.
     expect(sql).toMatch(/unsigned caller must fail closed/);
     expect(sql).toMatch(/org A caller must own org A shoot/);
+    expect(sql).toMatch(/same-org shoot\/brand mismatch must be denied/);
     expect(sql).toMatch(/org B caller must be denied org A shoot/);
     expect(sql).toMatch(/anon must not EXECUTE v2_shoot_owned_by_brand/);
     expect(sql).toMatch(/PUBLIC must not EXECUTE v2_shoot_owned_by_brand/);

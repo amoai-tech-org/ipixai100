@@ -9,6 +9,7 @@ declare
   org_a uuid := gen_random_uuid();
   org_b uuid := gen_random_uuid();
   brand_a uuid := gen_random_uuid();
+  brand_a2 uuid := gen_random_uuid();
   brand_b uuid := gen_random_uuid();
   user_a uuid := gen_random_uuid();
   user_b uuid := gen_random_uuid();
@@ -51,6 +52,7 @@ begin
     (org_b, user_b);
   insert into public.brands (id, org_id) values
     (brand_a, org_a),
+    (brand_a2, org_a),
     (brand_b, org_b);
   insert into shoot.shoots (id, brand_id, name, type, status)
   values
@@ -71,6 +73,12 @@ begin
   select public.v2_shoot_owned_by_brand(shoot_a, brand_a) into got;
   if got is distinct from true then
     raise exception 'org A caller must own org A shoot (got %)', got;
+  end if;
+
+  -- Same org, wrong brand (shoot_a belongs to brand_a, not brand_a2) → false
+  select public.v2_shoot_owned_by_brand(shoot_a, brand_a2) into got;
+  if got is distinct from false then
+    raise exception 'same-org shoot/brand mismatch must be denied (got %)', got;
   end if;
 
   -- Org B member using Org A identifiers → false
