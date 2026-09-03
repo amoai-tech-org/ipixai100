@@ -201,8 +201,8 @@ async function handleCopilot(request: Request) {
   const resourceId = session.resourceId;
   const operator = session.operator;
   const agents = attachRunnerAbort(createLocalAgents(resourceId));
-  const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN;
-  const intelligenceKey = process.env.INTELLIGENCE_API_KEY;
+  const licenseToken = process.env.COPILOTKIT_LICENSE_TOKEN?.trim() || undefined;
+  const intelligenceKey = process.env.INTELLIGENCE_API_KEY?.trim() || undefined;
   // Official CopilotKit: Intelligence mode auto-wires IntelligenceAgentRunner.
   // Do not pass TenantAbortRunner together with intelligence (type/runtime conflict).
   // License-only (Preview today) keeps the SSE persist runner.
