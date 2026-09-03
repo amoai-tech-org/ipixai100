@@ -170,7 +170,7 @@ All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linea
 
 **Body-level authorization audit: UNVERIFIED.** This register confirms each function has `SECURITY DEFINER` (via `prosecdef = true`), `SET search_path` (via `proconfig` containing `search_path`), and an authenticated EXECUTE grant (via `has_function_privilege`). It does **not** verify that every function body enforces row-level ownership, org scoping, or write-safety at runtime — that requires executing each function as a signed-out caller, which is **NOT VERIFIED** here. A dedicated body-audit pass (tracked as optional follow-up in [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029)) is required before treating any function as fully authorized.
 
-**Note on `function_search_path_mutable`:** The 2 WARN findings for mutable `search_path` on `set_updated_at` and `trigger_set_timestamps` were already fixed by [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (IPI-V2-000). These no longer appear in the live advisor output.
+**Note on `function_search_path_mutable`:** The 2 WARN findings for mutable `search_path` on `set_updated_at` and `trigger_set_timestamps` were already fixed by [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (lock `search_path` on trigger helpers). These no longer appear in the live advisor output.
 
 ---
 
@@ -227,7 +227,7 @@ This is the only finding that requires a product/plan change rather than a code 
 2. **RLS-no-policy verification:** `pg_tables` + `pg_policy` join to confirm RLS ON with zero policies; `information_schema.role_table_grants` to confirm no `anon`/`authenticated` grants.
 3. **Extension verification:** `pg_extension` + `pg_namespace` to confirm schema placement and version.
 4. **Function verification:** `pg_proc` to confirm `prosecdef = true`, `proconfig` includes `search_path`, and `has_function_privilege('authenticated', oid, 'execute') = true` (behavioral evidence, not prosrc substring matching).
-5. **Cross-reference:** All classifications cross-checked against [IPI-1029](https://linear.app/amo100/issue/IPI-1029), [IPI-1030](https://linear.app/amo100/issue/IPI-1030), [IPI-863](https://linear.app/amo100/issue/IPI-863), [IPI-241](https://linear.app/amo100/issue/IPI-241), [IPI-801](https://linear.app/amo100/issue/IPI-801), and [IPI-1029](https://linear.app/amo100/issue/IPI-1029)/[IPI-1029](https://linear.app/amo100/issue/IPI-1029).
+5. **Cross-reference:** All classifications cross-checked against [IPI-1029](https://linear.app/amo100/issue/IPI-1029), [IPI-1030](https://linear.app/amo100/issue/IPI-1030), [IPI-863](https://linear.app/amo100/issue/IPI-863), [IPI-241](https://linear.app/amo100/issue/IPI-241), [IPI-801](https://linear.app/amo100/issue/IPI-801), and [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (revoke authenticated EXECUTE on `get_brand_assets`) / [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (lock `search_path` on trigger helpers).
 
 ---
 
