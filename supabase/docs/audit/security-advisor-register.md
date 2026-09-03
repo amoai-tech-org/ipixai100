@@ -63,11 +63,11 @@ Adding broad `FOR SELECT TO anon USING (true)` or `FOR ALL TO authenticated USIN
 
 ### Evidence
 
-| Extension | Version | Schema | Proven Dependency | Owner | Classification |
-|-----------|---------|--------|-------------------|-------|:--------------:|
-| `btree_gist` | 1.7 | public | `talent.bookings` — `EXCLUDE USING gist` constraint for booking overlap prevention | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | KEEP |
-| `pg_trgm` | 1.6 | public | `assets` — trigram indexes on Cloudinary `public_id` and metadata for fuzzy search | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | KEEP |
-| `vector` | 0.8.0 | public | `brands.embedding`, `brand_graph_nodes.embedding`, `agent_context_snapshots.embedding`, `talent.talent_profiles.ai_embedding` — HNSW indexes + `search_brands()` RPC | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | KEEP |
+| Extension | Version | Schema | Proven Dependency | Owner | Evidence | Rationale | Priority | Next Action | Classification |
+|-----------|---------|--------|-------------------|-------|:---------|:----------|:--------:|:-----------|:--------------:|
+| `btree_gist` | 1.7 | public | `talent.bookings` — `EXCLUDE USING gist` constraint for booking overlap prevention | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | `pg_extension` confirms schema=`public` | Prevents double-booking of talent on overlapping date ranges | P3 | Do not move without rewriting `EXCLUDE USING gist` | KEEP |
+| `pg_trgm` | 1.6 | public | `assets` — trigram indexes on Cloudinary `public_id` and metadata for fuzzy search | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | `pg_extension` confirms schema=`public` | Supports fuzzy matching in asset ingestion pipeline | P3 | Do not move without rewriting trigram indexes | KEEP |
+| `vector` | 0.8.0 | public | `brands.embedding`, `brand_graph_nodes.embedding`, `agent_context_snapshots.embedding`, `talent.talent_profiles.ai_embedding` — HNSW indexes + `search_brands()` RPC | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | `pg_extension` confirms schema=`public` | Powers brand intelligence similarity search across 4 tables + 3 RPCs | P3 | Do not move without rewriting all `vector` type references | KEEP |
 
 ### Rationale
 
@@ -145,6 +145,16 @@ These are classified separately as service-role/cron-only and do not trigger the
 | 32 | public | `toggle_shortlist_item` | `p_shortlist_id uuid, p_talent_profile_id uuid, p_add boolean` | `is_org_member` | KEEP |
 | 33 | public | `transition_booking` | `p_booking_id uuid, p_expected_version integer, p_to_status text, p_rate_quoted numeric, p_date_start date, p_date_end date, p_cancellation_reason text` | `is_org_member` / `is_assigned` | KEEP |
 
+### Per-finding metadata (all 33 functions)
+
+| Field | Value |
+|-------|-------|
+| **Owner** | [IPI-1029 · SB-FIX-002 — Classify authenticated SECURITY DEFINER RPCs (no mass revoke)](https://linear.app/amo100/issue/IPI-1029) |
+| **Evidence** | `pg_proc` query: `prosecdef = true` AND `has_function_privilege('authenticated', oid, 'execute') = true` AND `proconfig` includes `search_path`. Returns exactly 33 rows. |
+| **Rationale** | All 33 functions are `SECURITY DEFINER` with `SET search_path` and contain explicit auth checks. Revoking EXECUTE would break operator workflows (shoot planning, booking, CRM, talent search) after login. |
+| **Priority** | P2 (lint) — P0 if any function loses its auth guard |
+| **Next Action** | [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) optional body-audit pass: verify each function body enforces row-level ownership and org scoping at runtime. Do **not** mass-revoke. |
+
 ### Rationale
 
 All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029). Each function:
@@ -165,9 +175,9 @@ All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linea
 
 **Classification: FIX** — Native Supabase HIBP (Have I Been Pwned) password protection is not enabled. Requires Supabase Pro Plan or above.
 
-| Finding | Severity | Classification | Owner |
-|---------|----------|:--------------:|-------|
-| `auth_leaked_password_protection` | WARN | **FIX** | [IPI-863 · AUTH-V2-001 — Block Known Leaked Passwords for iPix Accounts](https://linear.app/amo100/issue/IPI-863) |
+| Finding | Severity | Classification | Owner | Evidence | Rationale | Priority | Next Action |
+|---------|----------|:--------------:|-------|:---------|:----------|:--------:|:-----------:|
+| `auth_leaked_password_protection` | WARN | **FIX** | [IPI-863 · AUTH-V2-001 — Block Known Leaked Passwords for iPix Accounts](https://linear.app/amo100/issue/IPI-863) | Advisor WARN; project on free tier | Native HIBP checks passwords against Have I Been Pwned at signup/change; requires Pro Plan+ | P1 | Upgrade to Pro Plan and enable HIBP in Supabase Dashboard → Authentication → Security |
 
 ### Rationale
 
@@ -201,7 +211,7 @@ This is the only finding that requires a product/plan change rather than a code 
 | [IPI-677](https://linear.app/amo100/issue/IPI-677) | Tighten `lead_intake_drafts` grants | — |
 | [IPI-673](https://linear.app/amo100/issue/IPI-673) | Revoke anon EXECUTE on all public RPCs | 13 anon DEFINER → 0 |
 | [IPI-801 · SB-V2-001](https://linear.app/amo100/issue/IPI-801) | Move 33 Mastra tables to `mastra` schema | 36 RLS-no-policy → 5 |
-| [SB-FIX-001](https://linear.app/amo100/issue/IPI-1029) | Revoke anon EXECUTE on `get_brand_assets` | 37 authenticated DEFINER → 33 |
+| [SB-FIX-001](https://linear.app/amo100/issue/IPI-1029) | Revoke authenticated EXECUTE on `get_brand_assets` | 37 authenticated DEFINER → 33 |
 | [SB-FIX-009](https://linear.app/amo100/issue/IPI-1029) | Lock `search_path` on trigger helpers | 2 function_search_path_mutable → 0 |
 | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | Classify 3 extensions as KEEP | 3 extension_in_public → KEEP |
 | [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) | Classify 33 authenticated DEFINER as KEEP | 33 authenticated DEFINER → KEEP |
