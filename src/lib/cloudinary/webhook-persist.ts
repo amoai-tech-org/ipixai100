@@ -18,6 +18,9 @@ export type ApplyCloudinaryEventsResult = {
   results: ApplyCloudinaryEventResult[];
 };
 
+/** Bound hung PostgREST RPC so Cloudinary can retry instead of hanging. */
+const RPC_TIMEOUT_MS = 10_000;
+
 /**
  * Call the transactional SECURITY DEFINER batch RPC that mirrors events
  * (idempotency-first state machine) in one transaction.
@@ -33,26 +36,41 @@ export async function applyCloudinaryAssetEvents(
     return { ok: false, status: 503, error: "service_role_unavailable" };
   }
 
-  const { data, error } = await supabase.rpc("apply_cloudinary_asset_events", {
-    p_events: payloads,
-  });
+  const { data, error } = await supabase
+    .rpc("apply_cloudinary_asset_events", {
+      p_events: payloads,
+    })
+    .abortSignal(AbortSignal.timeout(RPC_TIMEOUT_MS));
 
   if (error) {
     return { ok: false, status: 503, error: error.message || "rpc_failed" };
   }
 
-  const raw = (data ?? { outcome: "batch_applied", results: [] }) as {
-    outcome?: string;
+  // Fail closed: never invent a successful batch when DB returned nothing.
+  if (data == null) {
+    return { ok: false, status: 503, error: "rpc_empty_result" };
+  }
+
+  const raw = data as {
+    outcome?: unknown;
     count?: number;
-    results?: ApplyCloudinaryEventResult[];
+    results?: unknown;
   };
+
+  if (typeof raw.outcome !== "string" || raw.outcome.length === 0) {
+    return { ok: false, status: 503, error: "rpc_malformed_outcome" };
+  }
+
+  if (!Array.isArray(raw.results)) {
+    return { ok: false, status: 503, error: "rpc_malformed_results" };
+  }
 
   return {
     ok: true,
     result: {
-      outcome: raw.outcome ?? "batch_applied",
+      outcome: raw.outcome,
       count: raw.count,
-      results: Array.isArray(raw.results) ? raw.results : [],
+      results: raw.results as ApplyCloudinaryEventResult[],
     },
   };
 }
@@ -66,6 +84,9 @@ export async function applyCloudinaryAssetEvent(
 > {
   const batch = await applyCloudinaryAssetEvents([payload]);
   if (!batch.ok) return batch;
-  const first = batch.result.results[0] ?? { outcome: "ok" };
+  const first = batch.result.results[0];
+  if (!first || typeof first.outcome !== "string" || first.outcome.length === 0) {
+    return { ok: false, status: 503, error: "rpc_empty_result" };
+  }
   return { ok: true, result: first };
 }

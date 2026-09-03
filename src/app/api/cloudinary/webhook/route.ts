@@ -75,7 +75,11 @@ export async function POST(request: Request) {
   }
 
   const results = applied.result.results;
-  const needsRetry = results.some((r) => outcomeNeedsRetry(r.outcome));
+  // Fail closed: batch or any per-event outcome must be an explicit OK terminal.
+  const needsRetry =
+    outcomeNeedsRetry(applied.result.outcome) ||
+    results.length === 0 ||
+    results.some((r) => outcomeNeedsRetry(r?.outcome));
   if (needsRetry) {
     return Response.json(
       {

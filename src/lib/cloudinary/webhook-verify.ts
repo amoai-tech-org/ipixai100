@@ -1,8 +1,17 @@
 import "server-only";
 
+import { timingSafeEqual } from "node:crypto";
+
 import { cloudinary } from "@/lib/cloudinary/config";
 
 const DEFAULT_VALID_FOR_SECONDS = 7200;
+
+function signaturesMatch(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(provided, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 /**
  * Verify Cloudinary notification HMAC using the official SDK helper
@@ -46,7 +55,7 @@ export function verifyCloudinaryNotification(args: {
   const expected = cloudinary.utils.webhook_signature(args.rawBody, timestamp, {
     api_secret: secret,
   });
-  if (expected !== signature) {
+  if (!signaturesMatch(expected, signature)) {
     return { ok: false, reason: "signature_mismatch" };
   }
 

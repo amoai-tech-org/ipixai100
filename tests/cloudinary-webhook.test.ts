@@ -17,6 +17,24 @@ function signBody(body: string, timestamp: number, secret: string): string {
 }
 
 describe("IPI-1111 Cloudinary webhook normalize + context", () => {
+  it("fail-closed outcomeNeedsRetry: only WEBHOOK_OK_OUTCOMES are terminal", async () => {
+    const { outcomeNeedsRetry, WEBHOOK_OK_OUTCOMES, WEBHOOK_RETRY_OUTCOMES } =
+      await import("../src/lib/cloudinary/webhook-normalize");
+
+    expect(outcomeNeedsRetry(null)).toBe(true);
+    expect(outcomeNeedsRetry(undefined)).toBe(true);
+    expect(outcomeNeedsRetry("")).toBe(true);
+    expect(outcomeNeedsRetry("totally_unknown")).toBe(true);
+    expect(outcomeNeedsRetry("noop_missing_provider_id")).toBe(true);
+    expect(WEBHOOK_RETRY_OUTCOMES.has("noop_missing_provider_id")).toBe(true);
+
+    expect(outcomeNeedsRetry("noop_missing_brand_id")).toBe(false);
+    expect(WEBHOOK_OK_OUTCOMES.has("noop_missing_brand_id")).toBe(true);
+    expect(WEBHOOK_RETRY_OUTCOMES.has("noop_missing_brand_id")).toBe(false);
+    expect(outcomeNeedsRetry("applied")).toBe(false);
+    expect(outcomeNeedsRetry("batch_applied")).toBe(false);
+  });
+
   it("reads signed upload context fields and tolerates unknown payload keys", async () => {
     const { normalizeCloudinaryNotifications, toRpcPayload } = await import(
       "../src/lib/cloudinary/webhook-normalize"
@@ -356,7 +374,7 @@ describe("IPI-1111 webhook route", () => {
     ).toBe(200);
   });
 
-  it("returns 503 when persistence declines missing provider metadata", async () => {
+  it("returns 200 for permanent missing-brand (replay cannot invent brand)", async () => {
     rpc.mockResolvedValue({
       ok: true,
       result: {
@@ -369,6 +387,66 @@ describe("IPI-1111 webhook route", () => {
       signedRequest({
         notification_type: "upload",
         request_id: "miss-brand",
+        asset_id: PROVIDER,
+        version: 1,
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 503 for unrecognized or empty RPC outcomes (fail closed)", async () => {
+    rpc.mockResolvedValue({
+      ok: true,
+      result: {
+        outcome: "batch_applied",
+        results: [{ outcome: "totally_unknown_outcome" }],
+      },
+    });
+    const { POST } = await import("../src/app/api/cloudinary/webhook/route");
+    expect(
+      (
+        await POST(
+          signedRequest({
+            notification_type: "upload",
+            request_id: "unk-1",
+            asset_id: PROVIDER,
+            version: 1,
+          }),
+        )
+      ).status,
+    ).toBe(503);
+
+    rpc.mockResolvedValue({
+      ok: true,
+      result: { outcome: "batch_applied", results: [] },
+    });
+    expect(
+      (
+        await POST(
+          signedRequest({
+            notification_type: "upload",
+            request_id: "empty-1",
+            asset_id: PROVIDER,
+            version: 1,
+          }),
+        )
+      ).status,
+    ).toBe(503);
+  });
+
+  it("returns 503 when persistence declines missing provider metadata", async () => {
+    rpc.mockResolvedValue({
+      ok: true,
+      result: {
+        outcome: "batch_applied",
+        results: [{ outcome: "noop_missing_provider_id" }],
+      },
+    });
+    const { POST } = await import("../src/app/api/cloudinary/webhook/route");
+    const res = await POST(
+      signedRequest({
+        notification_type: "upload",
+        request_id: "miss-provider",
         asset_id: PROVIDER,
         version: 1,
       }),

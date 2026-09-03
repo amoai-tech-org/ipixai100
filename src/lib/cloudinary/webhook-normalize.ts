@@ -301,18 +301,24 @@ export const WEBHOOK_OK_OUTCOMES = new Set([
   "noop_ignored_kind",
   "noop_delete_unknown",
   "noop_missing_request_id",
+  // Permanent: replay cannot invent a brand that was never in the payload.
+  "noop_missing_brand_id",
   "batch_applied",
 ]);
 
-/** Declined outcomes that need Cloudinary retry (503). */
+/**
+ * Transient declines that Cloudinary should retry (documented; fail-closed
+ * decisions use WEBHOOK_OK_OUTCOMES — unrecognized outcomes also retry).
+ */
 export const WEBHOOK_RETRY_OUTCOMES = new Set([
   "noop_missing_asset_id",
-  "noop_missing_brand_id",
   "noop_missing_delivery_fields",
   "noop_unknown_brand",
   "noop_missing_provider_id",
 ]);
 
-export function outcomeNeedsRetry(outcome: string): boolean {
-  return WEBHOOK_RETRY_OUTCOMES.has(outcome);
+/** Fail closed: only explicit OK outcomes are terminal; null/unknown → retry. */
+export function outcomeNeedsRetry(outcome: string | null | undefined): boolean {
+  if (outcome == null || outcome === "") return true;
+  return !WEBHOOK_OK_OUTCOMES.has(outcome);
 }

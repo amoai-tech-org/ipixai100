@@ -245,10 +245,13 @@ begin
       folder = coalesce(v_folder, folder),
       status = 'ready',
       updated_at = now(),
-      metadata = metadata || jsonb_build_object(
-        'last_webhook_kind', v_kind,
-        'org_id', v_org_id
-      )
+      -- Merge org_id only when the event supplies it (null must not wipe stored org).
+      metadata = metadata
+        || jsonb_build_object('last_webhook_kind', v_kind)
+        || case
+             when v_org_id is not null then jsonb_build_object('org_id', v_org_id)
+             else '{}'::jsonb
+           end
     where id = v_row.id;
 
     -- Provider delivery fields only — brand_id / org / v2_shoot_id stay put.
