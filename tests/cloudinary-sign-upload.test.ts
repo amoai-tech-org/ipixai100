@@ -127,9 +127,13 @@ import {
   buildSignedUploadParams,
   formatUploadContext,
   rejectClientSignParams,
+  resolveSignedUploadPreset,
   signUploadParams,
 } from "../src/lib/cloudinary/sign-upload";
-import { UPLOAD_CONTEXT_SCHEMA_VERSION } from "../src/lib/cloudinary/upload-contract";
+import {
+  DEFAULT_SIGNED_UPLOAD_PRESET,
+  UPLOAD_CONTEXT_SCHEMA_VERSION,
+} from "../src/lib/cloudinary/upload-contract";
 
 const originalEnv = { ...process.env };
 
@@ -197,6 +201,25 @@ describe("IPI-1110 · CLD-SIGN-001 upload contract helpers", () => {
     ).toEqual({ ok: false, reason: "stale_timestamp" });
   });
 
+  it("defaults to ipix-signed-upload and rejects forbidden/unknown presets", () => {
+    expect(resolveSignedUploadPreset(undefined)).toEqual({
+      ok: true,
+      preset: DEFAULT_SIGNED_UPLOAD_PRESET,
+    });
+    expect(resolveSignedUploadPreset("ipix-signed-upload")).toEqual({
+      ok: true,
+      preset: "ipix-signed-upload",
+    });
+    expect(resolveSignedUploadPreset("ai_powerstart")).toEqual({
+      ok: false,
+      reason: "forbidden_preset",
+    });
+    expect(resolveSignedUploadPreset("fashionos-unsigned")).toEqual({
+      ok: false,
+      reason: "unknown_preset",
+    });
+  });
+
   it("produces a different signature when brand or shoot changes", async () => {
     const { cloudinary } = await import("../src/lib/cloudinary/config");
     void cloudinary;
@@ -206,6 +229,7 @@ describe("IPI-1110 · CLD-SIGN-001 upload contract helpers", () => {
       v2ShootId: SHOOT_A,
       assetId: "11111111-1111-4111-8111-111111111111",
       timestamp: 1_700_000_000,
+      uploadPreset: DEFAULT_SIGNED_UPLOAD_PRESET,
     });
     const b = buildSignedUploadParams({
       orgId: ORG_A,
@@ -213,8 +237,10 @@ describe("IPI-1110 · CLD-SIGN-001 upload contract helpers", () => {
       v2ShootId: SHOOT_A,
       assetId: "11111111-1111-4111-8111-111111111111",
       timestamp: 1_700_000_000,
+      uploadPreset: DEFAULT_SIGNED_UPLOAD_PRESET,
     });
     expect(a.params.context).not.toBe(b.params.context);
+    expect(a.params.upload_preset).toBe("ipix-signed-upload");
     expect(signUploadParams(a.params, "test-api-secret")).not.toBe(
       signUploadParams(b.params, "test-api-secret"),
     );
@@ -231,6 +257,7 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     expect(body.signature).toEqual(expect.any(String));
     expect(body.signature.length).toBeGreaterThan(10);
     expect(body.type).toBe("authenticated");
+    expect(body.upload_preset).toBe("ipix-signed-upload");
     expect(body.schema_version).toBe("1");
     expect(body.org_id).toBe(ORG_A);
     expect(body.brand_id).toBe(BRAND_A);
@@ -320,6 +347,18 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error).toBe("unavailable");
+    expect(body).not.toHaveProperty("signature");
+  });
+
+  it("returns 503 when CLOUDINARY_SIGNED_UPLOAD_PRESET is ai_powerstart", async () => {
+    process.env.CLOUDINARY_SIGNED_UPLOAD_PRESET = "ai_powerstart";
+    const res = await POST(signRequest({ brand_id: BRAND_A }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body).toEqual({
+      error: "unavailable",
+      reason: "forbidden_preset",
+    });
     expect(body).not.toHaveProperty("signature");
   });
 

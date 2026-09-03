@@ -11,7 +11,8 @@ import { v2 as cloudinary } from "cloudinary";
  *
  * ai_powerstart is the unsigned Cloudinary Power Start validation preset only.
  * It is never for production operator uploads. Production uploads use the
- * signed iPix flow (IPI-1110 · CLD-SIGN-001 + IPI-1116 · CLD-UPLOAD-001).
+ * signed iPix flow (IPI-1110 · CLD-SIGN-001 + preset `ipix-signed-upload`
+ * from IPI-1112 · CLD-DELIVERY-001 + IPI-1116 · CLD-UPLOAD-001).
  *
  * Approval must never make authenticated DAM assets public.
  */

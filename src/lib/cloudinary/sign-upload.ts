@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { cloudinary } from "@/lib/cloudinary/config";
 import {
+  ALLOWED_SIGNED_UPLOAD_PRESETS,
+  DEFAULT_SIGNED_UPLOAD_PRESET,
   FORBIDDEN_UPLOAD_PRESETS,
   REJECTED_CLIENT_SIGN_KEYS,
   UPLOAD_CONTEXT_SCHEMA_VERSION,
@@ -36,14 +38,24 @@ export function deriveUploadFolder(input: {
   return input.v2ShootId ? `${base}/shoot/${input.v2ShootId}` : base;
 }
 
+/**
+ * Always returns the IPI-1112 consume-only preset (`ipix-signed-upload`).
+ * Env may set `CLOUDINARY_SIGNED_UPLOAD_PRESET` to that exact name; other
+ * names (including `ai_powerstart`) fail closed.
+ */
 export function resolveSignedUploadPreset(
   envPreset: string | undefined = process.env.CLOUDINARY_SIGNED_UPLOAD_PRESET,
-): { ok: true; preset?: string } | { ok: false; reason: "forbidden_preset" } {
-  if (!envPreset) return { ok: true };
-  if (FORBIDDEN_UPLOAD_PRESETS.has(envPreset)) {
+):
+  | { ok: true; preset: string }
+  | { ok: false; reason: "forbidden_preset" | "unknown_preset" } {
+  const preset = (envPreset?.trim() || DEFAULT_SIGNED_UPLOAD_PRESET);
+  if (FORBIDDEN_UPLOAD_PRESETS.has(preset)) {
     return { ok: false, reason: "forbidden_preset" };
   }
-  return { ok: true, preset: envPreset };
+  if (!ALLOWED_SIGNED_UPLOAD_PRESETS.has(preset)) {
+    return { ok: false, reason: "unknown_preset" };
+  }
+  return { ok: true, preset };
 }
 
 export function rejectClientSignParams(
@@ -106,7 +118,7 @@ export function buildSignedUploadParams(input: {
   v2ShootId?: string;
   assetId?: string;
   timestamp?: number;
-  uploadPreset?: string;
+  uploadPreset: string;
 }): {
   assetId: string;
   contextFields: UploadContextFields;
@@ -132,10 +144,8 @@ export function buildSignedUploadParams(input: {
     public_id: assetId,
     type: "authenticated",
     context: formatUploadContext(contextFields),
+    upload_preset: input.uploadPreset,
   };
-  if (input.uploadPreset) {
-    params.upload_preset = input.uploadPreset;
-  }
 
   return { assetId, contextFields, params };
 }
@@ -180,9 +190,7 @@ export function toSignResponse(input: {
     public_id: input.params.public_id,
     type: input.params.type,
     context: input.params.context,
-    ...(input.params.upload_preset
-      ? { upload_preset: input.params.upload_preset }
-      : {}),
+    upload_preset: input.params.upload_preset,
     org_id: input.contextFields.org_id,
     brand_id: input.contextFields.brand_id,
     asset_id: input.contextFields.asset_id,

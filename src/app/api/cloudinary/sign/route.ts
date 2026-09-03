@@ -105,7 +105,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const preset = resolveSignedUploadPreset();
   if (!preset.ok) {
-    return configUnavailableResponse("forbidden_preset");
+    return configUnavailableResponse(preset.reason);
   }
 
   // Read secret from env each request — do not rely on a previously configured SDK singleton.

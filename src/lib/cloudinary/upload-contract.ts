@@ -8,6 +8,17 @@ export const UPLOAD_CONTEXT_SCHEMA_VERSION = "1" as const;
 export const FORBIDDEN_UPLOAD_PRESETS = new Set(["ai_powerstart"]);
 
 /**
+ * Consume-only upload preset owned by IPI-1112 (eager named transforms).
+ * IPI-1110 signs with this name only — never create/edit the preset.
+ * @see docs/cloudinary/COORDINATION-1112.md (on 1112 branch until merged)
+ */
+export const DEFAULT_SIGNED_UPLOAD_PRESET = "ipix-signed-upload";
+
+export const ALLOWED_SIGNED_UPLOAD_PRESETS = new Set([
+  DEFAULT_SIGNED_UPLOAD_PRESET,
+]);
+
+/**
  * Params the server may include in the string-to-sign.
  * Client-supplied values for these keys are ignored; server derives them.
  */
@@ -51,5 +62,5 @@ export type SignedUploadParams = {
   public_id: string;
   type: "authenticated";
   context: string;
-  upload_preset?: string;
+  upload_preset: string;
 };
