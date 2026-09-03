@@ -1,11 +1,14 @@
+# CLAUDE.md
+
 ## Secrets / Infisical
 
 Follow the repository-wide secret policy in `AGENTS.md`.
 
 For this repo:
-- Infisical config: `/home/sk/ipixai/.infisical.json`
+- Infisical config: `.infisical.json` (repo root)
 - Run secret-dependent commands with:
   `infisical run --env=dev -- <command>`
+- No Infisical session? Fall back to a local `.env` (never commit it)
 - Do not read `.env` when Infisical is available.
 - Never print secret values.
 - Presence checks may output only variable name + `✅/❌`.
