@@ -15,6 +15,9 @@ import { createClient } from "@/lib/supabase/server";
  * Trusted org is resolved server-side from AUTH-002 membership rows only
  * (never a client-supplied org id). Brands are the sole live read for this
  * page — see command-center.tsx for why shoots are not read here yet.
+ *
+ * A failed brand read degrades only the brands section, not the whole page
+ * — the hero and quick links are static and don't depend on that query.
  */
 export default async function AppHomePage() {
   const operator = await requireAppWorkspace();
@@ -37,7 +40,7 @@ export default async function AppHomePage() {
       <div className="p-8">
         <EmptyState
           heading="No organization yet"
-          body="Your account isn't linked to an organization yet. Sign-up will fill this slot."
+          body="Your account isn't linked to an organization yet. Ask an admin to invite you, or contact support."
         />
       </div>
     );
@@ -63,17 +66,10 @@ export default async function AppHomePage() {
   }
 
   const brandsResult = await loadOrgBrands(supabase, tenant.orgId);
-  if (!brandsResult.ok) {
-    return (
-      <div className="p-8">
-        <ErrorState message="Couldn't load your brands. Please try again shortly." />
-      </div>
-    );
-  }
 
   return (
     <div className="p-8">
-      <CommandCenter brands={brandsResult.brands} />
+      <CommandCenter brandsResult={brandsResult} />
     </div>
   );
 }
