@@ -1,28 +1,28 @@
-# Live Supabase architecture pack
+# Data / Supabase pack
 
-**Project:** `nvdlhrodvevgwdsneplk` (dashboard name: fashionos)  
-**Dashboard:** https://supabase.com/dashboard/project/nvdlhrodvevgwdsneplk  
-**Audit date:** 2026-08-24  
-**Mode:** read-only (MCP SQL + advisors + repo). **No production writes.**
+Studio **ledger** (tables, RLS, migrations, Mastra memory). Product PRD is [../prd.md](../prd.md). Status is **Linear**.
 
-This folder is the **data/SoT pack** for the new iPix rebuild. Product/runtime decisions stay in `docs/new-plan/` (Node first, CopilotKit Mastra starter, `mastra` schema, preview storage before production threads).
+Hosted: `nvdlhrodvevgwdsneplk`. Repo: [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai). No production writes from docs work.
 
-| File | Contents |
-|------|----------|
-| [00-executive-report.md](./00-executive-report.md) | Scores, P0/P1, KEEP/PORT matrix, Core→MVP |
-| [01-schemas-tables.md](./01-schemas-tables.md) | Schemas, all tables, grouping, KEEP/PORT |
-| [02-relationships-erd.md](./02-relationships-erd.md) | FKs + Mermaid ERDs |
-| [03-indexes.md](./03-indexes.md) | Index notes — do not create yet |
-| [04-rls-security.md](./04-rls-security.md) | RLS, advisors, org isolation |
-| [05-functions-rpcs.md](./05-functions-rpcs.md) | SECURITY DEFINER RPCs + triggers |
-| [06-edge-functions.md](./06-edge-functions.md) | Deployed Edge Functions |
-| [07-mastra-storage.md](./07-mastra-storage.md) | `mastra` schema vs `@mastra/pg` |
-| [08-auth-org.md](./08-auth-org.md) | Auth journey + recommended new-app split |
-| [09-wiring-flows.md](./09-wiring-flows.md) | UI→API→table maps + data-flow Mermaid |
-| [10-findings.md](./10-findings.md) | Severity-ranked findings |
-| [11-table-inventory.md](./11-table-inventory.md) | Full live table name list |
-| [supa-fix-plan.md](./supa-fix-plan.md) | Wave 0 harden plan (re-verified 2026-08-24 vs live advisor; +0.11 seed) |
+| Job | File |
+| --- | --- |
+| What we are building | **[prd.md](./prd.md)** |
+| Now / Next / Later | **[roadmap.md](./roadmap.md)** |
+| Execution order | **[tasks.md](./tasks.md)** |
+| Check-off + mint | **[todo.md](./todo.md)** |
+| Live 01–20 audit | **[audit/00-audit-master.md](./audit/00-audit-master.md)** |
+| Concise verdict (recheck) | **[audit/23-audit-supa.md](./audit/23-audit-supa.md)** — **67/100** ready · **87/100** architecture |
+| DEFINER bodies | **[audit/24-security-definer-deep-audit.md](./audit/24-security-definer-deep-audit.md)** |
+| Code → DB map | **[audit/25-code-database-dependency-map.md](./audit/25-code-database-dependency-map.md)** |
+| Fix order (Linear) | **[audit/21-fix-plan.md](./audit/21-fix-plan.md)** |
+| Fix order (schema → wiring) | **[audit/22-fix-plan.md](./audit/22-fix-plan.md)** |
+| Forward-migration runbook | [supabase/ipi-1040-forward-migrations.md](./supabase/ipi-1040-forward-migrations.md) |
+| Advisor register | [supabase/security-advisor-register.md](./supabase/security-advisor-register.md) |
+| Master product | [../prd.md](../prd.md) · [../roadmap.md](../roadmap.md) |
+| Media bytes | [../cloudinary/](../cloudinary/) |
 
-**Canonical live Mastra counts** still live in [../01-current-state-audit.md](../01-current-state-audit.md). Spot-check 2026-08-24: **34 `mastra.*` tables**, **45 threads**, **~101–103 messages**, **0 rows** in `mastra.mastra_workflow_definitions`. **No `public.mastra_*` tables.**
+**Today:** production readiness **67/100**. PR #23 is **CONFLICTING** — rebase, do not merge. Fingerprint Core tables **compatible** with `@mastra/pg@1.22.2`. Unlicensed Stop tests **59 passed**. Licensed CopilotKit runner still unproven. HIBP still OFF. Agent is still **weather-agent**.
 
-**Commerce** is Mercur Postgres, not this project. Do not duplicate product/order tables here.
+**Next:** rebase PR #23 · licensed Stop test (**IPI-1009**) · **IPI-1124** recycle · **IPI-863** HIBP. DEFINER negatives still on **24**.
+
+Dumps (`00`–`11`, old progress, prompts) still sit here until a **separate** archive PR → [../archive/](../archive/). Do not replay them as SQL.

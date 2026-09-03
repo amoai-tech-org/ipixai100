@@ -12,7 +12,7 @@ description: "iPix V2 routes and phases. Core is /app/planner only; booking is n
 | Source | Use for |
 |---|---|
 | **This file** | Routes, phases, nav, booking vs shoot |
-| [Execution backlog](./todo.md) | What to build and in what order (Linear is status SSOT) |
+| [Execution backlog](todo-draft.md) | What to build and in what order (Linear is status SSOT) |
 | [Legacy route audit](./design/SITEMAP-V2.md) | Legacy lumina-studio `page.tsx` audit |
 | `Universal-design-prompt-4/Pages/*.dc.html` | Visual SCR mockups (not “built in this repo”) |
 

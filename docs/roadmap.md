@@ -1,650 +1,133 @@
-# iPix from scratch — step-by-step task roadmap
+# iPix product roadmap
 
-**Linear IDs:** all `IPI-V2-xxx` are **PROPOSED**. Do not treat them as live Linear issues until created.  
-**Parent brief:** [README.md](./README.md)  
-**Rule:** current production `app/` stays up. Work in a new tree (`app-v2/` or git worktree). One concern per PR.
+**Linear** is status, blockers, and assignees.  
+**This file** is outcomes and order — not a 95-row status mirror.  
+**[todo.md](todo-draft.md)** is only NOW / NEXT / GATES.  
+Live project: [v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues).
+
+Think of iPix as a **fashion studio floor**, not a chatbot on a website. CopilotKit is the intercom and the buttons. Mastra is the crew in the back. Supabase is the filing cabinet that is always right.
 
 ```text
-Existing iPix code → official starter → official SDK → example repo → smallest custom code
+iPix screens (already designed)
+        ↓
+CopilotKit / AG-UI  — context, buttons, cards, working drafts
+        ↓
+Mastra              — agents, workflows, tools, approvals
+        ↓
+Supabase truth · Cloudinary media · Postiz publish · Stripe money
 ```
 
-**Stop line:** nothing in Epic B+ starts until **IPI-V2-018** (golden TEST-123) is green with SQL + browser proof.
+Do **not** build by vendor. Do **not** create another Mastra upgrade ticket after Core. Connect existing screens; do not invent a new shell.
 
 ---
 
-## Suggested skills / MCPs per epic
+## Four layers (keep)
 
-| Epic | Skills | MCP / CLI |
-| ---- | ------ | --------- |
-| A Runtime | `copilotkit`, `mastra`, `ipix-supabase`, `writing-plans` | Context7, Mastra docs, CopilotKit docs, Supabase |
-| B UI | `frontend-design`, `shadcn`, `copilotkit` | Playwright / Chrome |
-| C AI MVP | `mastra`, `copilotkit`, `fashion-production` | Mastra docs |
-| D Cloudflare | `cloudflare-ipix`, `wrangler` | Cloudflare docs MCP |
-| E Advanced | domain skills as needed | — |
+| Layer | Outcome |
+| -- | -- |
+| **1 · Foundation** | Certified Mastra family + stream + hosted Postgres + Org A/B ACCESS + Planner + CORE exam |
+| **2 · Core MVP** | CopilotKit context / GenUI / HITL (audit first) → Brand Brain → typed ShootPlan → HITL → save once → booking → Cloudinary library |
+| **3 · Post-MVP** | Research → opportunity → campaign → reuse assets → content → Postiz → analytics → learn |
+| **4 · Advanced** | Evals, Task Lists when Planner is multi-step, Skill/Tool Search after a large registry, schedules, browser, dynamic workflows, OpenClaw |
 
----
-
-# Epic A — Clean AI runtime
-
-## IPI-V2-001 · BOOT-001 — Create parallel Next.js app from CopilotKit Mastra starter
-
-**Purpose:** Empty official foundation, not a copy of `app/src/app/api/copilotkit`.  
-**User outcome:** Engineers can run a stock Copilot+Mastra chat on a preview URL without touching production.  
-**Reuse:** none (starter only).  
-**Reference:** [CopilotKit `examples/integrations/mastra`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra) · [Mastra quickstart](https://docs.copilotkit.ai/mastra/quickstart)  
-**Steps:** `npx copilotkit@latest create` (Mastra) **or** copy that example into `app-v2/`; `.env.example` without secrets; README “does not replace production”.  
-**Depends on:** none.  
-**Tests:** `npm install` + `npm run dev` shows starter chat.  
-**AC:** App boots; weather/demo agent answers; **no** import from old 681-line route.  
-**Proof:** localhost screenshot.  
-**Fails if:** mixed into `app/` production package.json.  
-**Rollback:** delete `app-v2/`.  
-**Prod:** N/A.
-
-**Efficiency:** CLI/example clone beats scaffolding by hand.
+Cloudinary stays **parallel**. Host is **Vercel** (`ipixai` preview for ACCESS). Cloudflare Workers are a **future** host option only — not this roadmap.
 
 ---
 
-## IPI-V2-002 · BOOT-002 — Lock CopilotKit 1.69.x + matching AG-UI/Mastra versions
+## Foundation — NOW (this is the critical order)
 
-**Purpose:** Same family as [npm `@copilotkit/runtime` 1.69.0](https://www.npmjs.com/package/@copilotkit/runtime); no canary.  
-**User outcome:** Preview uses current supported APIs (`CopilotRuntime`, `createCopilotRuntimeHandler` from `/v2`).  
-**Reuse:** compare `app/package.json` only as a delta list, do not copy overrides blindly.  
-**Reference:** starter `package.json` + Context7 CopilotKit + Mastra CopilotKit guide.  
-**Steps:** pin CopilotKit trio; `@ag-ui/mastra`; `@mastra/core`/`pg`/`memory`; Next 16; record versions in README. If starter ≠ npm latest, prefer **one** lockfile that typechecks.  
-**Depends on:** 001.  
-**Tests:** `npm ls @copilotkit/runtime @ag-ui/mastra @mastra/core`; `tsc --noEmit`.  
-**AC:** Documented matrix; no `examples/v1` packages.  
-**Proof:** `npm ls` paste in PR.  
-**Fails if:** mixed 1.10 + 1.69 like mastra-pm.  
-**Rollback:** revert lockfile.
+Mastra 1.63.2 is **in progress**, not a post-Core idea. Owner: **IPI-1042 · RUNTIME-001 — Make the New iPix AI Runtime Compile and Build Cleanly** ([PR #25](https://github.com/amoai-tech/ipixai/pull/25)). GitHub `main` is still `@mastra/core@1.41.0`.
 
-**Efficiency:** copy starter lockfile, then bump once.
-
----
-
-## IPI-V2-003 · RT-001 — Official CopilotKit v2 route only
-
-**Purpose:** Thin AG-UI endpoint.  
-**User outcome:** Browser talks to `/api/copilotkit` with SSE.  
-**Reuse:** **ideas** from current route (auth later), not code.  
-**Reference:** `examples/v2/runtime` (node) + integrations/mastra `route.ts`.  
-**Steps:** `MastraAgent.getLocalAgents({ mastra, resourceId })` → `new CopilotRuntime({ agents })` → `createCopilotRuntimeHandler({ runtime, basePath })` → export GET/POST. Target **&lt; 80 lines**.  
-**Depends on:** 002.  
-**Tests:** hit `/info` or equivalent 200.  
-**AC:** No ALS, no idle wrapper, no Worker fetch shim.  
-**Proof:** curl headers.  
-**Fails if:** paste from `runtime-v2-fetch.ts`.  
-**Rollback:** restore starter route.
-
-**Efficiency:** official handler vs custom Hono.
-
----
-
-## IPI-V2-004 · RT-002 — CopilotKit provider + useAgent on one page
-
-**Purpose:** v2 React contract.  
-**User outcome:** One page streams tokens.  
-**Reuse:** none yet.  
-**Reference:** `examples/v2/react` + starter layout.  
-**Steps:** `<CopilotKit runtimeUrl="/api/copilotkit">`; `useAgent({ agentId })` matching registry; `agentId` includes `default` **or** explicit Planner id (alias in 010).  
-**Depends on:** 003.  
-**Tests:** Playwright send “ping”.  
-**AC:** Stream visible; no `useCopilotAction` v1-only APIs.  
-**Proof:** browser.  
-**Fails if:** v1 `CopilotKit` without `/v2` imports.  
-**Rollback:** starter page.
-
----
-
-## IPI-V2-005 · MS-001 — In-process Mastra instance (no extra :4111 for Core chat)
-
-**Purpose:** Same process as Next, like the starter.  
-**User outcome:** One `npm run dev` for Core (Mastra Studio optional).  
-**Reuse:** `getMastra()` lazy pattern **concept** from `app/src/mastra/index.ts`, simplified.  
-**Reference:** starter `src/mastra/index.ts`.  
-**Steps:** `new Mastra({ agents, storage, memory })`; call from route **inside handler**, never at module top in a way that breaks `next build`.  
-**Depends on:** 002.  
-**Tests:** unit: `getMastra().getAgent("…")`.  
-**AC:** No Cloudflare context in this file.  
-**Proof:** unit + page still streams.  
-**Fails if:** `getCloudflareContext` imported.  
-**Rollback:** starter mastra.
-
----
-
-## IPI-V2-006 · PG-001 — PostgresStore on existing `mastra` schema
-
-**Purpose:** Durable memory on live Supabase, not LibSQL.  
-**User outcome:** Messages can survive process restart (proven in 018).  
-**Reuse:** `getMastraStorage()` connection string rules (`MASTRA_DATABASE_URL` / pooler).  
-**Reference:** Mastra PostgresStore docs (verify via MCP at implement time).  
-**Steps:** `new PostgresStore({ connectionString, schema: "mastra" })`; fail boot if `MASTRA_SCHEMA` missing; **never** `public`.  
-**Depends on:** 005.  
-**Tests:** integration with Infisical: insert thread helper or Mastra API.  
-**AC:** Writes to `mastra.mastra_threads` / `mastra_messages` (confirm table names from live DB).  
-**Proof:** SQL select after one chat (can be 018).  
-**Fails if:** new `public.copilot_threads`.  
-**Rollback:** disable storage (dev only) — not for preview.
-
-**Efficiency:** existing schema vs migration.
-
----
-
-## IPI-V2-007 · AUTH-001 — Supabase Auth on the new app (same project)
-
-**Purpose:** Real operators, not `demo-user`.  
-**User outcome:** Login with existing QA/operator accounts.  
-**Reuse:** `app/src/lib/auth`, middleware cookie pattern, `login` page.  
-**Reference:** existing iPix login + `@supabase/ssr`.  
-**Steps:** port login + callback; server client; fail-closed if no session on Copilot route.  
-**Depends on:** 001.  
-**Tests:** unauthenticated `/api/copilotkit` → 401.  
-**AC:** Same Supabase project as production; no second user table.  
-**Proof:** login screenshot.  
-**Fails if:** starter `resourceId: "demo-user"` remains.  
-**Rollback:** remove auth routes.
-
----
-
-## IPI-V2-008 · AUTH-002 — Organization membership fail-closed
-
-**Purpose:** Tenant key for Memory `resourceId`.  
-**User outcome:** User without org never chats.  
-**Reuse:** `getCurrentOrgId` / `org_members` query from current Copilot route **logic** (rewrite small).  
-**Reference:** IPI-146 pattern in current route comments.  
-**Steps:** resolve org once per request; 403 if missing; pass `resourceId = org:{orgId}:user:{userId}`.  
-**Depends on:** 007.  
-**Tests:** mock member missing → 403.  
-**AC:** No fallback to bare `user.id`.  
-**Proof:** unit + one browser 403.  
-**Fails if:** shared `"default"` resourceId.  
-**Rollback:** 401-only (worse) — do not ship that.
-
----
-
-## IPI-V2-009 · THR-001 — Explicit threadId strategy
-
-**Purpose:** Refresh restore needs a stable id.  
-**User outcome:** Planner URL or session remembers the conversation.  
-**Reuse:** none (current Intelligence restore unproven).  
-**Reference:** CopilotKit threads + Mastra thread id (same string).  
-**Steps:** generate UUID on first message; put in `?thread=`; pass into agent run / CopilotKit thread props (verify exact v2 prop from types).  
-**Depends on:** 004, 006.  
-**Tests:** two requests same threadId append messages.  
-**AC:** Documented; no random thread per request.  
-**Proof:** SQL two rows same `thread_id`.  
-**Fails if:** new UUID every send.  
-**Rollback:** N/A — Core blocker.
-
----
-
-## IPI-V2-010 · AG-001 — Production Planner agent only (stub tools OK)
-
-**Purpose:** One agent for golden test.  
-**User outcome:** Operator talks to Planner, not weather bot.  
-**Reuse:** `production-planner` prompt from `app/src/mastra/agents`.  
-**Reference:** iPix agent file + starter agent shape.  
-**Steps:** port instructions; registry keys `production-planner` + `default` alias; echo tool optional.  
-**Depends on:** 005.  
-**Tests:** agent id present.  
-**AC:** No Creative Director in Core unless zero-cost alias.  
-**Proof:** chat names Planner.  
-**Fails if:** port all agents now.  
-**Rollback:** starter agent.
-
-**Efficiency:** copy prompt file; don’t rewrite voice.
-
----
-
-## IPI-V2-011 · LLM-001 — Gemini via existing model helper
-
-**Purpose:** Same model family as production.  
-**User outcome:** Planner replies with Gemini, not OpenAI.  
-**Reuse:** `app/src/mastra/models.ts` / `GEMINI_API_KEY`.  
-**Reference:** iPix models + Infisical.  
-**Steps:** `@ai-sdk/google`; Infisical `dev`; no `NEXT_PUBLIC_` keys.  
-**Depends on:** 010.  
-**Tests:** skip if no key in CI; local Infisical run.  
-**AC:** One streamed reply.  
-**Proof:** HAR or server log model id (no secrets).  
-**Fails if:** OpenAI required in Core.  
-**Rollback:** starter OpenAI for local-only — not preview.
-
----
-
-## IPI-V2-012 · SEC-001 — Copilot route: session + org + no tenant rewrite
-
-**Purpose:** AuthZ on the public Copilot endpoint.  
-**User outcome:** Other brands cannot hijack thread ids.  
-**Reuse:** `rejectTenantKeyRewrite` **idea**; `withOperatorAuth`.  
-**Reference:** current route org checks (rewrite, don’t copy 681 lines).  
-**Steps:** wrap handler; compare request thread resource vs org; 403 mismatch.  
-**Depends on:** 008, 009.  
-**Tests:** Org A threadId + Org B token → 403.  
-**AC:** Fail closed.  
-**Proof:** automated test.  
-**Fails if:** RLS-only assumption (`mastra` policies are `true` for runtime role).  
-**Rollback:** block preview.
-
----
-
-## IPI-V2-013 · ERR-001 — Small error envelope (no 5xx museum)
-
-**Purpose:** Debuggable failures without the old sanitizer novel.  
-**User outcome:** Operator sees “sign in” / “no organization”, not a hang.  
-**Reuse:** maybe 10-line Gemini dual-auth header strip **if** still required (prove with one failing request).  
-**Reference:** official handler errors.  
-**Steps:** map auth errors; log request id; no stream idle timeout unless hang reproduced.  
-**Depends on:** 003.  
-**Tests:** 401/403 JSON.  
-**AC:** No `withStreamIdleTimeout` unless hang ticket.  
-**Proof:** curl.  
-**Fails if:** port 200 lines of normalizeRuntimeError.  
-**Rollback:** starter errors.
-
----
-
-## IPI-V2-014 · TST-001 — Unit tests for auth + resourceId
-
-**Purpose:** Fast gate.  
-**Reuse:** vitest patterns from `app/`.  
-**Steps:** 401, 403 no org, resourceId format.  
-**Depends on:** 012.  
-**Tests:** `vitest run`.  
-**AC:** CI job on `app-v2`.  
-**Proof:** CI log.  
-**Fails if:** tests mock success only.  
-**Rollback:** N/A.
-
----
-
-## IPI-V2-015 · TST-002 — SQL helper: message exists for TEST-123
-
-**Purpose:** Persistence evidence.  
-**Reuse:** Supabase service role **server-only** in tests, or SQL as `postgres` via Infisical.  
-**Steps:** query `mastra.mastra_messages` for content `TEST-123` / thread id.  
-**Depends on:** 006.  
-**Tests:** skip without DB.  
-**AC:** Helper used by 018.  
-**Proof:** query output.  
-**Fails if:** writes to `public`.  
-**Rollback:** N/A.
-
----
-
-## IPI-V2-016 · UI-001 — Minimal Planner page (no OperatorShell yet)
-
-**Purpose:** Golden UI without porting the whole shell.  
-**Reuse:** Planner copy/layout snippets optional; chat can be starter UI.  
-**Reference:** `examples/shadcn` only if styling is &lt; 1 hour.  
-**Steps:** `/app/planner` behind auth; send box; show thread id.  
-**Depends on:** 004, 007, 010.  
-**Tests:** Playwright login + send.  
-**AC:** Page exists; not full Command Center.  
-**Proof:** screenshot.  
-**Fails if:** port 40 screens.  
-**Rollback:** starter page route.
-
----
-
-## IPI-V2-017 · MEM-001 — Mastra Memory on PostgresStore (lastMessages)
-
-**Purpose:** Reload history into the model.  
-**Reuse:** Memory options from current `memory.ts` (`lastMessages: 40`) — simplify.  
-**Reference:** Mastra Memory + PG.  
-**Steps:** `new Memory({ storage })` on Planner; working memory **off** until MVP.  
-**Depends on:** 006, 010.  
-**Tests:** two turns, second sees first.  
-**AC:** Working memory schema not required for Core.  
-**Proof:** second-turn content.  
-**Fails if:** LibSQL leftover.  
-**Rollback:** storage-only.
-
----
-
-## IPI-V2-018 · GOLD-001 — Golden persist / refresh / restart / cross-org test
-
-**Purpose:** Core definition of Done.  
-**User outcome:** TEST-123 is still there after refresh and server restart; Org B cannot see it.  
-**Reuse:** QA login from CLAUDE.md.  
-**Steps:**  
-1. Login org A → Planner → send `TEST-123` → stream completes.  
-2. SQL row exists.  
-3. Hard refresh → `TEST-123` visible.  
-4. Restart Next → still visible.  
-5. Org B session + same thread URL → 403 / empty, never A’s text.  
-**Depends on:** 009–017.  
-**Tests:** Playwright + SQL.  
-**AC:** All five; evidence in PR (screenshot, HAR optional, SQL id).  
-**Proof:** **Local Runtime Verified** (or preview).  
-**Fails if:** InMemory runner was the only store.  
-**Rollback:** stay on production app.  
-**Prod checklist:** do **not** mark production-ready; Core preview only.
-
-**Efficiency:** this test replaces weeks of CF debugging.
-
----
-
-# Epic B — UI reuse
-
-*Blocked by IPI-V2-018.*
-
-## IPI-V2-020 · TOK-001 — Port design tokens (Cormorant / Outfit / orange)
-
-**Purpose:** New app looks like iPix.  
-**Reuse:** `app` globals / CSS variables; `.dc.html` tokens.  
-**Steps:** copy tokens; Google fonts; no Inter.  
-**Depends on:** 018.  
-**Tests:** visual snapshot optional.  
-**AC:** Planner page uses serif headings.  
-**Proof:** screenshot.  
-**Fails if:** restyle brand.  
-**Rollback:** starter CSS.
-
----
-
-## IPI-V2-021 · SHELL-001 — Port OperatorShell
-
-**Purpose:** Operator chrome.  
-**Reuse:** `OperatorShell.dc.html` + `app/src/components/operator-shell`.  
-**Reference:** shadcn Copilot example for chat slot only.  
-**Steps:** layout wrap `/app/*`; nav links to ported routes as they land.  
-**Depends on:** 020.  
-**Tests:** nav renders; marketing routes without shell (existing test idea).  
-**AC:** Planner lives inside shell.  
-**Proof:** browser.  
-**Fails if:** new shell from scratch.  
-**Rollback:** hide nav.
-
----
-
-## IPI-V2-022 · RAIL-001 — Port IntelligencePanel
-
-**Purpose:** Right rail.  
-**Reuse:** `intelligence-panel/*` + `panel-contract`.  
-**Steps:** mount; may show static/dev fixture until data wired.  
-**Depends on:** 021.  
-**Tests:** existing panel tests copy.  
-**AC:** Rail visible on Planner.  
-**Proof:** screenshot.  
-**Fails if:** new panel design.  
-**Rollback:** omit rail.
-
----
-
-## IPI-V2-023 · PG-CC — Port Command Center `/app`
-
-**Reuse:** Command Center.v2 + `app/src/app/(operator)/app/page.tsx`.  
-**Steps:** copy page; point Copilot to v2; data hooks same Supabase.  
-**Depends on:** 021.  
-**AC:** Loads for logged-in org.  
-**Tests:** page render + RLS-safe fetch.  
-**Proof:** browser.  
-**Fails if:** redesign.
-
----
-
-## IPI-V2-024 · PG-BRAND — Port Brand list + detail
-
-**Reuse:** Brand pages + `.dc.html`.  
-**Depends on:** 021.  
-**AC:** List + detail from existing tables.  
-**Tests:** org-scoped query.  
-**Proof:** browser.
-
----
-
-## IPI-V2-025 · PG-SHOOTS — Port Shoots list + detail
-
-**Reuse:** shoots pages.  
-**Depends on:** 021.  
-**AC:** List + detail.  
-**Proof:** browser.
-
----
-
-## IPI-V2-026 · PG-WIZ — Port Shoot Wizard
-
-**Reuse:** `shoots/new` + wizard components + later workflow (Epic C).  
-**Depends on:** 025.  
-**AC:** Wizard UI complete; commit can wait for HITL tools.  
-**Proof:** browser walkthrough.
-
----
-
-## IPI-V2-027 · PG-ASSETS — Port Assets list + detail
-
-**Reuse:** assets pages + Cloudinary components.  
-**Depends on:** 021.  
-**AC:** Gallery loads.  
-**Proof:** browser.
-
----
-
-## IPI-V2-028 · PG-CRM — Port essential CRM (companies, contacts, pipeline)
-
-**Reuse:** `app/crm/*`.  
-**Depends on:** 021.  
-**AC:** Lists work; skip Matching/Talent if timeboxed.  
-**Proof:** browser.  
-**Defer:** Matching, Talent onboarding, Analytics, Inbox, Campaign performance → Advanced unless blocking a shoot.
-
----
-
-## IPI-V2-029 · CHAT-001 — Native chat chrome (shadcn Copilot example)
-
-**Purpose:** Chat matches shell, not stock Copilot skin.  
-**Reuse:** iPix chat dock if exists; else [examples/shadcn](https://github.com/CopilotKit/CopilotKit/tree/main/examples/shadcn).  
-**Depends on:** 021.  
-**AC:** Dock in shell; still v2 `useAgent`.  
-**Proof:** screenshot.
-
----
-
-# Epic C — AI-native MVP
-
-*Blocked by IPI-V2-018 + OperatorShell (021).*
-
-## IPI-V2-040 · STATE-001 — Shared state from mastra-pm mapped to shoots
-
-**Purpose:** Board updates when Planner talks.  
-**Reuse:** iPix shoot types; **patterns** from [canvas/mastra-pm](https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/mastra-pm) (`tasks[]` → fittings/shots).  
-**Do not:** clone mastra-pm app or its old Copilot 1.10 lockfile.  
-**Depends on:** 025, 017.  
-**AC:** Agent updates a visible shoot field; refresh keeps it (DB app table **or** working memory — pick app table for product truth).  
-**Proof:** UI + SQL.  
-**Fails if:** second source of truth for shoot rows.
-
----
-
-## IPI-V2-041 · GENUI-001 — Generative UI cards
-
-**Purpose:** Shot list / approval as cards.  
-**Reference:** CopilotKit generative-ui showcase.  
-**Reuse:** `ApprovalCard.dc.html`.  
-**Depends on:** 029.  
-**AC:** One card from agent output.  
-**Proof:** screenshot.
-
----
-
-## IPI-V2-042 · HITL-001 — Official human-in-the-loop (no clone hack)
-
-**Purpose:** Approve before writes.  
-**Reuse:** business gates in tools; **not** `emitInterruptOutcome` mutation.  
-**Reference:** CopilotKit HITL + Mastra suspend/resume (verify docs).  
-**Depends on:** 041.  
-**AC:** Approve continues; reject stops; no private agent config patch.  
-**Proof:** browser approve path.  
-**Linear cousin:** IPI-1010 stays on old app; this is the v2 proof.
-
----
-
-## IPI-V2-043 · WM-001 — Planner working memory (Zod)
-
-**Reuse:** existing Planner working-memory schema.  
-**Depends on:** 017, 040.  
-**AC:** `brandName` / shoot type survive refresh.  
-**Proof:** SQL/memory row + UI.
-
----
-
-## IPI-V2-044 · AG-002 — Attach real Planner tools
-
-**Reuse:** `generateShotListDraft`, `estimateShootBudget`, `lookupChannelSpecs`, etc.  
-**Depends on:** 042 (writes), 018 (chat).  
-**AC:** One tool call in a reply; org-scoped.  
-**Proof:** log + UI.  
-**Fails if:** tools skip HITL on writes.
-
----
-
-## IPI-V2-045 · AG-003 — Port Creative Director agent
-
-**Reuse:** `creative-director` agent.  
-**Depends on:** 044.  
-**AC:** Switch agent in UI; `default` still Planner.  
-**Proof:** browser.
-
----
-
-## IPI-V2-046 · WF-001 — Brand Intelligence workflow on v2
-
-**Reuse:** `brand-intelligence` workflow + tools.  
-**Depends on:** 024, 044.  
-**AC:** Run from Brand page; no secrets in snapshots.  
-**Proof:** UI + `mastra` snapshot **optional**.
-
----
-
-## IPI-V2-047 · WF-002 — Shoot Wizard Mastra workflow
-
-**Reuse:** `shoot-wizard` workflow.  
-**Depends on:** 026, 042.  
-**AC:** Wizard can resume after refresh (workflow snapshot **or** app draft table — prefer existing shoot draft).  
-**Proof:** browser.
-
----
-
-## IPI-V2-048 · AG-004 — Brand Intelligence agent on Brand page
-
-**Reuse:** brand-intelligence agent.  
-**Depends on:** 046.  
-**AC:** Chat on Brand detail uses that agent id.  
-**Proof:** browser.
-
----
-
-# Epic D — Cloudflare (after Node gold)
-
-## IPI-V2-060 · CF-001 — AI Gateway for Gemini (Node still hosts Copilot)
-
-**Purpose:** Observability/limits without Worker runtime.  
-**Reuse:** iPix AI Gateway verification scripts.  
-**Depends on:** 018.  
-**AC:** Planner traffic visible in Gateway; golden test still passes.  
-**Proof:** Gateway dashboard + TEST-123.
-
----
-
-## IPI-V2-061 · CF-002 — R2 / Queues for assets/jobs (not chat persist)
-
-**Purpose:** Media/jobs.  
-**Depends on:** 027.  
-**AC:** Upload path documented; chat still Mastra PG.  
-**Proof:** one upload.  
-**Fails if:** threads stored in R2.
-
----
-
-## IPI-V2-062 · CF-003 — Worker compatibility eval (read-only)
-
-**Purpose:** List Node APIs Copilot/Mastra need.  
-**Reuse:** `wrangler.jsonc` as **reference**, do not enable `MASTRA_STORAGE_MODE=noop`.  
-**Depends on:** 018.  
-**AC:** Written eval: go / no-go.  
-**Proof:** doc.  
-**Fails if:** silent cutover.
-
----
-
-## IPI-V2-063 · CF-004 — OpenNext preview of app-v2
-
-**Depends on:** 062 go.  
-**AC:** Preview Worker boots.  
-**Proof:** `*.workers.dev`.
-
----
-
-## IPI-V2-064 · CF-005 — Same golden TEST-123 on Worker
-
-**Depends on:** 063, Hyperdrive or TCP to PG **working**.  
-**AC:** Refresh + restart + cross-org on Worker.  
-**Proof:** SQL + browser on preview.  
-**Cutover:** only if this matches Node.  
-**Rollback:** keep Vercel Node Copilot.
-
----
-
-## IPI-V2-065 · CF-006 — Production DNS cutover (optional)
-
-**Depends on:** 064.  
-**AC:** Human approval; production iPix Copilot decommission plan.  
-**Proof:** Production Verified TEST-123.  
-**Rollback:** DNS back to Node.
-
----
-
-# Epic E — Advanced
-
-Do not schedule until MVP screens + HITL are in use.
-
-| ID | Task | Why later | Official ref |
-| -- | ---- | --------- | ------------ |
-| IPI-V2-080 | MCP tools | Extra surface | CopilotKit MCP showcase |
-| IPI-V2-081 | Browser research tools | Cost/safety | Mastra browser |
-| IPI-V2-082 | Multi-agent canvas | Needs shared state (040) | multi-agent showcase |
-| IPI-V2-083 | A2A | External agents | a2a-travel |
-| IPI-V2-084 | CopilotKit Intelligence Threads UI | After Mastra persist proven | CopilotKit Intelligence docs |
-| IPI-V2-085 | Chatwoot / WhatsApp | Channels | CopilotKit channels |
-| IPI-V2-086 | Postiz publishing | Product later | Postiz |
-| IPI-V2-087 | Snapshot prune / retention | Ops | SQL job |
-| IPI-V2-088 | Observability (Sentry/Mastra exporters) | After gold | existing Sentry |
-| IPI-V2-089 | Matching / Talent / Analytics / Inbox port | Non-blocking | existing pages |
-
----
-
-# Execution order (do this)
+**Do not create `MASTRA-UPGRADE-001`.** That duplicates 1042 + **IPI-1009 · MASTRA-UPG-004** (Linear title still says Cloudflare; **execute as stream/HITL/Stop on this Vercel/Node family**). Program: **IPI-1005 · MASTRA-UPG-000**.
 
 ```text
-001 starter
- → 002 versions
- → 003 route + 005 mastra + 007 auth (parallel after 002)
- → 006 PostgresStore
- → 008 org + 009 threadId + 010 Planner + 011 Gemini
- → 012 authz + 013 errors + 016 page + 017 memory
- → 014–015 tests
- → 018 GOLDEN GATE
- → 020–029 UI ports (shell first, then pages)
- → 040–048 AI MVP
- → 060–064 Cloudflare eval
- → 080+ Advanced
+IPI-1042 · RUNTIME-001     Mastra 1.63.2 family (now)
+        ↓
+IPI-1009 · MASTRA-UPG-004  CopilotKit / stop / tenant check on that family
+        ↓
+IPI-1045 · STREAM-001      (already In Progress — keep shipping)
+        ↓
+IPI-1124 · MASTRA-HOST-PG-001   after 1042 (use certified @mastra/pg, not 1.12.1)
+      ∥
+IPI-1125 · QA-ORG-001
+        ↓
+IPI-1126 · HOST-PREVIEW-001
+        ↓
+IPI-1047 · ACCESS-001      hosted Org A/B 403
+        ↓
+IPI-1048 · PLANNER-001 → 1049 tools / 1050 memory / 1088 replay / 1051 UI
+        ↓
+IPI-1041 · CORE-001 exam   must run on the certified 1.63.2 family (blocked by 1009)
 ```
 
+Core still means: operator A’s shot list survives refresh and restart; operator B with the same URL is denied.
+
+**Do not create `MASTRA-CORE-001`.** Reuse **IPI-994 · MASTRA-WF-001**, **IPI-995 · MASTRA-WF-002**, **IPI-998 · MASTRA-WF-005** (AI Platform). Do not clone **IPI-993 · MASTRA-WF-000** onto v2-ipix.
+
+**IPI-1124** must wait on 1042 so hosted pooling is proven on `@mastra/pg@1.22.2`, not re-tested on 1.12.1. Smallest change to `pg-store.ts`: allow approved hosted hostnames, transaction pooler first, pool max 1–2, SSL, fail closed. No second Supabase project.
+
+**IPI-1088 · COPILOT-REPLAY-001:** `SqliteAgentRunner` is local/single-process only. Hosted Vercel needs CopilotKit Intelligence **or** a runner on the **same** Mastra/Supabase Postgres — not a second SQLite store.
+
 ---
 
-# Suggested first Linear create (human)
+## Core MVP — after the exam
 
-Create Epic **iPix v2 clean runtime** then issues **IPI-V2-001 … 018** only. Do not bulk-create Epic E.
+CopilotKit CONTEXT / CONTROL / UI / STATE are **capabilities**, not four automatic tickets.
+
+| Capability | Prefer existing owner |
+| -- | -- |
+| Context | **IPI-1087 · PLANNER-CONTEXT-001** |
+| Approval / GenUI cards | **IPI-1084 · APPROVAL-001** |
+| Replay / working restore | **IPI-1088 · COPILOT-REPLAY-001** |
+| Planner screen | **IPI-1051 · UI-001** |
+| App shell | **IPI-1065 · APP-001** |
+
+After Core: gap-audit those four contracts. Create a ticket only if a contract has no owner. Likely gap: non-chat buttons that start Mastra (**COPILOT-CONTROL-001**) — still search Linear first.
+
+Browser IDs are hints. Session + RLS authorize. Shared agent state is a **draft**. Supabase is **truth**. Frontend tools may navigate and request; they must not charge, publish, self-approve, or bypass RLS.
+
+Agents: ProductionPlanner, Brand, Research, Campaign, Asset is a **current target**, not a permanent cap. Add an agent only when instructions, tools, memory, or evals are materially different. Shot list / budget stay **tools**.
+
+Mastra built-ins (task lists, ask-user, submit-plan, fetch) are **evaluate-before-custom**. They do not replace **IPI-1084**. Task Lists: optional post-Core once Planner is multi-step — not Advanced-only, not on the Core critical path.
+
+Then: Brand Brain (reuse existing tables) → **IPI-1081** ShootPlan → **IPI-1084** HITL → **IPI-1083** save once → booking (deterministic) → Cloudinary approved library.
 
 ---
 
-# Definition of Done (any task)
+## Media — parallel
 
-- [ ] Touched production Copilot route? **Must be no** (except freeze notice).
-- [ ] Official starter/SDK used before custom code.
-- [ ] Test command in PR.
-- [ ] Browser proof if UI.
-- [ ] SQL proof if persist.
-- [ ] Rollback named.
+Layer spec: [cloudinary/prd.md](./cloudinary/prd.md) · [cloudinary/roadmap.md](./cloudinary/roadmap.md) · [cloudinary/todo.md](./cloudinary/todo.md).
+
+```text
+IPI-1040 → IPI-1108 → IPI-1109 → IPI-1122 (canonical shoot.shoots, not public.shoots)
+        → IPI-1110 ∥ 1111 ∥ 1112 → IPI-1113 ∥ 1114
+        → IPI-1116 Widget ∥ IPI-1069 library → 1118 / 1119 / 1120 → IPI-1115 last
+```
+
+Native ladder: Cloudinary Dashboard → skill/MCP → CLI → Widget → next-cloudinary → SDK signer. No custom uploader. **1108 is not parallel with 1109.**
+
+---
+
+## Post-MVP / Advanced
+
+Research → opportunity → campaign strategy/plan → reuse assets → content → approve → Postiz → analytics → learn.  
+Children under empty **IPI-1105 · CAMPAIGNS & PUBLISHING** after duplicate search.
+
+Advanced: evals → Task/Skill/Tool Search when the registry is large enough → schedules → browser → dynamic workflows → OpenClaw/Hermes (ops only, not brand/booking/payment truth). Tool Search needs `@mastra/core >= 1.58.0` **and** a real tool catalog — not one weather tool.
+
+Official CopilotKit examples: 52 demos in the current monorepo. Use them to answer a specific question, not as the roadmap. Start: `examples/integrations/mastra` + installed types + current Mastra docs.
+
+---
+
+## Who owns what
+
+| System | Owns |
+| -- | -- |
+| Supabase | Orgs, brands, shoots, campaigns, approvals |
+| pgvector | Retrieval only |
+| Mastra | Reasoning |
+| CopilotKit | AI ↔ screen |
+| Cloudinary | Binaries and transforms |
+| Stripe | Money |
+| Postiz | Social publish |
+| OpenClaw / Hermes | Later comms — not core truth |

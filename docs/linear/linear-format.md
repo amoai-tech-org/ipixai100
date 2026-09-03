@@ -68,17 +68,85 @@ You are implementing **IPI-NNN · SPEC — Full title** in iPixai (`/home/sk/ipi
 
 On the issue, list **only** URLs the implementing agent can open and check. **Cap: 5.** Each row is one critical fact.
 
-| # | URL | Critical fact this URL must prove | MCP / skill to re-check |
-|---|-----|-----------------------------------|-------------------------|
-| 1 | | | Context7 / Mastra MCP / CopilotKit MCP / Supabase `search_docs` |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
-| 5 | | | |
+**Hard rule: review every important URL. Do not just list links.**
+
+### Reference review table (required)
+
+Include the **full URL** in the first column. Every row must answer: *What exactly should iPix use, where does it fit, and what does it prevent us from building?*
+
+| Reference (full URL) | What it provides | Exact iPix use | What to reuse | Custom code avoided | Limits/cost |
+| -------------------- | ---------------- | -------------- | ------------- | ------------------- | ----------- |
+| https://… | Capability / API / pattern | Concrete iPix screen, route, or contract | Exact symbol, CLI, config, or example path | What we must not rebuild | Free/paid, plan, deprecated, security |
+
+Optional tracking columns (keep in issue body or fold into “Exact iPix use”):
+
+| # | Critical fact this URL must prove | MCP / skill to re-check |
+|---|-----------------------------------|-------------------------|
+| 1 | | Context7 / Mastra MCP / CopilotKit MCP / Supabase `search_docs` |
+| 2 | | |
+| 3 | | |
+| 4 | | |
+| 5 | | |
+
+### Per-URL multi-step adapt prompt (required)
+
+For **each** reference, the issue must include a short adapt block (copy and fill):
+
+```markdown
+### Use this URL — <short name>
+**URL:** https://…
+
+1. Fetch/MCP-check (Context7 / vendor MCP / Supabase `search_docs`). Confirm docs version matches **installed** package major/minor.
+2. Extract the exact API, config key, CLI command, or example path iPix will use.
+3. Map to implementation layers (check all that apply): Screen/route · Feature · Frontend · Backend · Supabase/data · Agent · Tool · Workflow · HITL · Testing · Deployment/operations.
+4. Adapt: keep vendor defaults; change only tenancy (`org_id` / AUTH), DESIGN-001 tokens, and proven gaps. Prefer COPY+CLEAN over rewrite.
+5. Name the proof: targeted test and/or browser AC that fails if this URL’s fact was wrong.
+```
+
+### Map each reference to implementation
+
+For each URL, state **exactly** where it applies (at least one):
+
+| Layer | Applies? | Where in iPix (path / route / RPC) |
+|-------|:--------:|-------------------------------------|
+| Screen/route | | |
+| Feature | | |
+| Frontend | | |
+| Backend | | |
+| Supabase/data | | |
+| Agent | | |
+| Tool | | |
+| Workflow | | |
+| HITL | | |
+| Testing | | |
+| Deployment/operations | | |
+
+### Remaining custom gap (required after references)
+
+After reviewing reusable solutions, the issue **must** state:
+
+* **Already solved** — vendor feature or existing iPix code
+* **Configurable** — dashboard, env, CLI, named transform, RLS policy
+* **Copied/adapted** — official example or pinned Lumina COPY+CLEAN
+* **Still requires custom code** — and **why** (proof earlier path is insufficient)
+* **Must not rebuild** — forbidden duplicates (second auth, second shell, fake KPIs, etc.)
+
+### Verify limitations (per reference)
+
+Before implement, confirm for each URL:
+
+* Current version / API matches installed types
+* Free vs paid; plan restrictions
+* Deprecated features
+* Security requirements (no client secrets, RLS, no prod writes by default)
+* Production limitations
+* Licensing where relevant
+
+Premium or optional capabilities must **not** block Core MVP unless essential to the AC.
 
 **Official GitHub repo** (0 or 1): `https://github.com/<org>/<repo>/…` — agent must verify it is official and not archived.
 
-**Forbidden:** blogs, Stack Overflow, unofficial gists, more than 5 URLs, generic “read all Mastra docs.”
+**Forbidden:** blogs, Stack Overflow, unofficial gists, more than 5 URLs, generic “read all Mastra docs,” bare link dumps without the review table.
 
 **Catalog (pick from, do not dump onto the issue):**
 
@@ -94,6 +162,7 @@ CopilotKit+Mastra starters: use the **active** monorepo example, not archived st
 https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
 
 ---
+
 
 ## Skills (every IPI task)
 
@@ -174,6 +243,8 @@ flowchart TD
 - Custom code still required:
 - Why this is the smallest safe solution:
 
+*(Must align with **Remaining custom gap** under Official references.)*
+
 ## Scope
 
 ### In scope
@@ -212,7 +283,9 @@ Keep only rows that apply. iPixai default:
 
 ## Acceptance criteria
 
-- [ ] Main user outcome works
+ACs must be **measurable** and prove the **real user outcome** (not “code exists”).
+
+- [ ] Main user outcome works (name the operator action + expected UI/data)
 - [ ] Expected failure behavior works
 - [ ] Auth and tenant isolation preserved
 - [ ] No regression of existing behavior
@@ -220,7 +293,8 @@ Keep only rows that apply. iPixai default:
 - [ ] Authenticated browser journey passes (or honest N/A)
 - [ ] Preview or runtime evidence attached
 - [ ] Rollback documented
-- [ ] Official reference URLs were fetched and still match
+- [ ] Each Official reference (full URL) was fetched/MCP-checked; review table + adapt prompt still match installed types
+- [ ] Custom gap section remains true (no scope creep into “must not rebuild”)
 - [ ] task-verifier Quick passed before implement; Full passed before Done
 
 ## Dependencies
@@ -239,7 +313,7 @@ Keep only rows that apply. iPixai default:
 
 ## Ready / Done gates
 
-**Ready (Todo):** outcome, journey, current-state evidence, ≤5 official URLs, GitHub repo if needed, skills including **task-verifier**, MCPs, reuse review, ACs, security, verification plan.
+**Ready (Todo):** outcome, journey, current-state evidence, ≤5 official URLs **with review table + per-URL adapt prompts + layer map + custom gap + limitations**, GitHub repo if needed, skills including **task-verifier**, MCPs, reuse review, measurable ACs, security, verification plan.
 
 **Merged:** code on `origin/main`. **Verified:** real workflow probed. **Done:** task-verifier Full + post-merge evidence. Merge ≠ Done.
 

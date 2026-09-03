@@ -6,7 +6,7 @@
 
 | Doc | Contents |
 | --- | -------- |
-| [01-current-state-audit.md](./01-current-state-audit.md) | Live iPix runtime audit |
+| [01-current-state-audit.md](01-current-state-audit.md) | Live iPix runtime audit |
 | [02-copilotkit-example-adoption-plan.md](./02-copilotkit-example-adoption-plan.md) | Earlier example adoption notes |
 | [03-core-mvp-advanced-roadmap.md](./03-core-mvp-advanced-roadmap.md) | Earlier Core/MVP/Advanced roadmap |
 | [01-repo-review.md](./01-repo-review.md) | GitHub repo scores + top 10 |

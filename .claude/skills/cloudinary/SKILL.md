@@ -1,100 +1,70 @@
 ---
 name: cloudinary
 description: >
-  Cloudinary media hub — transformation/delivery URLs, Next.js (next-cloudinary, CldImage,
-  CldUploadWidget, CldVideoPlayer, CldOgImage, GetCldImageUrl, signed uploads), Node.js SDK
-  (server upload/signatures/Admin API), React SDK (AdvancedImage, Upload Widget, video player),
-  and API/docs lookup (DAM, MediaFlows, webhooks, llms.txt). Use whenever the user mentions
-  Cloudinary, image/video upload, CDN delivery, transformation URLs, f_auto/q_auto,
-  resize/crop/overlay, named/responsive/AI transformations, transformation costs, signed
-  uploads, CldImage, CldUploadWidget, next-cloudinary, @cloudinary/react, AdvancedImage,
-  Upload Widget, video player, webhooks/DAM/MediaFlows, or optimizing fashion/product
-  photography assets — even if they do not say "Cloudinary" explicitly. Replaces the former
-  cloudinary-docs, cloudinary-next, cloudinary-react, and cloudinary-transformations skills.
-version: 3.0.0
+  Cloudinary media hub for iPixai — routes to official cloudinary-devs skills plus Node SDK
+  patterns. Use whenever the user mentions Cloudinary, image/video upload, CDN delivery,
+  transformation URLs, f_auto/q_auto, CldImage, CldUploadWidget, next-cloudinary, signed
+  uploads, webhooks/DAM/MediaFlows, or fashion/product media. Prefer specialized official
+  skills (cloudinary-next, cloudinary-transformations, cloudinary-docs, cloudinary-react)
+  when the task matches; use this hub for routing and Node-only server work.
+version: 3.1.0
 metadata:
   priority: 2
 ---
 
-# Cloudinary Skills Hub
+# Cloudinary Skills Hub (iPixai)
 
-**iPixai:** `references/` from old iPix were **not** copied (652K vendored docs, hundreds of dead links). Use **plugin-cloudinary** MCP / Cursor Cloudinary skills for API truth. Visual identity / uploads are **Post-MVP**.
+**Source of truth for SDK patterns:** official [cloudinary-devs/skills](https://github.com/cloudinary-devs/skills) installed **in this repo** (copied, not symlinked to old iPix):
 
-**Single skill** for all Cloudinary work. Load the matching `references/` entry on demand —
-do not paste reference bodies into context. The former `cloudinary-docs`, `cloudinary-next`,
-`cloudinary-react`, and `cloudinary-transformations` skills were redirect stubs and have been
-deleted — everything they pointed at lives in `references/` here.
+| Official skill | Path |
+|----------------|------|
+| `cloudinary-docs` | `.claude/skills/cloudinary-docs/` (+ `.agents/skills/`) |
+| `cloudinary-next` | `.claude/skills/cloudinary-next/` |
+| `cloudinary-react` | `.claude/skills/cloudinary-react/` |
+| `cloudinary-transformations` | `.claude/skills/cloudinary-transformations/` |
+
+**Also:** plugin-cloudinary MCP for live account ops. Tracker: `docs/cloudinary/todo.md`. App code: `src/` (not old `app/`).
+
+Do **not** paste whole reference trees into context. Load only the skill + files needed for the task.
 
 ---
 
-## Routing — load the reference that matches the task
+## Routing
 
-| User intent | Reference to load |
-|-------------|-------------------|
-| Build/debug transformation **delivery URLs** — resize, crop, overlay, `f_auto/q_auto`, named/responsive/AI transformations, costs | [`references/transformations/transformations.md`](references/transformations/transformations.md) |
-| **Next.js** (`app/`): `CldImage`, `CldUploadWidget`, `CldVideoPlayer`, App Router, signed upload routes | [`references/nextjs/nextjs.md`](references/nextjs/nextjs.md) |
-| **Node.js** server: upload API, Admin API, signed signatures, programmatic transforms | [`references/node/node.md`](references/node/node.md) |
-| **React/Vite** (legacy): AdvancedImage, Upload Widget, video player, signed uploads, TS pitfalls | [`references/react/react.md`](references/react/react.md) |
-| **SDK / API / webhooks / DAM / MediaFlows / docs** lookup (llms.txt) | [`references/docs/docs.md`](references/docs/docs.md) |
+| User intent | Load |
+|-------------|------|
+| Docs / webhooks / DAM / MediaFlows / llms.txt | **`cloudinary-docs`** |
+| Next.js / `next-cloudinary` / `CldImage` / Upload Widget / signed upload routes | **`cloudinary-next`** |
+| Transformation URL syntax / `f_auto` / named transforms | **`cloudinary-transformations`** |
+| Legacy React / Vite / `@cloudinary/react` | **`cloudinary-react`** |
+| Node Admin/upload API dumps (not in official package) | [`references/node/node.md`](references/node/node.md) |
 
-### Priority when a task overlaps
+### Priority
 
-1. **transformations** — URL syntax / effects / optimization
-2. **nextjs** — `next-cloudinary` in the operator app (`app/`)
-3. **node** — server upload, signatures, Admin API
-4. **react** — legacy Vite components, widget, TypeScript
-5. **docs** — webhooks, DAM, integrations, llms.txt fallback
-
-Use **docs alongside** a specialized topic when the use-case spans both (e.g. signed-upload
-backend + React widget).
+1. Official specialized skill matching the task  
+2. `cloudinary-docs` alongside when the use-case spills outside that skill  
+3. Hub `references/node/` for Node Admin/upload dumps only  
+4. MCP for live cloud/transform/preset inspection  
 
 ### Don't use this hub for
 
-- Non-Cloudinary image hosting (Supabase Storage) → `ipix-supabase`
-- AI image generation (Gemini) → `gemini` / edge functions
-- Generic frontend design without Cloudinary → `frontend-design`
-
-**MCP:** Cloudinary plugin servers (`cloudinary-asset-mgmt`, `cloudinary-analysis`, …) complement
-these references for live account operations.
+- Supabase Storage → `ipix-supabase`  
+- AI image generation → provider / edge skills  
+- Generic UI without Cloudinary → design/frontend skills  
 
 ---
 
-## Routing decision tree
+## How to use
 
-```
-Cloudinary task
-  ├─ "Make this URL crop/resize/overlay/optimize" or debug a transformation?
-  │     → references/transformations/transformations.md
-  ├─ Next.js / CldImage / next-cloudinary / App Router / app/**?
-  │     → references/nextjs/nextjs.md
-  │       (patterns/ first for build/debug; official nextjs_*.md for full SDK dumps)
-  │       (+ node for signed-upload route handlers; + transformations for URL syntax)
-  ├─ Node server upload / Admin API / signature generation / cloudinary.uploader?
-  │     → references/node/node.md
-  │       (+ nextjs if wiring widget to a Next route; + docs for webhooks)
-  ├─ Legacy React / Vite / AdvancedImage / Upload Widget?
-  │     → references/react/react.md
-  └─ Webhooks, DAM, MediaFlows, Python/other SDKs, llms.txt?
-        → references/docs/docs.md
+1. Classify the task → open the matching **official** skill `SKILL.md`.  
+2. Load only the reference files that skill points at.  
+3. Cross-check critical APIs against installed `cloudinary` / `next-cloudinary` types + MCP.  
+4. Prefer named transforms + eager derivatives for authenticated delivery (see `docs/cloudinary/todo.md` contracts).
+
+## Update
+
+```bash
+npx skills add cloudinary-devs/skills --skill '*' --agent cursor --agent claude-code --copy -y
 ```
 
----
-
-## Reference map (sub-docs to load deeper)
-
-| Topic | Entry guide | Deeper references |
-|-------|-------------|-------------------|
-| **transformations** | `references/transformations/transformations.md` | `references/transformations/references/{examples,named-transformations,responsive-images,video-transformations,ai-transformations,advanced-features,transformation-costs,debugging}.md` |
-| **nextjs** | `references/nextjs/nextjs.md` | **Patterns:** `references/nextjs/patterns/*.md` + `assets/*.ts` · **Official:** `references/nextjs/nextjs_*.md` |
-| **node** | `references/node/node.md` | `references/node/{node_integration,node_quickstart,node_image_and_video_upload,node_image_manipulation,node_video_manipulation,node_asset_administration,node_sample_projects}.md` |
-| **react** | `references/react/react.md` | `references/react/references/{signed-uploads,video-player,typescript-patterns,troubleshooting}.md` |
-| **docs** | `references/docs/docs.md` | — (looks up upstream llms.txt; single file) |
-
----
-
-## How to use this skill
-
-1. Identify the task from the routing table / decision tree.
-2. Load **only** that topic's entry guide (`references/<topic>/<topic>.md`).
-3. Load deeper sub-references **on demand** when the guide points to them — keep context lean.
-4. For Next.js implementation in iPix `app/`, prefer `patterns/` over official dumps unless you need full SDK coverage.
+Keep `--copy` so files live under `/home/sk/ipixai` (no pointer to `/home/sk/ipix`).

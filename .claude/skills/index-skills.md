@@ -28,8 +28,14 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `refactor-plan` | Multi-file refactors |
 | `mermaid-diagrams` | Diagrams |
 | `ipix-wireframe` | Lo-fi UI |
-| `cloudinary` | **SKILL.md only** — use MCP for docs |
+| `cloudinary` | iPixai **router** hub → official skills + Node refs |
+| `cloudinary-docs` | Official [cloudinary-devs/skills](https://github.com/cloudinary-devs/skills) — llms.txt docs |
+| `cloudinary-next` | Official — `next-cloudinary` + Node signed upload patterns |
+| `cloudinary-react` | Official — React SDK patterns |
+| `cloudinary-transformations` | Official — delivery URL / transform syntax |
 | `graphify` | Official `graphify install` 0.9.48 — query `graphify-out/` |
+
+Official Cloudinary four are **copied** into `.claude/skills/` and `.agents/skills/` (and lockfile). Do not symlink to `/home/sk/ipix`. Update: `npx skills add cloudinary-devs/skills --skill '*' --agent cursor --agent claude-code --copy -y`.
 
 ## Not copied (on purpose)
 
@@ -42,7 +48,6 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Cursor rules: `.cursor/rule
 | `graphify` (old iPix copy) | Replaced by official Graphify-Labs install |
 | `pr-agent` | Old `lumina-studio` CI / Bedrock job |
 | `design-to-production` | DESIGN V2 / old operator HTML parity |
-| `cloudinary/references` | 652K vendored docs, 281 dead links |
 
 Also not copied from the wider old catalog: `mercur`, `amazon-bedrock`, `ipix` router, `react-patterns`, `nextjs-16`, `frontend-design`, archive/*.
 

@@ -1,11 +1,11 @@
 ---
-description: Linear IPI issue format — verify-before-implement, max 5 official URLs, task-verifier + graphify + ponytail + fastest on every task. Details in docs/linear/linear-format.md.
+description: Linear IPI issue format — verify-before-implement, max 5 official URLs with full reference review, task-verifier + graphify + ponytail + fastest on every task. Details in docs/linear/linear-format.md.
 alwaysApply: true
 ---
 
 # Linear task format (Cursor)
 
-Canonical: [`docs/linear/linear-format.md`](../../docs/linear/linear-format.md). Do not duplicate that file. Companion: `task-naming.mdc`, `verified-fast-path.mdc`, `fastest.mdc`, `ponytail.mdc`, `linear-governance.mdc`.
+Canonical: [`docs/linear/linear-format.md`](../../docs/linear/linear-format.md). Keep this file short; expand only there. Companion: `task-naming.mdc`, `verified-fast-path.mdc`, `fastest.mdc`, `ponytail.mdc`, `linear-governance.mdc`.
 
 When **creating or rewriting** a Linear IPI issue, the description **must** match that doc.
 
@@ -16,11 +16,11 @@ When **creating or rewriting** a Linear IPI issue, the description **must** matc
 ## Description order
 
 1. Paste **Implementation prompt** (verify first — no product code until the gate passes).
-2. Then Purpose → journey → evidence → reuse → scope → skills/MCP → ACs.
+2. Then Purpose → journey → evidence → reuse → **Official references (reviewed)** → custom gap → scope → skills/MCP → ACs.
 
 ## Every issue must include
 
-- **Official references:** at most **5** official docs/GitHub URLs, each tied to one critical fact. Agent **must fetch/MCP-check** them (Context7, Mastra MCP, CopilotKit MCP, Supabase `search_docs`). No blogs.
+- **Official references (max 5):** official docs/GitHub only. Agent **must fetch/MCP-check** each URL (Context7, Mastra MCP, CopilotKit MCP, Supabase `search_docs`). No blogs. **Do not just list links.**
 - **Official GitHub repo** when the work depends on a vendor example — verify not archived.
 - **Skills:** always `task-verifier` (`.claude/skills/task-verifier/SKILL.md`), `graphify`, ponytail, fastest, plus domain skills from `.claude/skills/index-skills.md`.
 - **MCP:** Mastra, CopilotKit, Supabase **read-only/preview**, Context7, Linear — when that layer is in scope. Never production Supabase writes.
@@ -29,3 +29,56 @@ When **creating or rewriting** a Linear IPI issue, the description **must** matc
 - **Done:** task-verifier **Full** + proven ACs. Merge ≠ Done.
 
 UI / cross-system tasks: Mermaid journey (`mermaid-diagrams` skill). Hosting for this repo is Vercel/Next, not Cloudflare Workers.
+
+---
+
+## Official references — hard rule (every create/rewrite)
+
+For **each** of the ≤5 URLs, include the **full URL** and fill this table (one row per reference). Listing bare links is **invalid**.
+
+| Reference (full URL) | What it provides | Exact iPix use | What to reuse | Custom code avoided | Limits/cost |
+| -------------------- | ---------------- | -------------- | ------------- | ------------------- | ----------- |
+| https://… | | | | | |
+
+Every row must answer:
+
+> What exactly should iPix use, where does it fit, and what does it prevent us from building?
+
+### Per-URL multi-step adapt prompt (required on the issue)
+
+For each reference, paste a short **Use this URL** block:
+
+```markdown
+### Use this URL — <short name>
+**URL:** https://…
+
+1. Fetch/MCP-check (Context7 / vendor MCP / `search_docs`). Confirm version matches installed packages.
+2. Extract the exact API / pattern / example iPix will call or copy.
+3. Map to iPix location (route/file/layer below).
+4. Adapt: keep vendor defaults; change only tenancy, auth, DESIGN-001, and proven gaps.
+5. Prove with a targeted test or browser check named in ACs.
+```
+
+### Map each reference to implementation
+
+State exactly where it applies (check all that apply per URL):
+
+* Screen/route · Feature · Frontend · Backend · Supabase/data · Agent · Tool · Workflow · HITL · Testing · Deployment/operations
+
+### Remaining custom gap (after references)
+
+Required section on every issue:
+
+* Already solved (vendor / this repo)
+* Configurable (dashboard / env / CLI)
+* Copied/adapted (official example or Lumina COPY+CLEAN)
+* Still custom — and **why** custom is necessary (proof of insufficiency)
+* What custom must **not** rebuild
+
+### Verify limitations (per reference)
+
+Confirm before implement: current version/API · free vs paid · plan limits · deprecated paths · security · production limits · licensing. Premium/optional must not block Core MVP unless essential.
+
+### Proof
+
+Acceptance criteria must be measurable and prove the **real user outcome**. Include: happy path · expected failure · tenant/auth where relevant · tests/browser · that each Official reference was fetched and still matches.

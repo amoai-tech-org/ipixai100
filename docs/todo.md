@@ -1,185 +1,372 @@
----
-title: "Execution backlog"
-description: "v2-ipix check-off order. Live Linear is status SSOT; this file is the repo map."
----
+# iPix v2 — Active Todo & Implementation Order
 
-# New iPix plan — ordered TODO
+**Project:** https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues  
+**MIGRATEv2:** https://linear.app/amo100/view/migratev2-6e501438c58a  
+**Source of truth:** live Linear `v2-ipix` project + issue `blockedBy` / `blocks`  
+**Verified:** 2026-09-03
 
-**Repo check-off SSOT:** this file (`docs/todo.md`).  
-**Status SSOT:** live Linear project [v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2). If this table and Linear disagree, Linear wins.  
-**Product SSOT:** [Product requirements](./prd.md) · [Product sitemap](./sitemap.md)  
-**How to use:** work **top to bottom** in Core. One concern per PR.  
-**Repository:** [amoai-tech/ipixai](https://github.com/amoai-tech/ipixai)  
-**Roadmap detail:** [12-task-roadmap.md](./12-task-roadmap.md)  
-**Area detail:** [Mastra conversion](./mastra/10-mastra-convert.md) · [DB-001 matrix](./mastra/db-001-matrix.md) · [Data pack](./data/README.md)
+> This file is the active local execution catalog. Linear relations are the real start lock; row order is planning guidance only.
+> Completed, Duplicate, and Canceled issues are not executable TODOs. Epics are listed for ownership but are not numbered implementation steps.
 
-Status legend: 🟢 Done · 🟡 In Progress · 🔵 Todo · ⚪ Backlog · ⬛ Epic · ∥ parallel · **GATE** stop line
+## Phase normalization
 
----
+| Local phase | Linear milestones | Meaning |
+|---|---|---|
+| **COREV2** | M1 · Foundation + Parallel · Security & Reliability | identity, tenancy, runtime, persistence, shell, release-safety foundation |
+| **MVP2** | M2 · Product Workspace + M3 · Production | useful operator product + complete shoot/media production journey |
+| **ADVANCEDV2** | M4 · Campaigns + M5 · Measurement + M6 · Learning + M7 · Scale | post-MVP campaigns, learning, generalized workflows and scale |
 
-## Wave 0 — closed / managed separately
+> Linear may still use `POSTMVP2` / domain labels. This local file normalizes execution phase to the three values above; it does **not** mutate Linear labels.
 
-> **Wave 0 SQL hardening** is closed on legacy `lumina-studio` (PRs #982, #983, #984, #986, #987). Do **not** write production Supabase during Core Mastra work. Persistence proofs use local then existing hosted + `TEST-<uuid>` only — never a second hosted preview project.
+## Status key
 
----
-
-## Current Core position (2026-08-25)
-
-- **IPI-1042 · RUNTIME-001 — Make the New iPix AI Runtime Compile and Build Cleanly** is **Done** (Linear + `origin/main`).
-- **Next:** **IPI-1043 · DB-001 — Prove Mastra Can Use the iPix Postgres Schema Safely** (In Progress, read-only matrix). **IPI-1037 · AUTH-001** can start in parallel after 1042.
-- Do **not** start dashboard / wizard / marketing until **IPI-1041 · CORE-001** is Done.
-
-**Environment:** local Supabase first; hosted `nvdlhrodvevgwdsneplk` + `TEST-<uuid>` only; fail closed on production writes.
-
-**Reuse:** proven React + business logic. Official CopilotKit handler + AG-UI events. Do not copy Worker/Hyperdrive.
-
-## Better Core order (not one long chain)
-
-```text
-IPI-1042 RUNTIME-001
-   ├─ IPI-1043 DB-001 → IPI-1044 PG-001
-   └─ IPI-1037 AUTH-001 → IPI-1046 AUTH-002
-
-PG-001 + AUTH-002 → IPI-1045 STREAM-001 → IPI-1047 ACCESS-001
-STREAM-001 → IPI-1048 PLANNER-001 → IPI-1049 TOOL-001
-PG-001 + PLANNER-001 → IPI-1050 MEM-001
-AUTH + STREAM + PLANNER → IPI-1051 UI-001 → IPI-1031 CORE-HOST-REF → IPI-1041 CORE-001
-```
-
-Wave 0 parallel (do not steal Core): `IPI-897 ∥ IPI-863 ∥ IPI-1039 ∥ IPI-1040`
-
----
-
-## After Core — thin MVP first, dashboard fan-out
-
-```text
-CORE-001 → DESIGN-001 → APP-001
-   ├─ BRAND-001 ∥ SHOOT-001          ← thin MVP path
-   ├─ ASSETS-001 ∥ CRM-001 ∥ TALENT-BOOKING-001 ∥ OPERATIONS-001
-   └─ HOME-001 (better after BRAND) · ANALYTICS-001 (better after OPS)
-
-CORE-001 → **PLANNER-TRACE-001 (minimal)** → then:
-BRAND + SHOOT → PLAN-001 → APPROVAL-001 → SHOOT-SAVE-001 → SHOOT-WIZARD-001
-             → PLANNER-CONTEXT-001 → PLANNER-QUALITY-001
-
-Other `/app` pages (HOME, ASSETS, CRM, TALENT, OPS) ∥ after APP-001 — not on the thin launch spine.
-
-**Guardrails (add to existing ACs, no new issues):** AUTH token never in model content · client `orgId` not authoritative · ACCESS deny leaks zero messages · TOOL-001 no service-role / no writes · SHOOT-SAVE same idempotency key → same shoot id · APPROVAL reject = zero writes · PLANNER-QUALITY approval-before-write in CI · MARKETING-SEO preview hosts never canonical.
-```
-
-HITL + save is the sensitive path: official Mastra suspend/resume + one idempotent write. Grants **and** RLS.
-
----
-
-## Legend
-
-🟢 Done · 🟡 In Progress · 🔵 Todo (ready) · ⚪ Backlog · ⬛ Epic/tracker · ∥ parallel · **GATE** stop line
-
-**49 Linear rows below** (6 marketing duplicates listed after). Statuses below are a snapshot (2026-08-25). **Live Linear wins** if they disagree.
-
----
-
-## All 49
-
-| # | Wave | Do | Linear | Spec | What to do | After | Status |
-|---|---|---|---|---|---|---|---|
-| 1 | 0 | ⬛ | [IPI-1075](https://linear.app/amo100/issue/IPI-1075) | **SUPABASE-EPIC** | Parent for accounts, data, AI memory. | — | 🟡 In Progress |
-| 2 | 0 | ⬛ | [IPI-1036](https://linear.app/amo100/issue/IPI-1036) | **WAVE-0-EPIC** | Hardening parent. Close when 863 + 897 + 1039 + 1031 are green. | — | 🟡 In Progress |
-| 3 | 0 | ⬛ | [IPI-1038](https://linear.app/amo100/issue/IPI-1038) | **MASTRA-V2-002** | Tracker: durability. Owners PG-001 / MEM-001 / CORE-001. | — | ⚪ Backlog |
-| 4 | 0 | ⬛ | [IPI-1052](https://linear.app/amo100/issue/IPI-1052) | **CONVERT-001** | Stay aligned with convert doc. Not a code owner. | — | ⚪ Backlog |
-| 5 | 1 | 🟢 | [IPI-1042](https://linear.app/amo100/issue/IPI-1042) | **RUNTIME-001** | Pin one CopilotKit+Mastra family, add `@mastra/pg`, typecheck, test, build. No store wiring. | Starter in repo | 🟢 Done (Linear + `origin/main`) |
-| 6 | 0 | ∥ | [IPI-897](https://linear.app/amo100/issue/IPI-897) | **SB-SEC-009** | Stop `planner` auto-grants. Prove locally / existing hosted; no unsupported admin ALTERs. | Beside Core | 🔵 Todo |
-| 7 | 0 | ∥ | [IPI-863](https://linear.app/amo100/issue/IPI-863) | **AUTH-V2-001** | Block leaked passwords (HIBP). Pro+. | Beside Core | 🔵 Todo |
-| 8 | 0 | ∥ | [IPI-1039](https://linear.app/amo100/issue/IPI-1039) | **SB-V2-003** | Owner for every Advisor warning. Do not mass-revoke KEEP. | Beside Core | ⚪ Backlog |
-| 9 | 0 | ∥ | [IPI-1040](https://linear.app/amo100/issue/IPI-1040) | **MIGRATION-001** | Add a V2 migration locally without replaying the dump. | After 1042 | ⚪ Backlog |
-| 10 | 1 | ⬛ | [IPI-1078](https://linear.app/amo100/issue/IPI-1078) | **MASTRA-EPIC** | Core AI parent. Close with CORE-001. | 1042 started | 🔵 Todo |
-| 11 | 1 | **NEXT** | [IPI-1043](https://linear.app/amo100/issue/IPI-1043) | **DB-001** | MATCH/CHANGE/MISSING vs **installed** PostgresStore types + local/hosted `mastra`. Read-only. | 1042 | 🟡 In Progress |
-| 12 | 1 | → | [IPI-1044](https://linear.app/amo100/issue/IPI-1044) | **PG-001** | Conversations survive restart. Local then `TEST-<uuid>` on existing hosted. `disableInit` if tables exist. | 1043 | ⚪ Backlog |
-| 13 | 1 | ∥ | [IPI-1037](https://linear.app/amo100/issue/IPI-1037) | **AUTH-001** | Real SSR cookie session. Unauth CopilotKit = 401. No `demo-user`. | 1042 | ⚪ Backlog |
-| 14 | 1 | → | [IPI-1046](https://linear.app/amo100/issue/IPI-1046) | **AUTH-002** | Server-derived org `resourceId`. Client cannot spoof. | 1037 | ⚪ Backlog |
-| 15 | 1 | → | [IPI-1045](https://linear.app/amo100/issue/IPI-1045) | **STREAM-001** | Thin authenticated `/api/copilotkit`. Official AG-UI events. | 1044 + 1046 | ⚪ Backlog |
-| 16 | 1 | → | [IPI-1047](https://linear.app/amo100/issue/IPI-1047) | **ACCESS-001** | Org B cannot open Org A thread. Server-side ownership. | 1045 | ⚪ Backlog |
-| 17 | 1 | → | [IPI-1048](https://linear.app/amo100/issue/IPI-1048) | **PLANNER-001** | Production Planner default agent. Remove weather as product. | 1045 | ⚪ Backlog |
-| 18 | 1 | → | [IPI-1049](https://linear.app/amo100/issue/IPI-1049) | **TOOL-001** | Compute-only shoot tools. Save is 1083. Reuse pure logic. | 1048 | ⚪ Backlog |
-| 19 | 1 | → | [IPI-1050](https://linear.app/amo100/issue/IPI-1050) | **MEM-001** | Memory after refresh/restart. Same store as PG-001. | 1044 + 1048 | ⚪ Backlog |
-| 20 | 1 | → | [IPI-1051](https://linear.app/amo100/issue/IPI-1051) | **UI-001** | One authenticated Planner screen. Not the operator shell. | 1045 + 1048 + 1037 | ⚪ Backlog |
-| 21 | 1 | → | [IPI-1031](https://linear.app/amo100/issue/IPI-1031) | **CORE-HOST-REF** | Hosted `TEST-<uuid>` proof on **existing** project. | 1051 | ⚪ Backlog |
-| 22 | 1 | **GATE** | [IPI-1041](https://linear.app/amo100/issue/IPI-1041) | **CORE-001** | Refresh, restart, Org A/Org B 403. Stop line. | 1047 + 1049 + 1050 + 1051 + 1031 | ⚪ Backlog |
-| 23 | 2 | ⬛ | [IPI-1076](https://linear.app/amo100/issue/IPI-1076) | **DASHBOARD-EPIC** | Operator workspace parent. | CORE-001 | ⚪ Backlog |
-| 24 | 2 | ⬛ | [IPI-1079](https://linear.app/amo100/issue/IPI-1079) | **MVP-EPIC** | Shoot launch parent. | CORE-001 | ⚪ Backlog |
-| 25 | 2 | → | [IPI-1080](https://linear.app/amo100/issue/IPI-1080) | **DESIGN-001** | Reuse proven visual system. | CORE-001 | ⚪ Backlog |
-| 26 | 2 | → | [IPI-1065](https://linear.app/amo100/issue/IPI-1065) | **APP-001** | One `/app/*` shell + nav. | 1080 | ⚪ Backlog |
-| 27 | 2 | ∥ MVP | [IPI-1068](https://linear.app/amo100/issue/IPI-1068) | **BRAND-001** | Brand list + profile. RLS + grants. | 1065 | ⚪ Backlog |
-| 28 | 2 | ∥ MVP | [IPI-1067](https://linear.app/amo100/issue/IPI-1067) | **SHOOT-001** | Shoot list + record. `shoot.shoots` only. | 1065 | ⚪ Backlog |
-| 29 | 2 | ∥ | [IPI-1066](https://linear.app/amo100/issue/IPI-1066) | **HOME-001** | Command Center, real KPIs. | 1065 (better after 1068) | ⚪ Backlog |
-| 30 | 2 | → MVP | [IPI-1081](https://linear.app/amo100/issue/IPI-1081) | **PLAN-001** | Structured shoot plan from Planner. | 1068 + 1067 | ⚪ Backlog |
-| 31 | 2 | → MVP | [IPI-1084](https://linear.app/amo100/issue/IPI-1084) | **APPROVAL-001** | HITL: official suspend/resume. | 1081 | ⚪ Backlog |
-| 32 | 2 | → MVP | [IPI-1083](https://linear.app/amo100/issue/IPI-1083) | **SHOOT-SAVE-001** | One idempotent `commit_shoot_draft` + RLS + grants. | 1084 | ⚪ Backlog |
-| 33 | 2 | → MVP | [IPI-1085](https://linear.app/amo100/issue/IPI-1085) | **SHOOT-WIZARD-001** | Deliverables → shots → budget. | 1083 | ⚪ Backlog |
-| 34 | 2 | → MVP | [IPI-1087](https://linear.app/amo100/issue/IPI-1087) | **PLANNER-CONTEXT-001** | Active brand/shoot brief in session. | 1085 | ⚪ Backlog |
-| 35 | 2 | → MVP | [IPI-1086](https://linear.app/amo100/issue/IPI-1086) | **PLANNER-QUALITY-001** | Catch planner mistakes before operators. | 1087 | ⚪ Backlog |
-| 36 | 2 | ∥ | [IPI-1082](https://linear.app/amo100/issue/IPI-1082) | **PLANNER-TRACE-001** | Where requests succeeded/slowed/failed. | CORE-001 | ⚪ Backlog |
-| 37 | 2 | ∥ | [IPI-1069](https://linear.app/amo100/issue/IPI-1069) | **ASSETS-001** | Gallery + channel preview. | 1065 | ⚪ Backlog |
-| 38 | 2 | ∥ | [IPI-1070](https://linear.app/amo100/issue/IPI-1070) | **CRM-001** | Companies, contacts, pipeline. | 1065 | ⚪ Backlog |
-| 39 | 2 | ∥ | [IPI-1071](https://linear.app/amo100/issue/IPI-1071) | **TALENT-BOOKING-001** | Talent + bookings. | 1065 | ⚪ Backlog |
-| 40 | 2 | ∥ | [IPI-1072](https://linear.app/amo100/issue/IPI-1072) | **OPERATIONS-001** | Inbox + campaigns. | 1065 | ⚪ Backlog |
-| 41 | 2 | ∥ | [IPI-1073](https://linear.app/amo100/issue/IPI-1073) | **ANALYTICS-001** | Honest/null KPIs. | 1072 (better) | ⚪ Backlog |
-| 42 | 3 | ⬛ | [IPI-1077](https://linear.app/amo100/issue/IPI-1077) | **MARKETING-EPIC** | Public site parent. | CORE-001 | ⚪ Backlog |
-| 43 | 3 | → | [IPI-1053](https://linear.app/amo100/issue/IPI-1053) | **MARKETING-NAV-001** | Marketing chrome. Not `/app/*`. | CORE-001 | ⚪ Backlog |
-| 44 | 3 | ∥ | [IPI-1057](https://linear.app/amo100/issue/IPI-1057) | **MARKETING-HOME-001** | Homepage. No marketing CopilotKit chat. | 1053 | ⚪ Backlog |
-| 45 | 3 | ∥ | [IPI-1060](https://linear.app/amo100/issue/IPI-1060) | **MARKETING-SERVICES-001** | Service pages + 301s. | 1053 | ⚪ Backlog |
-| 46 | 3 | ∥ | [IPI-1058](https://linear.app/amo100/issue/IPI-1058) | **MARKETING-LOGIN-001** | Login UX on new Auth. | 1053 + 1037 | ⚪ Backlog |
-| 47 | 3 | → | [IPI-1063](https://linear.app/amo100/issue/IPI-1063) | **MARKETING-SEO-001** | Public sitemap only. | 1057 + 1060 | ⚪ Backlog |
-| 48 | 3 | ∥ | [IPI-1064](https://linear.app/amo100/issue/IPI-1064) | **MARKETING-MEDIA-001** | Images/sliders. | 1057 + 1060 | ⚪ Backlog |
-| 49 | 3 | → | [IPI-1074](https://linear.app/amo100/issue/IPI-1074) | **PLANS-001** | Legacy `/app/plans`. Not Core Planner. | 1065 | ⚪ Backlog |
-
----
-
-## One person, fastest safe calendar
-
-```text
-1042                         🟢 Done
-1043 ∥ 1037                  ← next (1043 In Progress)
-1044 after 1043 · 1046 after 1037
-1045 after 1044+1046
-1047 ∥ 1048 after 1045
-1049 after 1048 · 1050 after 1044+1048
-1051 after auth+stream+planner
-1031 → 1041                  GATE
-1080 → 1065
-1068 ∥ 1067                  thin MVP
-1081 → 1084 → 1083 → 1085 → 1087 → 1086
-1069 ∥ 1070 ∥ 1071 ∥ 1072 · 1066 · 1073
-1053 → 1057 ∥ 1060 ∥ 1058 → 1063 ∥ 1064 · 1074
-```
-
----
-
-## Skip — duplicates (not in the 49)
-
-| Duplicate | Use |
+| Symbol | Meaning |
 |---|---|
-| IPI-1054 NAV | IPI-1053 |
-| IPI-1055 HOME | IPI-1057 |
-| IPI-1056 LOGIN | IPI-1058 |
-| IPI-1059 SERVICES | IPI-1060 |
-| IPI-1061 SEO | IPI-1063 |
-| IPI-1062 MEDIA | IPI-1064 |
-
-IPI-1032 SB-CI-IPV4 is **Done** on SUPABASE (PR #987). Not v2-ipix.
-
-Do **not** build placeholder `IPI-V2-020` IDs. Use the Linear rows in this file.
+| 🟡 | In Progress / In Review |
+| 🔵 | Todo / Backlog and startable when live blockers are satisfied |
+| 🔴 | Known unmet hard dependency |
+| ∥ | safe parallel work when file ownership does not collide |
 
 ---
 
-## STOP LINE
+# NOW — active work
 
-No Operator Shell, MVP pages, Post-MVP, or Advanced work until **IPI-1041 · CORE-001** passes (refresh, restart, Org B 403, with evidence).
+| Order | Status | Task | Milestone | Phase | Immediate rule |
+|---:|:---:|---|---|---|---|
+| 1 | 🟡 | **IPI-1045 · STREAM-001 — Let Authenticated iPix Users Stream Planner Responses Safely** | M1 · Foundation | COREV2 | In Review. Finish/certify before PLANNER-001. |
+| 2 | 🟡 | **IPI-1127 · ACCESS-CLAIM-001 — Make Planner Thread Ownership an Atomic Shared Claim** | M1 · Foundation | COREV2 | Finish atomic shared claim before final Core/release certification. |
+| 3 | 🟡 | **IPI-1066 · DASH-MAIN-001 — Reuse the Proven iPix Command Center as the Main Dashboard Page** | M2 · Product Workspace | MVP2 | Current operator-screen task after APP-001 Done. |
+| 4 | 🟡 | **IPI-1053 · MARKETING-NAV-001 — Reuse the Existing iPix Marketing Header, Footer, and Shared Layout** | M1 · Foundation | COREV2 | Parallel public-site lane. |
+| 5 | 🟡 | **IPI-1110 · CLD-SIGN-001 — Sign Cloudinary Uploads for the Trusted Organization** | M3 · Production | MVP2 | Cloudinary core pipe; certify pending production migration if required. |
+| 6 | 🟡 | **IPI-1111 · CLD-WEBHOOK-001 — Mirror Cloudinary Uploads and Deletes into Supabase** | M3 · Production | MVP2 | Parallel with SIGN/DELIVERY; Supabase remains business truth. |
+| 7 | 🟡 | **IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary Previews with Named Transforms** | M3 · Production | MVP2 | Parallel with SIGN/WEBHOOK; reused later by Assets. |
+| 8 | 🟡 | **IPI-1113 · CLD-E2E-001 — Prove One Disposable Upload Reaches Supabase Ready** | M3 · Production | MVP2 | End-to-end proof after SIGN + WEBHOOK are actually live. |
 
-### Out of scope until after Core gold
+## Active epics / trackers — no execution number
 
-- Cloudflare Worker as the AI runtime
-- MCP external integrations as Core
-- Multi-user live cursors
-- GraphRAG / observational memory
-- WhatsApp / external messaging
+| Status | Epic / tracker | Milestone | Phase |
+|:---:|---|---|---|
+| 🟡 | **IPI-1078 · IPI-EPIC · MASTRA COPILOTKIT — Secure Planner Runtime Sequence** | M1 · Foundation | COREV2 |
+| 🟡 | **IPI-1075 · SUPABASE-EPIC — Make iPix User Accounts, Data, and AI Memory Safe and Reliable** | Parallel · Security & Reliability | COREV2 |
+| 🟡 | **IPI-1036 · IPI-EPIC · Wave 0 Supabase Hardening & Production Readiness** | Parallel · Security & Reliability | COREV2 |
+| 🟡 | **IPI-1102 · IPI-EPIC · PRODUCTION & MEDIA — Browse Assets and Deliver Shoot Files** | M3 · Production | MVP2 |
+| 🟡 | **IPI-1123 · CLOUDINARY-V2-EPIC — Production Media Pipeline Progress Tracker** | M3 · Production | MVP2 |
+
+---
+
+# M1 · Foundation — Secure Identity, Shell & AI Runtime
+
+**Phase: COREV2**
+
+## Planner runtime / release safety
+
+| Order | Status | Task | Start / dependency rule |
+|---:|:---:|---|---|
+| 9 | 🔵 | **IPI-1117 · HOST-RUNNER-001 — Make Planner Stop Work Across Vercel Instances** | Start after STREAM behavior is stable; required before RELEASE. |
+| 10 | 🔵 | **IPI-1050 · MEM-001 — Let the Planner Remember the Conversation After Refresh and Restart** | Reuse current Mastra/Postgres memory; do not build a second store. |
+| 11 | 🔵 | **IPI-1031 · CORE-HOST-REF — Hosted synthetic Core proof on existing project (not a second preview)** | Hosted synthetic persistence/non-interference proof. |
+| 12 | 🔵 | **IPI-1051 · UI-001 — Let an iPix Operator Use the Planner in One Simple Authenticated Screen** | Reuse APP shell and current CopilotKit/Mastra runtime. |
+| 13 | 🔵 | **IPI-1041 · CORE-001 — Prove the New iPix AI Foundation Survives Refresh, Restart, and Cross-Org Access Attempts** | M1 exit certification after STREAM, access-claim, memory/replay/UI/runtime proof. |
+
+## Auth / first-user journey
+
+| Order | Status | Task | Start / dependency rule |
+|---:|:---:|---|---|
+| 14 | 🔵 | **IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup** | After/shared with MARKETING-NAV; reuse current Supabase Auth. |
+| 15 | 🔵 | **IPI-1089 · ONBOARD-001 — Let a New iPix User Sign Up, Create Their First Brand, and Reach the Operator Workspace** | After login; create first org/brand safely. |
+| 16 | 🔵 | **IPI-1090 · AUTH-RECOVERY-001 — Let iPix Users Recover Access When They Forget Their Password** | Parallel after production login contract exists. |
+
+## M1 epics — ownership only
+
+- **IPI-1092 · IPI-EPIC · AUTH — Secure Identity, Access, and First-User Journey** — M1 · Foundation — **COREV2**
+
+---
+
+# Parallel · Security & Reliability
+
+**Phase: COREV2** · runs beside M1–M7; only blocks when live issue relations say so.
+
+| Order | Status | Task | Rule |
+|---:|:---:|---|---|
+| 17 | 🔵 | **IPI-1039 · SB-V2-003 — Give Every Supabase Security Warning an Owner and Clear Action** | Read-only classification/ownership first; schema changes stay separate. |
+| 18 | 🔵 | **IPI-863 · AUTH-V2-001 — Block Known Leaked Passwords for iPix Accounts** | Supabase Auth hardening; not a product-feature dependency unless release gate says so. |
+| 19 | 🔵 | **IPI-1038 · MASTRA-V2-002 — Track the Broader Goal of Keeping iPix Conversations Durable** | Tracking/goal issue; avoid duplicating concrete memory work. |
+| 20 | 🔵 | **IPI-1052 · CONVERT-001 — Keep the New iPix Mastra Rebuild Aligned With the Proven Conversion Plan** | Architecture guardrail; no duplicate implementation. |
+
+---
+
+# M2 · Product Workspace & Planning — Core Screens and Brand
+
+**Phase: MVP2**
+
+## Operator workspace lane — recommended order
+
+| Order | Status | Task | Start / dependency rule |
+|---:|:---:|---|---|
+| 21 | 🔵 | **IPI-1068 · BRAND-001 — Let Operators Browse Brands and Open Complete Brand Profiles** | APP-001 Done; trusted-org list/detail first. |
+| 22 | 🔵 | **IPI-1067 · SHOOT-001 — Let Operators Browse Shoots and Open Complete Shoot Records** | APP-001 Done; canonical V2 shoot truth is `shoot.shoots`. |
+| 23 | 🔵 | **IPI-1140 · INTELLIGENCE-RAIL-001 — Bring the Proven iPix Intelligence Panel Into the New Operator Workspace** | After core Brand/Shoot surfaces are stable enough to supply trusted context. |
+| 24 | 🔵 | **IPI-1069 · ASSETS-001 — Let Operators Browse Assets and Manage Asset Records** | M2 browse can use safe placeholder until CLD-DELIVERY is proven; do not block on full media cutover. |
+| 25 | 🔵 | **IPI-1070 · CRM-001 — Bring the Proven iPix CRM Workspace Into the New App** | Reuse current org-scoped CRM truth; no fake AI scores. |
+| 26 | 🔵 | **IPI-1072 · OPERATIONS-001 — Bring the Operator Inbox and Coordination Workflow Into the New App** | Verify active-org notification/read contract first. |
+| 27 | 🔵 | **IPI-1071 · TALENT-BOOKING-001 — Let Operators Find Talent and Manage Bookings** | Reuse current booking state/RPCs only after authz audit. |
+| 28 | 🔵 | **IPI-1074 · PLANS-001 — Bring the Existing Production Planning Workspace Into /app/plans** | Saved planning workspace; never a second conversational Planner. |
+| 29 | 🔵 | **IPI-1073 · ANALYTICS-001 — Bring the Existing Analytics Workspace Into the New App Without Fake Metrics** | Screen migration now; trustworthy measurement completion is M5. |
+
+## Planner capability lane
+
+| Order | Status | Task | Hard gate |
+|---:|:---:|---|---|
+| 30 | 🔴 | **IPI-1048 · PLANNER-001 — Make the Production Planner the Main iPix AI Assistant** | Wait for STREAM-001 green. |
+| 31 | 🔴 | **IPI-1049 · TOOL-001 — Let the Planner Build Shoot Type, Deliverables, Shot List, and Budget Safely** | Wait for PLANNER-001 Done. |
+
+## Brand intelligence lane
+
+| Order | Status | Task | Start / dependency rule |
+|---:|:---:|---|---|
+| 32 | 🔵 | **IPI-1093 · BRAND-INTEL-001 — Turn a Brand Website Into an Approved Brand DNA Profile** | Start after BRAND-001 data/display contract; draft → human approval → approved profile. |
+| 33 | 🔵 | **IPI-172 · AI-EVIDENCE-001 — Persist Provider-Neutral Evidence and Citations for iPix AI Decisions** | Extract minimal shared evidence contract from real consumers; do not build a generic evidence platform first. |
+| 34 | 🔵 | **IPI-1128 · BRAND-KNOWLEDGE-001 — Give AI Decisions Approved Brand Evidence With Citations** | After approved Brand Intelligence evidence exists. |
+| 35 | 🔵 | **IPI-1130 · COPILOT-A11Y-001 — Keep CopilotSidebar from hiding focused controls** | Accessibility fix; execute when current Planner UI proves the issue still exists. |
+
+## Marketing lane — parallel
+
+| Order | Status | Task | Start / dependency rule |
+|---:|:---:|---|---|
+| 36 | 🔵 | **IPI-1057 · MARKETING-HOME-001 — Reuse the Existing iPix Marketing Homepage in the New App** | After MARKETING-NAV shared chrome. |
+| 37 | 🔵 | **IPI-1060 · MARKETING-SERVICES-001 — Reuse the Existing iPix Photography Service Pages** | Parallel after shared marketing layout. |
+| 38 | 🔵 | **IPI-1064 · MARKETING-MEDIA-001 — Reuse and Optimize the Existing iPix Marketing Images, Sliders, and Visual Content** | After page structure; use current media architecture. |
+| 39 | 🔵 | **IPI-1063 · MARKETING-SEO-001 — Keep the New iPix Marketing Site Searchable and Correctly Indexed** | Finalize after routes/canonicals are stable. |
+
+## M2 epics — ownership only
+
+- **IPI-1076 · IPI-EPIC · DASHBOARD DESIGN — Operator Workspace Migration Sequence** — M2 — **MVP2**
+- **IPI-1077 · IPI-EPIC · MARKETING PAGES — Public Site Migration Sequence** — M2 — **MVP2**
+- **IPI-1098 · IPI-EPIC · HOME — Give Operators One Command Center for the Org** — M2 — **MVP2**
+- **IPI-1099 · IPI-EPIC · BRAND — Browse Brands and Approve Brand DNA** — M2 — **MVP2**
+- **IPI-1100 · IPI-EPIC · SHOOT PLANNING — Keep Shoot Records Browsable and Complete** — M2 — **MVP2**
+- **IPI-1103 · IPI-EPIC · CRM — Run the Relationship Hub in the New App** — M2 — **MVP2**
+- **IPI-1104 · IPI-EPIC · OPERATIONS — Operator Inbox and Coordination** — M2 — **MVP2**
+- **IPI-1107 · IPI-EPIC · PLANS — Saved Production Plans, Not a Second Planner** — M2 — **MVP2**
+
+---
+
+# M3 · Production — Approve, Produce & Deliver a Shoot
+
+**Phase: MVP2**
+
+## Shoot planning / approval serial path
+
+| Order | Status | Task | Hard gate / role |
+|---:|:---:|---|---|
+| 40 | 🔴 | **IPI-1081 · PLAN-001 — Make the Planner Return a Complete Structured Shoot Plan** | Wait for BRAND-001 + SHOOT-001 + PLANNER-001 + TOOL-001. |
+| 41 | 🔴 | **IPI-1084 · APPROVAL-001 — Let Operators Review, Edit, Approve, or Reject AI Plans Before Anything Is Saved** | After PLAN-001. Human decision boundary. |
+| 42 | 🔴 | **IPI-1083 · SHOOT-SAVE-001 — Save an Approved Shoot Once and Under the Correct Organization** | After APPROVAL-001. One atomic/idempotent trusted-org save path. |
+| 43 | 🔴 | **IPI-1085 · SHOOT-WIZARD-001 — Let Operators Build and Review a Complete Production-Ready Shoot** | After SHOOT-SAVE-001. Thin orchestration over PLAN → APPROVAL → SAVE. |
+| 44 | 🔴 | **IPI-1087 · PLANNER-CONTEXT-001 — Keep the Active Brand and Shoot Brief Available During Planning** | Live Linear blocks on SHOOT-SAVE + SHOOT-WIZARD; reuse final shared-state/context contract. |
+| 45 | 🔵 | **IPI-1137 · SHOOT-BRIEF-IMPORT-001 — Turn an Existing Shoot Brief or PDF Into Editable Planner Context** | Optional branch into verified Planner context; not required for shoots without PDFs. |
+| 46 | 🔵 | **IPI-1086 · PLANNER-QUALITY-001 — Catch Planner Mistakes Before They Reach Operators** | Release gate after production planning path exists. |
+| 47 | 🔵 | **IPI-1082 · PLANNER-TRACE-001 — Show Where Planner Requests Succeeded, Slowed, or Failed** | Parallel observability; required before RELEASE. |
+
+## Cloudinary / media infrastructure
+
+Current dependency spine:
+
+```text
+MEDIA-DATA Done → SB-MEDIA-HARDEN Done
+→ (CLD-SIGN ∥ CLD-WEBHOOK ∥ CLD-DELIVERY)
+→ CLD-E2E
+→ CLD-RECONCILE
+→ CLD-CUTOVER last
+```
+
+| Order | Status | Task | Rule |
+|---:|:---:|---|---|
+| 48 | 🔵 | **IPI-1114 · CLD-RECONCILE-001 — Detect Cloudinary and Supabase Drift Without Mutating Production** | Read-only drift detection after core pipe is readable. |
+| 49 | 🔵 | **IPI-1115 · CLD-CUTOVER-001 — Cut Cloudinary Notifications Over to V2 Safely** | Last infra step after sign/webhook/E2E/cutover proof is green. |
+
+## Media product journey
+
+```text
+CLD-UPLOAD → SHOOT-ASSETS → (ASSET-DNA ∥ ASSET-QA) → MEDIA-APPROVAL → MEDIA-DELIVERY
+```
+
+| Order | Status | Task | Rule |
+|---:|:---:|---|---|
+| 50 | 🔵 | **IPI-1097 · MEDIA-001 — Upload, Review, Approve, and Deliver Shoot Assets** | Journey owner/tracker; children below are implementation steps. |
+| 51 | 🔵 | **IPI-1116 · CLD-UPLOAD-001 — Let Operators Upload Shoot Selects with the Cloudinary Widget** | Use proven signed-upload contract; UI only. |
+| 52 | 🔵 | **IPI-1118 · SHOOT-ASSETS-001 — Attach Uploaded Assets to the Correct Saved Shoot** | Requires saved canonical shoot + uploaded asset. |
+| 53 | 🔵 | **IPI-1136 · ASSET-DNA-001 — Analyze Uploaded Shoot Assets Against the Approved Brand Brain** | After attach + approved Brand Brain; parallel with QA. |
+| 54 | 🔵 | **IPI-1138 · ASSET-QA-001 — Check Asset Quality and Channel Readiness Before Approval** | After attach; deterministic metadata/transforms first; parallel with DNA. |
+| 55 | 🔵 | **IPI-1119 · MEDIA-APPROVAL-001 — Approve or Reject the Exact Cloudinary Asset Version** | Exact immutable version + human approval. |
+| 56 | 🔵 | **IPI-1120 · MEDIA-DELIVERY-001 — Deliver Only Approved Named-Transform Asset Versions** | Only approved versions are deliverable. |
+
+## Talent / booking production capability
+
+| Order | Status | Task | Rule |
+|---:|:---:|---|---|
+| 57 | 🔵 | **IPI-1094 · BOOKING-DATA-001 — Create the Shared Shoot, Talent, Studio, and Availability Booking Contract** | Data contract before AI/payment behavior. |
+| 58 | 🔵 | **IPI-1095 · BOOKING-AI-001 — Let the Booking Coordinator Coordinate Production Bookings** | After booking data contract; AI proposes/coordinates, humans approve. |
+| 59 | 🔵 | **IPI-1096 · PAYMENT-001 — Collect and Confirm a Shoot Booking Deposit Safely** | After booking contract and explicit payment approval UX. |
+
+## M3 exit
+
+| Order | Status | Task | Gate |
+|---:|:---:|---|---|
+| 60 | 🔴 | **IPI-1091 · RELEASE-001 — Deploy the New iPix App to Vercel and Prove the Complete Production Journey** | After CORE + ACCESS-CLAIM + HOST-RUNNER + QUALITY + TRACE + SHOOT-SAVE + required media proof. |
+
+## M3 epics — ownership only
+
+- **IPI-1079 · IPI-EPIC · LAUNCH — Operator Shoot Launch Journey** — M3 — **MVP2**
+- **IPI-1101 · IPI-EPIC · TALENT & BOOKING — Book Talent Against a Saved Shoot** — M3 — **MVP2**
+
+---
+
+# M4 · Campaigns — Turn Opportunities Into Published Campaigns
+
+**Phase: ADVANCEDV2**
+
+| Order | Status | Task | Dependency intent |
+|---:|:---:|---|---|
+| 61 | 🔵 | **IPI-36 · BRAND-RESEARCH-001 — Research Competitors, Trends, and Market Opportunities With Evidence** | Evidence-producing market research. |
+| 62 | 🔵 | **IPI-1129 · BRAND-OPPORTUNITY-001 — Rank Market Opportunities Against Each Brand** | Rank research against approved Brand knowledge. |
+| 63 | 🔵 | **IPI-42 · CAMPAIGN-STRATEGY-001 — Turn an Approved Opportunity Into an Interactive Campaign Strategy** | Human-approved opportunity → strategy. |
+| 64 | 🔵 | **IPI-157 · CAMPAIGN-PLAN-001 — Turn an Approved Strategy Into an Executable Campaign Plan** | Approved strategy → executable plan. |
+| 65 | 🔵 | **IPI-77 · CAMPAIGN-COPY-001 — Create Brand-Safe Channel Copy From Approved Assets and Strategy** | Draft copy from approved strategy/assets. |
+| 66 | 🔵 | **IPI-1131 · BRAND-CHECK-001 — Check Copy and Media Against the Approved Brand Brain** | Brand compliance before preview/publish. |
+| 67 | 🔵 | **IPI-338 · CHANNEL-PREVIEW-001 — Preview Approved Campaign Content Before Publishing** | Human preview before consequential publish. |
+| 68 | 🔵 | **IPI-195 · PUBLISH-001 — Publish Only Approved Campaign Content Through Postiz** | Publish only approved content. |
+
+## M4 epics — ownership only
+
+- **IPI-1134 · IPI-EPIC · BRAND STRATEGY — Research Markets and Find Brand Opportunities** — M4 — **ADVANCEDV2**
+- **IPI-1105 · IPI-EPIC · CAMPAIGNS & PUBLISHING — Campaigns, Preview, and Publish** — M4 — **ADVANCEDV2**
+
+---
+
+# M5 · Measurement — Measure Product, Campaign & Asset Performance
+
+**Phase: ADVANCEDV2**
+
+| Order | Status | Task | Rule |
+|---:|:---:|---|---|
+| 69 | 🔵 | **IPI-1139 · MEASURE-001 — Turn Real Product, Campaign, Channel, and Asset Results Into Trusted iPix Metrics** | Deterministic tenant-safe measurement; no invented numbers. Feeds the Analytics screen migrated in M2. |
+
+## M5 epic — ownership only
+
+- **IPI-1106 · IPI-EPIC · MEASUREMENT — Measure Real Product, Campaign & Asset Performance** — M5 — **ADVANCEDV2**
+
+---
+
+# M6 · Learning — Improve the Brand From Proven Results
+
+**Phase: ADVANCEDV2**
+
+| Order | Status | Task | Rule |
+|---:|:---:|---|---|
+| 70 | 🔵 | **IPI-1133 · LEARN-001 — Recommend Brand Brain Improvements From Real Campaign Results** | Only after trusted M5 measurement; AI proposes evidence-backed changes, human approves. |
+
+## M6 epic — ownership only
+
+- **IPI-1135 · IPI-EPIC · LEARNING — Turn Proven Results Into Reviewed Brand Improvements** — M6 — **ADVANCEDV2**
+
+---
+
+# M7 · Scale — Standardize Proven Patterns & Advanced Automation
+
+**Phase: ADVANCEDV2**
+
+> These workflow tasks are **not** a mandatory serial train. Activate each only after a repeated M1–M6 workflow proves the abstraction is needed.
+
+| Order | Status | Task | Use only when proven |
+|---:|:---:|---|---|
+| 71 | 🔵 | **IPI-994 · MASTRA-WF-001 — Establish Reusable iPix Workflow Foundation** | Generalize a real repeated workflow, not speculative framework work. |
+| 72 | 🔵 | **IPI-995 · MASTRA-WF-002 — Standardize and Govern the Existing iPix Tool Registry** | After enough real tools exist to justify common governance. |
+| 73 | 🔵 | **IPI-998 · MASTRA-WF-005 — Standardize Human-in-the-Loop Approval** | Generalize proven approval patterns from PLAN/media/campaign flows. |
+| 74 | 🔵 | **IPI-999 · MASTRA-WF-006 — Harden Long-Lived Workflow Recovery, Reconnect & Idempotency** | When actual long-lived workflows require it. |
+| 75 | 🔵 | **IPI-996 · MASTRA-WF-003 — Add Mastra Task Tracking & Progress UI** | Only after durable task progress is a real user need. |
+| 76 | 🔵 | **IPI-997 · MASTRA-WF-004 — Add Parallel Workflow Execution** | Add concurrency only where measured throughput benefits. |
+| 77 | 🔵 | **IPI-1000 · MASTRA-WF-007 — Add Plan Review Before Complex Execution** | Reuse only for complex workflows beyond existing domain HITL. |
+| 78 | 🔵 | **IPI-1003 · MASTRA-WF-010 — Add Workflow Observability, Evals & Performance Scoring** | Standardize after multiple workflows need shared evaluation. |
+| 79 | 🔵 | **IPI-1001 · MASTRA-WF-008 — Prove One Safe Dynamic Workflow End-to-End** | Advanced experiment after static workflows are proven. |
+| 80 | 🔵 | **IPI-1002 · MASTRA-WF-009 — Standardize External Tool & MCP Integration** | Advanced integration governance after real external-tool repetition. |
+| 81 | 🔵 | **IPI-780 · MASTRA-PG-004 — Define and Verify Safe Mastra Data Retention** | ADVANCEDV2 retention policy; currently no project milestone assigned in Linear. |
+
+## M7 epic — ownership only
+
+- **IPI-993 · MASTRA-WF-000 — iPix Mastra Workflow & Tool Orchestration Platform** — M7 — **ADVANCEDV2**
+
+---
+
+# Current critical execution graph
+
+```text
+CORE / RUNTIME
+IPI-1045 STREAM (In Review)
+  ├─→ IPI-1048 PLANNER → IPI-1049 TOOL
+  └─→ IPI-1117 HOST-RUNNER
+IPI-1127 ACCESS-CLAIM (In Progress)
+MEM / UI / hosted proof ─→ IPI-1041 CORE
+
+OPERATOR PRODUCT
+IPI-1066 DASH (In Progress)
+→ IPI-1068 BRAND
+→ IPI-1067 SHOOT
+→ IPI-1140 INTELLIGENCE-RAIL
+→ IPI-1069 ASSETS
+→ CRM / OPERATIONS / TALENT / PLANS / ANALYTICS
+
+SHOOT AI
+BRAND + SHOOT + PLANNER + TOOL
+→ IPI-1081 PLAN
+→ IPI-1084 APPROVAL
+→ IPI-1083 SHOOT-SAVE
+→ IPI-1085 SHOOT-WIZARD
+→ IPI-1087 PLANNER-CONTEXT
+
+CLOUDINARY INFRA
+SIGN ∥ WEBHOOK ∥ DELIVERY
+→ E2E
+→ RECONCILE
+→ CUTOVER
+
+MEDIA PRODUCT
+UPLOAD → ATTACH → (DNA ∥ QA) → APPROVAL → DELIVERY
+
+CAMPAIGN / LEARNING
+RESEARCH → OPPORTUNITY → STRATEGY → PLAN → COPY → BRAND-CHECK → PREVIEW → PUBLISH
+→ MEASURE → LEARN
+```
+
+---
+
+# Verification notes
+
+- The full live `v2-ipix` project was checked, not only the MIGRATEv2 label view.
+- Existing local `docs/todo.md` was incomplete because it only contained the MIGRATE subset.
+- Epics are present here for ownership/context but intentionally have no execution number.
+- Live Linear milestone names are preserved exactly in section headers.
+- Local phase is normalized to **COREV2 / MVP2 / ADVANCEDV2**.
+- Done issues such as **IPI-1065 APP-001**, **IPI-1108 CLD-FOUNDATION-001**, **IPI-1109 MEDIA-DATA-001**, **IPI-1122 SB-MEDIA-HARDEN-001**, **IPI-1088 COPILOT-REPLAY-001**, **IPI-1040 MIGRATION-001**, **IPI-897 SB-SEC-009**, and other completed Foundation work are intentionally omitted from the active execution rows.
+- Duplicate issues (`IPI-1054`–`IPI-1062` duplicate marketing copies, etc.) are intentionally omitted.
+- Canceled **IPI-1121 · HOST-CF-001 — Establish iPix Cloudflare Workers Hosting** is intentionally omitted from active work; Vercel remains the current hosting path.
+
+## Fastest-safe rule
+
+For every task:
+
+```text
+Linear live relations
+→ current clean origin/main
+→ Graphify/load-bearing paths
+→ installed source/types
+→ live read-only Supabase when data matters
+→ official vendor references
+→ reuse current ipixai
+→ COPY+CLEAN proven Lumina behavior/UI where appropriate
+→ smallest correct change
+→ targeted proof
+→ typecheck/build
+→ browser/live proof only when required
+→ task-verifier Full before Done
+```
