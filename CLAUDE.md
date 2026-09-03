@@ -1,3 +1,9 @@
+# CLAUDE.md
+
+## Secrets / Infisical
+
+Follow `AGENTS.md` § Secrets / Infisical. It is the repository source of truth.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

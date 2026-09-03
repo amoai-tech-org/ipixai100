@@ -38,7 +38,7 @@ Parse the first token (strip a leading `/pr` or `/pr-`).
 
 **Load first:** `.claude/skills/pr-workflow/SKILL.md` (taxonomy, GraphQL resolve, templates).
 
-**This repo (not old `/home/sk/ipix`):** git root is this checkout. App lives in `src/`. Never `cd app`. Never combined `npm run dev` (**DEV-STAB-001**). Never mutate production Supabase. Never Infisical until `.infisical.json` exists.
+**This repo (not old `/home/sk/ipix`):** git root is this checkout. App lives in `src/`. Never `cd app`. Never combined `npm run dev` (**DEV-STAB-001**). Never mutate production Supabase. Secrets: `infisical run --env=dev -- <command>` per `AGENTS.md` § Secrets / Infisical.
 
 ---
 
@@ -257,7 +257,7 @@ Read-only: branch, HEAD, draft, mergeable, dirty files, CI, unresolved count, ne
 
 ## Verify (iPixai)
 
-Do **not** run old iPix `cd app && npm test` or `infisical run`.
+Do **not** run old iPix `cd app && npm test` — that layout doesn't exist here. Secret-dependent commands run through `infisical run --env=dev -- <command>` (canonical, see `AGENTS.md` § Secrets / Infisical).
 
 | Path | Check |
 |------|--------|
