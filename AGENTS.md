@@ -8,12 +8,16 @@ This is the iPix CopilotKit + Mastra runtime (`/home/sk/ipixai`). Do not impleme
 
 ```bash
 npm ci                          # install (lockfile)
-# Secrets are injected through Infisical (needs `infisical login` once — see
-# § Secrets / Infisical below). No Infisical session available? Fall back to
-# a local .env (cp .env.example .env, fill it in, never commit it) — the app
-# reads plain process.env either way.
+
+# Secrets via Infisical (canonical — needs `infisical login` once, see
+# § Secrets / Infisical below):
 infisical run --env=dev -- npm run dev:ui     # Next.js :3000 (separate terminal)
 infisical run --env=dev -- npm run dev:agent  # Mastra :4111 (separate terminal)
+
+# No Infisical session? Local .env fallback instead (cp .env.example .env,
+# fill it in, never commit it — the app reads plain process.env either way):
+npm run dev:ui
+npm run dev:agent
 ```
 
 Combined `npm run dev` is **blocked** (**DEV-STAB-001** — watcher/fork storm). Do not use `concurrently` for UI+agent.
