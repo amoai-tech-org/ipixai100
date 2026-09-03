@@ -5,12 +5,21 @@ import { loadOrgBrands } from "@/lib/dashboard/command-center";
 const ORG_A = "aaaaaaaa-0000-4000-8000-000000000001";
 const ORG_B = "bbbbbbbb-0000-4000-8000-000000000002";
 
+type OrderCall = { column: string; opts: { ascending: boolean } };
+
 /** Mimics supabase-js chained builder, scoped by the `eq("org_id", …)` call.
  *  `order` is chainable (production calls `.order().order().limit()` for a
- *  deterministic created_at + id sort). */
-function fakeSupabase(rowsByOrg: Record<string, { id: string; name: string | null }[]>) {
+ *  deterministic created_at + id sort) and every call is recorded so tests
+ *  can assert the exact sort contract, not just that ordering happened. */
+function fakeSupabase(
+  rowsByOrg: Record<string, { id: string; name: string | null }[]>,
+  orderCalls: OrderCall[] = [],
+) {
   const orderBuilder = (value: string) => ({
-    order: () => orderBuilder(value),
+    order: (column: string, opts: { ascending: boolean }) => {
+      orderCalls.push({ column, opts });
+      return orderBuilder(value);
+    },
     limit(n: number) {
       return Promise.resolve({
         data: (rowsByOrg[value] ?? []).slice(0, n),
@@ -57,6 +66,20 @@ describe("loadOrgBrands", () => {
     if (resultA.ok) {
       expect(resultA.brands.map((b) => b.id)).not.toContain("brand-b1");
     }
+  });
+
+  it("orders by created_at descending then id ascending, in that exact order", async () => {
+    const orderCalls: OrderCall[] = [];
+    const supabase = fakeSupabase({ [ORG_A]: [{ id: "brand-a1", name: "Brand Alpha" }] }, orderCalls);
+
+    await loadOrgBrands(supabase, ORG_A);
+
+    // Fails if a sort clause is removed, reversed, or the two are swapped —
+    // both the column/direction and the call order are asserted.
+    expect(orderCalls).toEqual([
+      { column: "created_at", opts: { ascending: false } },
+      { column: "id", opts: { ascending: true } },
+    ]);
   });
 
   it("caps results at 6 brands even when more are available", async () => {

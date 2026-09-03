@@ -11,7 +11,7 @@ export default function AppHomeLoading() {
       </span>
       <div className="flex flex-col gap-8" aria-hidden>
         <Skeleton className="h-8 w-48" />
-        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))" }}>
           {Array.from({ length: 3 }, (_, i) => (
             <Skeleton key={i} className="h-20" />
           ))}
