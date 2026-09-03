@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createServerClient } from "@supabase/ssr";
 
 /**
  * usera@ipix.co and userb@ipix.co are dedicated QA users in separate,
@@ -13,19 +14,6 @@ const otherOrgBrandNames = [
   "IPI-370 Smoke Co 1784673279581",
 ];
 
-/** Extracts the Supabase access_token from the session cookie the app
- *  already set via signInWithCredentials — no separate login/token call. */
-function accessTokenFromCookies(cookies: { name: string; value: string }[]): string {
-  const authCookie = cookies.find((c) => /^sb-.*-auth-token$/.test(c.name));
-  if (!authCookie) throw new Error("no Supabase auth cookie found in this browser context");
-  const encoded = authCookie.value.replace(/^base64-/, "");
-  const session = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as {
-    access_token?: string;
-  };
-  if (!session.access_token) throw new Error("session cookie has no access_token");
-  return session.access_token;
-}
-
 function supabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -37,34 +25,40 @@ function supabaseConfig() {
   return { url, key };
 }
 
+async function supabaseForPage(page: Page) {
+  const { url, key } = supabaseConfig();
+  const cookies = await page.context().cookies();
+  return createServerClient(url, key, {
+    cookies: {
+      getAll: () => cookies.map(({ name, value }) => ({ name, value })),
+      // These are short read-only probes; src/proxy.ts owns session refresh.
+      setAll: () => {},
+    },
+  });
+}
+
 /**
  * Read-only (SELECT only, RLS-enforced): the org this session's own
  * membership row belongs to — the "known record" every signed-in operator
  * can read about themselves, whether or not their org has any brands yet.
  */
 async function getOwnOrgId(page: Page): Promise<string> {
-  const { url, key } = supabaseConfig();
-  const token = accessTokenFromCookies(await page.context().cookies());
-  const response = await page.request.get(`${url}/rest/v1/org_members?select=org_id`, {
-    headers: { apikey: key, Authorization: `Bearer ${token}` },
-  });
-  expect(response.ok(), `org_members read failed: ${response.status()}`).toBeTruthy();
-  const rows = (await response.json()) as { org_id: string }[];
+  const supabase = await supabaseForPage(page);
+  const { data: rows, error } = await supabase.from("org_members").select("org_id");
+  expect(error, `org_members read failed: ${error?.message ?? "unknown"}`).toBeNull();
   expect(rows, "expected exactly one org membership row for this QA session").toHaveLength(1);
-  return rows[0].org_id;
+  return rows![0].org_id;
 }
 
 /** Read-only negative check: RLS must return zero rows, not leak another
  *  organization's membership row, when a session queries for it directly. */
 async function assertCannotReadOtherOrg(page: Page, otherOrgId: string) {
-  const { url, key } = supabaseConfig();
-  const token = accessTokenFromCookies(await page.context().cookies());
-  const response = await page.request.get(
-    `${url}/rest/v1/org_members?select=org_id&org_id=eq.${otherOrgId}`,
-    { headers: { apikey: key, Authorization: `Bearer ${token}` } },
-  );
-  expect(response.ok(), `cross-org read request failed unexpectedly: ${response.status()}`).toBeTruthy();
-  const rows = await response.json();
+  const supabase = await supabaseForPage(page);
+  const { data: rows, error } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .eq("org_id", otherOrgId);
+  expect(error, `cross-org read failed unexpectedly: ${error?.message ?? "unknown"}`).toBeNull();
   expect(rows, "RLS leak: this session can read another organization's membership row").toHaveLength(0);
 }
 

@@ -17,11 +17,9 @@ export async function signInWithCredentials(
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  // Sign-in redirects away from /login on success (see src/app/login/login-form.tsx).
-  // A role="alert" region also exists on the destination page as an empty
-  // live-region for future toasts — its mere presence isn't a failure signal,
-  // so leaving /login is the correct (and only reliable) success check here.
-  await expect(page).not.toHaveURL(/\/login$/);
+  // The app signs in, verifies claims, then router.push("/"). Wait for that
+  // final route before persisting storageState so auth cookies are settled.
+  await expect(page).toHaveURL((url) => url.pathname === "/");
 }
 
 export async function signInAsE2ETestOperator(page: Page): Promise<void> {
