@@ -122,7 +122,7 @@ describe("OperatorPanel", () => {
     await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Menu" }));
     await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(false));
-    expect(screen.getByRole("link", { name: "Home" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toBeDefined();
   });
 
   it("updates inert when the breakpoint changes and removes the listener on unmount", async () => {

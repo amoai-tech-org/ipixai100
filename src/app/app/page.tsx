@@ -1,14 +1,79 @@
+import { CommandCenter } from "@/components/dashboard/command-center";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { requireAppWorkspace } from "@/lib/auth/app-shell";
+import {
+  listMembershipOrgIdsFromServerClient,
+  resolveRuntimeTenant,
+} from "@/lib/auth/runtime-org";
+import { loadOrgBrands } from "@/lib/dashboard/command-center";
+import { createClient } from "@/lib/supabase/server";
 
+/**
+ * DASH-MAIN-001 — the authenticated `/app` Command Center.
+ *
+ * Trusted org is resolved server-side from AUTH-002 membership rows only
+ * (never a client-supplied org id). Brands are the sole live read for this
+ * page — see command-center.tsx for why shoots are not read here yet.
+ */
 export default async function AppHomePage() {
-  await requireAppWorkspace();
+  const operator = await requireAppWorkspace();
+
+  const supabase = await createClient();
+  if (!supabase) {
+    return (
+      <div className="p-8">
+        <ErrorState message="The workspace is temporarily unavailable. Please try again shortly." />
+      </div>
+    );
+  }
+
+  const tenant = await resolveRuntimeTenant({
+    listOrgIds: () => listMembershipOrgIdsFromServerClient(supabase, operator.id),
+  });
+
+  if (tenant.status === "needs_onboarding") {
+    return (
+      <div className="p-8">
+        <EmptyState
+          heading="No organization yet"
+          body="Your account isn't linked to an organization yet. Sign-up will fill this slot."
+        />
+      </div>
+    );
+  }
+
+  if (tenant.status === "needs_org_selection") {
+    return (
+      <div className="p-8">
+        <EmptyState
+          heading="Choose an organization"
+          body="Your account belongs to more than one organization. Organization switching isn't available on this dashboard yet."
+        />
+      </div>
+    );
+  }
+
+  if (tenant.status === "lookup_failed") {
+    return (
+      <div className="p-8">
+        <ErrorState message="Couldn't load your organization. Please try again shortly." />
+      </div>
+    );
+  }
+
+  const brandsResult = await loadOrgBrands(supabase, tenant.orgId);
+  if (!brandsResult.ok) {
+    return (
+      <div className="p-8">
+        <ErrorState message="Couldn't load your brands. Please try again shortly." />
+      </div>
+    );
+  }
+
   return (
     <div className="p-8">
-      <EmptyState
-        heading="Command Center"
-        body="HOME-001 will fill this slot. The operator shell, navigation, and intelligence rail are already here."
-      />
+      <CommandCenter brands={brandsResult.brands} />
     </div>
   );
 }
