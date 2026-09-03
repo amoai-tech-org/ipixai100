@@ -6,12 +6,33 @@ export function unauthorizedResponse(): Response {
 }
 
 export function forbiddenResponse(
-  reason: "needs_onboarding" | "needs_org_selection" | "thread_forbidden",
+  reason:
+    | "needs_onboarding"
+    | "needs_org_selection"
+    | "thread_forbidden"
+    | "ownership",
 ): Response {
   return new Response(JSON.stringify({ error: "forbidden", reason }), {
     status: 403,
     headers: { "content-type": "application/json" },
   });
+}
+
+export function badRequestResponse(reason: string): Response {
+  return new Response(JSON.stringify({ error: "bad_request", reason }), {
+    status: 400,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+export function configUnavailableResponse(reason: string): Response {
+  return new Response(
+    JSON.stringify({ error: "unavailable", reason }),
+    {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    },
+  );
 }
 
 export function membershipLookupFailedResponse(): Response {
