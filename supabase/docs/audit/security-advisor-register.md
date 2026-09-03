@@ -166,11 +166,11 @@ All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linea
 2. Has `SET search_path` configured (prevents search-path injection)
 3. Contains an explicit auth check — either `auth.uid()` directly, or via a helper (`is_org_member`, `is_at_least`, `is_org_owner`, `is_org_editor_or_above`, `is_assigned`, `is_organizer_team_member`, or `claim_token` validation)
 
-**Historical note:** [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) originally listed 34 functions. `get_brand_assets` was removed from this set by [SB-FIX-001](https://linear.app/amo100/issue/IPI-1029) (authenticated EXECUTE revoked — the function now requires `service_role`), leaving 33 live authenticated DEFINER functions.
+**Historical note:** [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) originally listed 34 functions. `get_brand_assets` was removed from this set by [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (authenticated EXECUTE revoked — the function now requires `service_role`), leaving 33 live authenticated DEFINER functions.
 
-**Body-level authorization audit: UNVERIFIED.** This register confirms each function has `SECURITY DEFINER`, `SET search_path`, an authenticated EXECUTE grant, and an auth-guard pattern in its signature. It does **not** verify that every function body enforces row-level ownership, org scoping, or write-safety at runtime. A dedicated body-audit pass (tracked as optional follow-up in [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029)) is required before treating any function as fully authorized.
+**Body-level authorization audit: UNVERIFIED.** This register confirms each function has `SECURITY DEFINER` (via `prosecdef = true`), `SET search_path` (via `proconfig` containing `search_path`), and an authenticated EXECUTE grant (via `has_function_privilege`). It does **not** verify that every function body enforces row-level ownership, org scoping, or write-safety at runtime — that requires executing each function as a signed-out caller, which is **NOT VERIFIED** here. A dedicated body-audit pass (tracked as optional follow-up in [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029)) is required before treating any function as fully authorized.
 
-**Note on `function_search_path_mutable`:** The 2 WARN findings for mutable `search_path` on `set_updated_at` and `trigger_set_timestamps` were already fixed by [SB-FIX-009](https://linear.app/amo100/issue/IPI-1029) (IPI-V2-000). These no longer appear in the live advisor output.
+**Note on `function_search_path_mutable`:** The 2 WARN findings for mutable `search_path` on `set_updated_at` and `trigger_set_timestamps` were already fixed by [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (IPI-V2-000). These no longer appear in the live advisor output.
 
 ---
 
@@ -197,10 +197,10 @@ This is the only finding that requires a product/plan change rather than a code 
 | Metric | Original | After Fixes | Current |
 |--------|---------:|------------:|--------:|
 | `rls_enabled_no_policy` | 36 | 5 (IPI-801 moved 33 Mastra tables to `mastra` schema) | 5 |
-| `authenticated_security_definer_function_executable` | 37 | 33 (SB-FIX-001 revoked authenticated EXECUTE on `get_brand_assets`) | 33 |
+| `authenticated_security_definer_function_executable` | 37 | 33 (IPI-1029 revoked authenticated EXECUTE on `get_brand_assets`) | 33 |
 | `anon_security_definer_function_executable` | 13 | 0 (IPI-664/665/668/677/673) | 0 |
 | `extension_in_public` | 3 | 3 (IPI-1030 KEEP) | 3 |
-| `function_search_path_mutable` | 2 | 0 (SB-FIX-009) | 0 |
+| `function_search_path_mutable` | 2 | 0 (IPI-1029) | 0 |
 | `auth_leaked_password_protection` | 1 | 1 (IPI-863) | 1 |
 | **Total security findings** | **278** | **42** | **42** |
 
@@ -214,8 +214,8 @@ This is the only finding that requires a product/plan change rather than a code 
 | [IPI-677](https://linear.app/amo100/issue/IPI-677) | Tighten `lead_intake_drafts` grants | — |
 | [IPI-673](https://linear.app/amo100/issue/IPI-673) | Revoke anon EXECUTE on all public RPCs | 13 anon DEFINER → 0 |
 | [IPI-801 · SB-V2-001](https://linear.app/amo100/issue/IPI-801) | Move 33 Mastra tables to `mastra` schema | 36 RLS-no-policy → 5 |
-| [SB-FIX-001](https://linear.app/amo100/issue/IPI-1029) | Revoke authenticated EXECUTE on `get_brand_assets` | 37 authenticated DEFINER → 33 |
-| [SB-FIX-009](https://linear.app/amo100/issue/IPI-1029) | Lock `search_path` on trigger helpers | 2 function_search_path_mutable → 0 |
+| [IPI-1029](https://linear.app/amo100/issue/IPI-1029) | Revoke authenticated EXECUTE on `get_brand_assets` | 37 authenticated DEFINER → 33 |
+| [IPI-1029](https://linear.app/amo100/issue/IPI-1029) | Lock `search_path` on trigger helpers | 2 function_search_path_mutable → 0 |
 | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | Classify 3 extensions as KEEP | 3 extension_in_public → KEEP |
 | [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) | Classify 33 authenticated DEFINER as KEEP | 33 authenticated DEFINER → KEEP |
 
@@ -227,7 +227,7 @@ This is the only finding that requires a product/plan change rather than a code 
 2. **RLS-no-policy verification:** `pg_tables` + `pg_policy` join to confirm RLS ON with zero policies; `information_schema.role_table_grants` to confirm no `anon`/`authenticated` grants.
 3. **Extension verification:** `pg_extension` + `pg_namespace` to confirm schema placement and version.
 4. **Function verification:** `pg_proc` to confirm `prosecdef = true`, `proconfig` includes `search_path`, and `has_function_privilege('authenticated', oid, 'execute') = true` (behavioral evidence, not prosrc substring matching).
-5. **Cross-reference:** All classifications cross-checked against [IPI-1029](https://linear.app/amo100/issue/IPI-1029), [IPI-1030](https://linear.app/amo100/issue/IPI-1030), [IPI-863](https://linear.app/amo100/issue/IPI-863), [IPI-241](https://linear.app/amo100/issue/IPI-241), [IPI-801](https://linear.app/amo100/issue/IPI-801), and [SB-FIX-001](https://linear.app/amo100/issue/IPI-1029)/[SB-FIX-009](https://linear.app/amo100/issue/IPI-1029).
+5. **Cross-reference:** All classifications cross-checked against [IPI-1029](https://linear.app/amo100/issue/IPI-1029), [IPI-1030](https://linear.app/amo100/issue/IPI-1030), [IPI-863](https://linear.app/amo100/issue/IPI-863), [IPI-241](https://linear.app/amo100/issue/IPI-241), [IPI-801](https://linear.app/amo100/issue/IPI-801), and [IPI-1029](https://linear.app/amo100/issue/IPI-1029)/[IPI-1029](https://linear.app/amo100/issue/IPI-1029).
 
 ---
 
