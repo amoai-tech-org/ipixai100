@@ -16,7 +16,7 @@ Optimize for:
 ## Fastest Safe Path
 
 Before coding:
-1. Run Graphify (`graphify query "<question>"`) before using Read/Grep/Glob/Bash to explore the codebase.
+1. Run `PATH="$HOME/.local/bin:$PATH" graphify query "<question>"` before using Read/Grep/Glob/Bash to explore the codebase.
 2. Inspect current repo state via the scoped graph, then find existing iPix implementation first.
 3. Check installed packages/types before web docs.
 4. Read only load-bearing files.
