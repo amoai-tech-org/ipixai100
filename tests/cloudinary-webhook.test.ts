@@ -234,6 +234,26 @@ describe("IPI-1111 signature verify", () => {
         signatureHeader: signature,
       }).ok,
     ).toBe(false);
+
+    const expiredTs = timestamp - 7201;
+    const expiredSig = signBody(body, expiredTs, secret);
+    expect(
+      verifyCloudinaryNotification({
+        rawBody: body,
+        timestampHeader: String(expiredTs),
+        signatureHeader: expiredSig,
+      }),
+    ).toEqual({ ok: false, reason: "timestamp_expired" });
+
+    delete process.env.CLOUDINARY_API_SECRET;
+    delete process.env.CLOUDINARY_NOTIFICATION_API_SECRET;
+    expect(
+      verifyCloudinaryNotification({
+        rawBody: body,
+        timestampHeader: String(timestamp),
+        signatureHeader: signature,
+      }),
+    ).toEqual({ ok: false, reason: "missing_api_secret" });
   });
 });
 
