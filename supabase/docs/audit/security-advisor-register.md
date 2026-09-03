@@ -166,7 +166,7 @@ All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linea
 2. Has `SET search_path` configured (prevents search-path injection)
 3. Contains an explicit auth check — either `auth.uid()` directly, or via a helper (`is_org_member`, `is_at_least`, `is_org_owner`, `is_org_editor_or_above`, `is_assigned`, `is_organizer_team_member`, or `claim_token` validation)
 
-**Historical note:** The advisor originally reported 37 `authenticated_security_definer_function_executable` findings. `get_brand_assets` was removed from this set by [IPI-1029](https://linear.app/amo100/issue/IPI-1029) (authenticated EXECUTE revoked — the function now requires `service_role`), leaving 33 live authenticated DEFINER functions.
+**Historical note:** The advisor originally reported 37 `authenticated_security_definer_function_executable` findings. [IPI-1029](https://linear.app/amo100/issue/IPI-1029) revoked authenticated EXECUTE on `get_brand_assets` (migration `20260902223000_ipi1122_sb_media_harden.sql:283-285`), reducing the count by 1. The remaining 3-function reduction (37 → 33) is **UNVERIFIED** — no migration or Linear evidence was found for the other 3 functions. The current live count of 33 is confirmed by the evidence query above.
 
 **Body-level authorization audit: UNVERIFIED.** This register confirms each function has `SECURITY DEFINER` (via `prosecdef = true`), `SET search_path` (via `proconfig` containing `search_path`), and an authenticated EXECUTE grant (via `has_function_privilege`). It does **not** verify that every function body enforces row-level ownership, org scoping, or write-safety at runtime — that requires executing each function as a signed-out caller, which is **NOT VERIFIED** here. A dedicated body-audit pass (tracked as optional follow-up in [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029)) is required before treating any function as fully authorized.
 
@@ -197,7 +197,7 @@ This is the only finding that requires a product/plan change rather than a code 
 | Metric | Original | After Fixes | Current |
 |--------|---------:|------------:|--------:|
 | `rls_enabled_no_policy` | 36 | 5 (IPI-801 moved 33 Mastra tables to `mastra` schema) | 5 |
-| `authenticated_security_definer_function_executable` | 37 | 33 (IPI-1029 revoked authenticated EXECUTE on `get_brand_assets`) | 33 |
+| `authenticated_security_definer_function_executable` | 37 | 33 (IPI-1029 revoked authenticated EXECUTE on `get_brand_assets`; 3 additional UNVERIFIED) | 33 |
 | `anon_security_definer_function_executable` | 13 | 0 (IPI-664/665/668/677/673) | 0 |
 | `extension_in_public` | 3 | 3 (IPI-1030 KEEP) | 3 |
 | `function_search_path_mutable` | 2 | 0 (IPI-1029) | 0 |
@@ -214,7 +214,7 @@ This is the only finding that requires a product/plan change rather than a code 
 | [IPI-677](https://linear.app/amo100/issue/IPI-677) | Tighten `lead_intake_drafts` grants | — |
 | [IPI-673](https://linear.app/amo100/issue/IPI-673) | Revoke anon EXECUTE on all public RPCs | 13 anon DEFINER → 0 |
 | [IPI-801 · SB-V2-001](https://linear.app/amo100/issue/IPI-801) | Move 33 Mastra tables to `mastra` schema | 36 RLS-no-policy → 5 |
-| [IPI-1029](https://linear.app/amo100/issue/IPI-1029) | Revoke authenticated EXECUTE on `get_brand_assets` | 37 authenticated DEFINER → 33 |
+| [IPI-1029](https://linear.app/amo100/issue/IPI-1029) | Revoke authenticated EXECUTE on `get_brand_assets` | 37 authenticated DEFINER → 33 (1 proven; 3 UNVERIFIED) |
 | [IPI-1029](https://linear.app/amo100/issue/IPI-1029) | Lock `search_path` on trigger helpers | 2 function_search_path_mutable → 0 |
 | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | Classify 3 extensions as KEEP | 3 extension_in_public → KEEP |
 | [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) | Classify 33 authenticated DEFINER as KEEP | 33 authenticated DEFINER → KEEP |
