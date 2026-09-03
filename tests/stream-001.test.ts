@@ -4,7 +4,10 @@ import { Observable } from "rxjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as agent from "../src/agent";
-import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+import {
+  CopilotKitIntelligence,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 
 import { GET, POST } from "../src/app/api/copilotkit/[[...slug]]/route";
 import { infoListsDefaultAgent } from "../src/lib/auth/copilot-mount";
@@ -611,6 +614,54 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
         expect.objectContaining({ threadId: body.threadId }),
       );
       expect(stats.runStarted).toBe(true);
+    } finally {
+      if (previousLicense === undefined) {
+        delete process.env.COPILOTKIT_LICENSE_TOKEN;
+      } else {
+        process.env.COPILOTKIT_LICENSE_TOKEN = previousLicense;
+      }
+      if (previousIntelligence === undefined) {
+        delete process.env.INTELLIGENCE_API_KEY;
+      } else {
+        process.env.INTELLIGENCE_API_KEY = previousIntelligence;
+      }
+    }
+  });
+
+  it("license-only runtime stays on SSE and does not call Intelligence connect", async () => {
+    const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
+    const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
+    process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
+    delete process.env.INTELLIGENCE_API_KEY;
+    const { agent: streamAgent } = createStreamHarness();
+    vi.spyOn(agent, "createLocalAgents").mockReturnValue({
+      default: streamAgent,
+    });
+    const connectSpy = vi.spyOn(
+      CopilotKitIntelligence.prototype,
+      "ɵconnectThread",
+    );
+    memberships.rows = [{ org_id: ORG_A }];
+    try {
+      const info = await GET(
+        copilotRequest("/api/copilotkit/info", { method: "GET" }),
+      );
+      expect(info.status).toBe(200);
+      const payload = (await info.json()) as {
+        mode?: string;
+        intelligence?: unknown;
+      };
+      expect(payload.mode).toBe("sse");
+      expect(payload.intelligence).toBeUndefined();
+
+      const response = await POST(
+        copilotRequest("/api/copilotkit/agent/default/connect", {
+          body: runBody(),
+        }),
+      );
+      expect(connectSpy).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toMatch(/text\/event-stream/);
     } finally {
       if (previousLicense === undefined) {
         delete process.env.COPILOTKIT_LICENSE_TOKEN;
