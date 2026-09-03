@@ -1,14 +1,20 @@
 /**
- * Shared signed-upload context contract for:
+ * Shared signed-upload context contract (schema_version=1) for:
  * - IPI-1110 · CLD-SIGN-001 (writes these into Cloudinary context on sign)
  * - IPI-1111 · CLD-WEBHOOK-001 (reads them from verified notification payloads)
  *
  * Cloudinary stores them under `context.custom.<key>` (and may also echo them
  * in structured metadata). Never infer tenant/org from `public_id`.
+ *
+ * Frozen field names (must match IPI-1110):
+ *   org_id | brand_id | asset_id | optional v2_shoot_id
+ *
+ * Disambiguation: Cloudinary notification root `asset_id` = provider identity.
+ * Signed context `asset_id` = internal iPix `public.assets.id` UUID.
  */
 export const IPIX_UPLOAD_CONTEXT_KEYS = {
   /** Server-minted iPix `public.assets.id` (UUID). Required for upload mirror. */
-  ipixAssetId: "ipix_asset_id",
+  assetId: "asset_id",
   /** Trusted org UUID resolved server-side at sign time (audit/metadata only). */
   orgId: "org_id",
   /** Brand UUID owned by that org. Required for creating/updating `assets`. */
@@ -18,7 +24,7 @@ export const IPIX_UPLOAD_CONTEXT_KEYS = {
 } as const;
 
 export type IpixUploadContext = {
-  ipixAssetId: string | null;
+  assetId: string | null;
   orgId: string | null;
   brandId: string | null;
   v2ShootId: string | null;
@@ -81,8 +87,11 @@ export function readIpixUploadContext(
     const raw = flat[key];
     return isUuid(raw) ? raw : null;
   };
+  // Prefer frozen `asset_id`; accept deprecated `ipix_asset_id` only as fallback.
+  const assetId =
+    pick(IPIX_UPLOAD_CONTEXT_KEYS.assetId) ?? pick("ipix_asset_id");
   return {
-    ipixAssetId: pick(IPIX_UPLOAD_CONTEXT_KEYS.ipixAssetId),
+    assetId,
     orgId: pick(IPIX_UPLOAD_CONTEXT_KEYS.orgId),
     brandId: pick(IPIX_UPLOAD_CONTEXT_KEYS.brandId),
     v2ShootId: pick(IPIX_UPLOAD_CONTEXT_KEYS.v2ShootId),

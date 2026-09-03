@@ -171,7 +171,8 @@ export type ApplyCloudinaryEventPayload = {
   format: string | null;
   folder: string | null;
   request_id: string;
-  ipix_asset_id: string | null;
+  /** Internal iPix `public.assets.id` from signed context (`asset_id`). */
+  asset_id: string | null;
   brand_id: string | null;
   org_id: string | null;
   v2_shoot_id: string | null;
@@ -194,7 +195,7 @@ export function toRpcPayload(
     format: event.format,
     folder: event.folder,
     request_id: event.requestId,
-    ipix_asset_id: event.context.ipixAssetId,
+    asset_id: event.context.assetId,
     brand_id: event.context.brandId,
     org_id: event.context.orgId,
     v2_shoot_id: event.context.v2ShootId,

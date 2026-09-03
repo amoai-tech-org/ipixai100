@@ -26,7 +26,12 @@ declare
   v_format text := nullif(p_event->>'format', '');
   v_folder text := nullif(p_event->>'folder', '');
   v_request_id text := nullif(p_event->>'request_id', '');
-  v_ipix_asset_id uuid := nullif(p_event->>'ipix_asset_id', '')::uuid;
+  -- Internal iPix UUID from signed context field `asset_id` (IPI-1110 schema_version=1).
+  -- Deprecated alias `ipix_asset_id` accepted only as fallback.
+  v_internal_asset_id uuid := coalesce(
+    nullif(p_event->>'asset_id', ''),
+    nullif(p_event->>'ipix_asset_id', '')
+  )::uuid;
   v_brand_id uuid := nullif(p_event->>'brand_id', '')::uuid;
   v_org_id uuid := nullif(p_event->>'org_id', '')::uuid;
   v_v2_shoot_id uuid := nullif(p_event->>'v2_shoot_id', '')::uuid;
@@ -190,9 +195,9 @@ begin
     end if;
   else
     -- New provider asset — internal identity must come from signed upload context.
-    if v_ipix_asset_id is null then
+    if v_internal_asset_id is null then
       return jsonb_build_object(
-        'outcome', 'noop_missing_ipix_asset_id',
+        'outcome', 'noop_missing_asset_id',
         'cloudinary_asset_id', v_provider_id
       );
     end if;
@@ -201,7 +206,7 @@ begin
       return jsonb_build_object(
         'outcome', 'noop_missing_brand_id',
         'cloudinary_asset_id', v_provider_id,
-        'ipix_asset_id', v_ipix_asset_id
+        'asset_id', v_internal_asset_id
       );
     end if;
 
@@ -235,7 +240,7 @@ begin
       metadata
     )
     values (
-      v_ipix_asset_id,
+      v_internal_asset_id,
       v_brand_id,
       v_v2_shoot_id,
       v_secure_url,
@@ -266,7 +271,7 @@ begin
       file_size = coalesce(excluded.file_size, public.assets.file_size),
       updated_at = now();
 
-    v_asset_id := v_ipix_asset_id;
+    v_asset_id := v_internal_asset_id;
 
     begin
       insert into public.cloudinary_assets (

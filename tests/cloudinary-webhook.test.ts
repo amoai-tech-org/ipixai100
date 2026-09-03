@@ -35,7 +35,7 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
       totally_unknown_future_field: { nested: true },
       context: {
         custom: {
-          ipix_asset_id: ASSET,
+          asset_id: ASSET,
           org_id: ORG,
           brand_id: BRAND,
           v2_shoot_id: SHOOT,
@@ -47,14 +47,14 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
     expect(event!.kind).toBe("upload");
     expect(event!.cloudinaryAssetId).toBe(PROVIDER);
     expect(event!.version).toBe(8);
-    expect(event!.context.ipixAssetId).toBe(ASSET);
+    expect(event!.context.assetId).toBe(ASSET);
     expect(event!.context.brandId).toBe(BRAND);
     expect(event!.context.orgId).toBe(ORG);
     expect(event!.context.v2ShootId).toBe(SHOOT);
     expect(event!.requestId).toBe("req-1");
 
     const payload = toRpcPayload(event!);
-    expect(payload.ipix_asset_id).toBe(ASSET);
+    expect(payload.asset_id).toBe(ASSET);
     expect(payload.cloudinary_asset_id).toBe(PROVIDER);
   });
 
@@ -106,10 +106,29 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
       "../src/lib/cloudinary/upload-context"
     );
     const ctx = readIpixUploadContext(
-      `ipix_asset_id=${ASSET}|brand_id=${BRAND}|org_id=${ORG}`,
+      `asset_id=${ASSET}|brand_id=${BRAND}|org_id=${ORG}`,
     );
-    expect(ctx.ipixAssetId).toBe(ASSET);
+    expect(ctx.assetId).toBe(ASSET);
     expect(ctx.brandId).toBe(BRAND);
+  });
+
+  it("accepts deprecated ipix_asset_id only as fallback", async () => {
+    const { readIpixUploadContext } = await import(
+      "../src/lib/cloudinary/upload-context"
+    );
+    const legacy = readIpixUploadContext({
+      custom: { ipix_asset_id: ASSET, brand_id: BRAND },
+    });
+    expect(legacy.assetId).toBe(ASSET);
+
+    const preferred = readIpixUploadContext({
+      custom: {
+        asset_id: ASSET,
+        ipix_asset_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+        brand_id: BRAND,
+      },
+    });
+    expect(preferred.assetId).toBe(ASSET);
   });
 });
 
@@ -221,7 +240,7 @@ describe("IPI-1111 webhook route", () => {
         version: 8,
         secure_url: "https://example.test/u",
         type: "authenticated",
-        context: { custom: { ipix_asset_id: ASSET, brand_id: BRAND, org_id: ORG } },
+        context: { custom: { asset_id: ASSET, brand_id: BRAND, org_id: ORG } },
       }),
     );
     expect(res.status).toBe(200);
