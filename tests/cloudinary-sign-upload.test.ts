@@ -407,20 +407,26 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
 });
 
 describe("IPI-1110 · CLD-SIGN-001 v2_shoot_owned_by_brand RPC contract", () => {
-  it("enforces auth.uid membership inside the SECURITY DEFINER body", async () => {
-    const { readFileSync } = await import("node:fs");
+  it("ships the migration and isolated SQL ACL suite (CI executes behavior)", async () => {
+    const { access, readFile } = await import("node:fs/promises");
     const { join } = await import("node:path");
-    const sql = readFileSync(
-      join(
-        process.cwd(),
-        "supabase/migrations/20260903120000_ipi1110_v2_shoot_owned_rpc.sql",
-      ),
-      "utf8",
+    const migration = join(
+      process.cwd(),
+      "supabase/migrations/20260903120000_ipi1110_v2_shoot_owned_rpc.sql",
     );
-    expect(sql).toMatch(/security definer/i);
-    expect(sql).toMatch(/auth\.uid\(\)/);
-    expect(sql).toMatch(/public\.is_org_member/);
-    expect(sql).toMatch(/join public\.brands b/i);
-    expect(sql).toMatch(/b\.org_id is null and b\.user_id/);
+    const acl = join(
+      process.cwd(),
+      "supabase/tests/security/v2-shoot-owned-rpc.sql",
+    );
+    await access(migration);
+    await access(acl);
+    const sql = await readFile(acl, "utf8");
+    // Observable cases are asserted in CI against a live Postgres (media-harden-acl):
+    // unsigned → false, Org A → true, Org B+Org A ids → false, anon/PUBLIC no EXECUTE.
+    expect(sql).toMatch(/unsigned caller must fail closed/);
+    expect(sql).toMatch(/org A caller must own org A shoot/);
+    expect(sql).toMatch(/org B caller must be denied org A shoot/);
+    expect(sql).toMatch(/anon must not EXECUTE v2_shoot_owned_by_brand/);
+    expect(sql).toMatch(/PUBLIC must not EXECUTE v2_shoot_owned_by_brand/);
   });
 });
