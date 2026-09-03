@@ -18,7 +18,6 @@ import {
 } from "@/lib/cloudinary/ownership";
 import {
   buildSignedUploadParams,
-  publicCloudinaryConfig,
   rejectClientSignParams,
   resolveSignedUploadPreset,
   signUploadParams,
@@ -28,16 +27,9 @@ import { createClientFromRequest } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-type SignBody = {
-  brand_id?: unknown;
-  v2_shoot_id?: unknown;
-  org_id?: unknown;
-  paramsToSign?: Record<string, unknown>;
-};
-
 /**
- * IPI-1110 · CLD-SIGN-001 — issue a Cloudinary upload signature only after
- * trusted active-org + brand (+ optional V2 shoot) ownership is proven.
+ * IPI-1110 · CLD-SIGN-001 — thin auth wrapper around Cloudinary
+ * `api_sign_request` for next-cloudinary `{ paramsToSign }` → `{ signature }`.
  *
  * Signing creates no Supabase asset row. Webhook (IPI-1111) correlates via
  * signed context: org_id, brand_id, asset_id, schema_version, optional v2_shoot_id.
@@ -53,25 +45,26 @@ export async function POST(request: Request): Promise<Response> {
     listOrgIds: () =>
       listMembershipOrgIdsFromServerClient(supabase, operator.id),
   });
-  if (tenant.status !== "ok") {
-    return runtimeTenantDenied(tenant);
-  }
+  if (tenant.status !== "ok") return runtimeTenantDenied(tenant);
 
-  let body: SignBody;
+  let raw: unknown;
   try {
-    body = (await request.json()) as SignBody;
+    raw = await request.json();
   } catch {
     return badRequestResponse("invalid_json");
   }
+  // null / array / primitive must 400 — request.json() succeeds for JSON null.
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return badRequestResponse("invalid_body");
+  }
+  const body = raw as Record<string, unknown>;
 
-  // Never trust body.orgId — tenant.orgId is the only org identity.
+  // Never trust body.org_id — tenant.orgId is the only org identity.
   if (body.org_id != null) {
     return badRequestResponse("unauthorized_param:org_id");
   }
 
-  if (!isUuid(body.brand_id)) {
-    return badRequestResponse("brand_id_required");
-  }
+  if (!isUuid(body.brand_id)) return badRequestResponse("brand_id_required");
   const brandId = body.brand_id;
 
   let v2ShootId: string | undefined;
@@ -104,19 +97,15 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const preset = resolveSignedUploadPreset();
-  if (!preset.ok) {
-    return configUnavailableResponse(preset.reason);
-  }
+  if (!preset.ok) return configUnavailableResponse(preset.reason);
 
-  // Read secret from env each request — do not rely on a previously configured SDK singleton.
+  // Read secret each request — do not rely on a previously configured singleton.
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  const { cloudName, apiKey } = publicCloudinaryConfig();
-  const resolvedCloudName =
-    cloudName ||
+  const cloudName =
     process.env.CLOUDINARY_CLOUD_NAME ||
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const resolvedApiKey = apiKey || process.env.CLOUDINARY_API_KEY;
-  if (!apiSecret || !resolvedApiKey || !resolvedCloudName) {
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  if (!apiSecret || !apiKey || !cloudName) {
     return configUnavailableResponse("cloudinary_config_missing");
   }
 
@@ -125,6 +114,7 @@ export async function POST(request: Request): Promise<Response> {
     brandId,
     v2ShootId,
     uploadPreset: preset.preset,
+    clientParams: clientParamsCheck.params,
   });
 
   const signature = signUploadParams(params, apiSecret);
@@ -132,8 +122,8 @@ export async function POST(request: Request): Promise<Response> {
     signature,
     params,
     contextFields,
-    apiKey: resolvedApiKey,
-    cloudName: resolvedCloudName,
+    apiKey,
+    cloudName,
   });
 
   // Defense: never leak secret even if a future field is added.

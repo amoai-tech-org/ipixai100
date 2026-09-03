@@ -10,7 +10,6 @@ export const FORBIDDEN_UPLOAD_PRESETS = new Set(["ai_powerstart"]);
 /**
  * Consume-only upload preset owned by IPI-1112 (eager named transforms).
  * IPI-1110 signs with this name only — never create/edit the preset.
- * @see docs/cloudinary/COORDINATION-1112.md (on 1112 branch until merged)
  */
 export const DEFAULT_SIGNED_UPLOAD_PRESET = "ipix-signed-upload";
 
@@ -18,10 +17,7 @@ export const ALLOWED_SIGNED_UPLOAD_PRESETS = new Set([
   DEFAULT_SIGNED_UPLOAD_PRESET,
 ]);
 
-/**
- * Params the server may include in the string-to-sign.
- * Client-supplied values for these keys are ignored; server derives them.
- */
+/** Params the server may include in the string-to-sign. */
 export const SIGNABLE_UPLOAD_KEYS = [
   "timestamp",
   "folder",
@@ -29,6 +25,7 @@ export const SIGNABLE_UPLOAD_KEYS = [
   "type",
   "context",
   "upload_preset",
+  "overwrite",
 ] as const;
 
 export type SignableUploadKey = (typeof SIGNABLE_UPLOAD_KEYS)[number];
@@ -63,4 +60,6 @@ export type SignedUploadParams = {
   type: "authenticated";
   context: string;
   upload_preset: string;
+  /** Always signed false — signed uploads default overwrite=true otherwise. */
+  overwrite: false;
 };

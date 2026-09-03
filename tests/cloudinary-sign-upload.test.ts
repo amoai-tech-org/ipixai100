@@ -9,6 +9,8 @@ const BRAND_A = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const BRAND_B = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const SHOOT_A = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const SHOOT_B = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const FIXED_ASSET_ID = "11111111-1111-4111-8111-111111111111";
+const FIXED_TS = 1_700_000_000;
 
 const memberships: {
   rows: { org_id: string }[];
@@ -29,9 +31,8 @@ function brandQuery(brandId: string, orgId: string) {
   return { data: row ? { id: row.id } : null, error: null };
 }
 
-function shootQuery(shootId: string, brandId: string) {
-  const row = shootRows.find((s) => s.id === shootId && s.brand_id === brandId);
-  return { data: row ? { id: row.id } : null, error: null };
+function shootOwned(shootId: string, brandId: string): boolean {
+  return shootRows.some((s) => s.id === shootId && s.brand_id === brandId);
 }
 
 vi.mock("../src/lib/supabase/server", () => ({
@@ -56,8 +57,8 @@ vi.mock("../src/lib/supabase/server", () => ({
       if (table === "brands") {
         return {
           select: () => ({
-            eq: (_c1: string, brandId: string) => ({
-              eq: (_c2: string, orgId: string) => ({
+            eq: (_idColumn: string, brandId: string) => ({
+              eq: (_orgColumn: string, orgId: string) => ({
                 maybeSingle: async () => brandQuery(brandId, orgId),
               }),
             }),
@@ -87,37 +88,18 @@ vi.mock("../src/lib/supabase/server", () => ({
         }),
       };
     },
-    schema: (name: string) => ({
-      from: (table: string) => {
-        if (name === "shoot" && table === "shoots") {
-          return {
-            select: () => ({
-              eq: (_c1: string, shootId: string) => ({
-                eq: (_c2: string, brandId: string) => ({
-                  maybeSingle: async () => shootQuery(shootId, brandId),
-                }),
-              }),
-            }),
-            insert: () => {
-              inserts.push({ table: "shoot.shoots" });
-              throw new Error("signing must not insert shoots");
-            },
-          };
-        }
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({
-                  data: null,
-                  error: { message: "unexpected" },
-                }),
-              }),
-            }),
-          }),
-        };
-      },
-    }),
+    rpc: async (
+      fn: string,
+      args: { p_shoot_id: string; p_brand_id: string },
+    ) => {
+      if (fn !== "v2_shoot_owned_by_brand") {
+        return { data: null, error: { message: `unexpected rpc ${fn}` } };
+      }
+      return {
+        data: shootOwned(args.p_shoot_id, args.p_brand_id),
+        error: null,
+      };
+    },
   }),
   createClient: async () => null,
 }));
@@ -157,7 +139,7 @@ afterEach(() => {
   process.env = { ...originalEnv };
 });
 
-function signRequest(body: Record<string, unknown>): Request {
+function signRequest(body: unknown): Request {
   return new Request("http://localhost/api/cloudinary/sign", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -171,34 +153,54 @@ describe("IPI-1110 · CLD-SIGN-001 upload contract helpers", () => {
       formatUploadContext({
         org_id: ORG_A,
         brand_id: BRAND_A,
-        asset_id: "11111111-1111-4111-8111-111111111111",
+        asset_id: FIXED_ASSET_ID,
         schema_version: UPLOAD_CONTEXT_SCHEMA_VERSION,
         v2_shoot_id: SHOOT_A,
       }),
     ).toBe(
-      `org_id=${ORG_A}|brand_id=${BRAND_A}|asset_id=11111111-1111-4111-8111-111111111111|schema_version=1|v2_shoot_id=${SHOOT_A}`,
+      `org_id=${ORG_A}|brand_id=${BRAND_A}|asset_id=${FIXED_ASSET_ID}|schema_version=1|v2_shoot_id=${SHOOT_A}`,
     );
   });
 
-  it("rejects unauthorized client sign params and stale timestamps", () => {
+  it("rejects unauthorized client sign param eager", () => {
     expect(rejectClientSignParams({ eager: "c_fill" })).toEqual({
       ok: false,
       reason: "unauthorized_param:eager",
     });
+  });
+
+  it("rejects notification_url client sign param", () => {
     expect(rejectClientSignParams({ notification_url: "https://x" })).toEqual({
       ok: false,
       reason: "unauthorized_param:notification_url",
     });
+  });
+
+  it("rejects forbidden upload_preset from client", () => {
     expect(rejectClientSignParams({ upload_preset: "ai_powerstart" })).toEqual({
       ok: false,
       reason: "forbidden_preset",
     });
+  });
+
+  it("rejects stale client timestamps", () => {
     expect(
       rejectClientSignParams(
         { timestamp: Math.floor(Date.now() / 1000) - 4000 },
         Math.floor(Date.now() / 1000),
       ),
     ).toEqual({ ok: false, reason: "stale_timestamp" });
+  });
+
+  it("rejects non-object paramsToSign", () => {
+    expect(rejectClientSignParams("x")).toEqual({
+      ok: false,
+      reason: "invalid_paramsToSign",
+    });
+    expect(rejectClientSignParams([])).toEqual({
+      ok: false,
+      reason: "invalid_paramsToSign",
+    });
   });
 
   it("defaults to ipix-signed-upload and rejects forbidden/unknown presets", () => {
@@ -220,27 +222,28 @@ describe("IPI-1110 · CLD-SIGN-001 upload contract helpers", () => {
     });
   });
 
-  it("produces a different signature when brand or shoot changes", async () => {
-    const { cloudinary } = await import("../src/lib/cloudinary/config");
-    void cloudinary;
+  it("signs overwrite=false and differs when brand changes", () => {
     const a = buildSignedUploadParams({
       orgId: ORG_A,
       brandId: BRAND_A,
       v2ShootId: SHOOT_A,
-      assetId: "11111111-1111-4111-8111-111111111111",
-      timestamp: 1_700_000_000,
+      assetId: FIXED_ASSET_ID,
+      timestamp: FIXED_TS,
       uploadPreset: DEFAULT_SIGNED_UPLOAD_PRESET,
     });
     const b = buildSignedUploadParams({
       orgId: ORG_A,
       brandId: BRAND_B,
       v2ShootId: SHOOT_A,
-      assetId: "11111111-1111-4111-8111-111111111111",
-      timestamp: 1_700_000_000,
+      assetId: FIXED_ASSET_ID,
+      timestamp: FIXED_TS,
       uploadPreset: DEFAULT_SIGNED_UPLOAD_PRESET,
     });
+    expect(a.params.overwrite).toBe(false);
+    expect(a.params.context).toBe(
+      `org_id=${ORG_A}|brand_id=${BRAND_A}|asset_id=${FIXED_ASSET_ID}|schema_version=1|v2_shoot_id=${SHOOT_A}`,
+    );
     expect(a.params.context).not.toBe(b.params.context);
-    expect(a.params.upload_preset).toBe("ipix-signed-upload");
     expect(signUploadParams(a.params, "test-api-secret")).not.toBe(
       signUploadParams(b.params, "test-api-secret"),
     );
@@ -257,13 +260,16 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     expect(body.signature).toEqual(expect.any(String));
     expect(body.signature.length).toBeGreaterThan(10);
     expect(body.type).toBe("authenticated");
+    expect(body.overwrite).toBe(false);
     expect(body.upload_preset).toBe("ipix-signed-upload");
     expect(body.schema_version).toBe("1");
     expect(body.org_id).toBe(ORG_A);
     expect(body.brand_id).toBe(BRAND_A);
     expect(body.v2_shoot_id).toBe(SHOOT_A);
     expect(body.asset_id).toEqual(expect.any(String));
-    expect(body.context).toContain(`asset_id=${body.asset_id}`);
+    expect(body.context).toBe(
+      `org_id=${ORG_A}|brand_id=${BRAND_A}|asset_id=${body.asset_id}|schema_version=1|v2_shoot_id=${SHOOT_A}`,
+    );
     expect(body.api_key).toBe("test-api-key");
     expect(body.cloud_name).toBe("ipix-cloudinary");
     expect(body).not.toHaveProperty("api_secret");
@@ -305,7 +311,7 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     expect(body).not.toHaveProperty("signature");
   });
 
-  it("rejects body.org_id and unauthorized sign params", async () => {
+  it("rejects body.org_id", async () => {
     const orgAttempt = await POST(
       signRequest({ brand_id: BRAND_A, org_id: ORG_B }),
     );
@@ -313,7 +319,9 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     expect(await orgAttempt.json()).toMatchObject({
       reason: "unauthorized_param:org_id",
     });
+  });
 
+  it("rejects unauthorized paramsToSign keys", async () => {
     const eager = await POST(
       signRequest({
         brand_id: BRAND_A,
@@ -335,6 +343,18 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     );
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ reason: "stale_timestamp" });
+  });
+
+  it("returns 400 for JSON null body", async () => {
+    const res = await POST(signRequest(null));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ reason: "invalid_body" });
+  });
+
+  it("returns 400 for array body", async () => {
+    const res = await POST(signRequest([]));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ reason: "invalid_body" });
   });
 
   it("returns 503 when the API secret is absent", async () => {
