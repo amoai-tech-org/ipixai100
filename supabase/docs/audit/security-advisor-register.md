@@ -242,9 +242,12 @@ This register is the single source of truth for Security Advisor classifications
 5. For **FIX** or **REVOKE** actions: re-run `supabase_get_advisors(type=security)` to confirm the finding is resolved. For **KEEP** findings: confirm the finding and its classification still match the live advisor output (no resolution required).
 
 **Refresh triggers:** Re-run `supabase_get_advisors(type=security)` and reconcile this register whenever any of the following change:
-- A `SECURITY DEFINER` function gains or loses an authenticated EXECUTE grant
-- A function body loses its auth guard (e.g., `auth.uid()` check removed)
-- An RLS policy is added or removed on a Category 1 table
+- A `SECURITY DEFINER` function gains or loses an `authenticated` EXECUTE grant
+- A function's auth guard, owner, or security mode (`SECURITY DEFINER` ↔ `SECURITY INVOKER`) changes
+- A function's configured `search_path` changes
+- `anon` / `authenticated` table grants or function EXECUTE grants change
+- Relevant `ALTER DEFAULT PRIVILEGES` change
+- An RLS policy is added, removed, or changed, or RLS is enabled/disabled on a relevant table
 - An extension is moved out of `public` schema
 - The Supabase plan tier changes (affects HIBP availability)
 
