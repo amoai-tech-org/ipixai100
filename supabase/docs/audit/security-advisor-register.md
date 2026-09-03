@@ -45,7 +45,7 @@ WHERE table_name IN ('chatbot_conversations','chatbot_messages','chatbot_events'
 
 ### Rationale
 
-- **chatbot_conversations / chatbot_messages / chatbot_events** — Documented in `supabase/docs/chatbot-rls.md`. The public homepage chatbot (WEB-015) persists conversations and lead drafts without letting anonymous browsers or logged-in operators read other visitors' rows. All writes go through the `capture-lead` Edge Function (service_role bypass). RLS is on with zero policies = default deny for JWT clients. See [IPI-241 · SB-HYGIENE-002](https://linear.app/amo100/issue/IPI-241) for the original design ticket.
+- **chatbot_conversations / chatbot_messages / chatbot_events** — The public homepage chatbot (WEB-015) persists conversations and lead drafts without letting anonymous browsers or logged-in operators read other visitors' rows. All writes go through the `capture-lead` Edge Function (service_role bypass). RLS is on with zero policies = default deny for JWT clients. See [IPI-241 · SB-HYGIENE-002](https://linear.app/amo100/issue/IPI-241) for the original design ticket and [IPI-872 · SB-HYGIENE-003](https://linear.app/amo100/issue/IPI-872) for the grant revocation that enforced deny-all.
 
 - **media_size_specs** — Internal reference table for Cloudinary transformation size specs. No client-facing read path; only `service_role` writes during brand-intelligence ingestion. Fail-closed is correct.
 
@@ -153,7 +153,9 @@ All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linea
 2. Has `SET search_path` configured (prevents search-path injection)
 3. Contains an explicit auth check — either `auth.uid()` directly, or via a helper (`is_org_member`, `is_at_least`, `is_org_owner`, `is_org_editor_or_above`, `is_assigned`, `is_organizer_team_member`, or `claim_token` validation)
 
-**Historical note:** [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) originally listed 34 functions. `get_brand_assets` was removed from this set by [SB-FIX-001](https://linear.app/amo100/issue/IPI-1029) (anon EXECUTE revoked), leaving 33 live authenticated DEFINER functions.
+**Historical note:** [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) originally listed 34 functions. `get_brand_assets` was removed from this set by [SB-FIX-001](https://linear.app/amo100/issue/IPI-1029) (authenticated EXECUTE revoked — the function now requires `service_role`), leaving 33 live authenticated DEFINER functions.
+
+**Body-level authorization audit: UNVERIFIED.** This register confirms each function has `SECURITY DEFINER`, `SET search_path`, an authenticated EXECUTE grant, and an auth-guard pattern in its signature. It does **not** verify that every function body enforces row-level ownership, org scoping, or write-safety at runtime. A dedicated body-audit pass (tracked as optional follow-up in [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029)) is required before treating any function as fully authorized.
 
 **Note on `function_search_path_mutable`:** The 2 WARN findings for mutable `search_path` on `set_updated_at` and `trigger_set_timestamps` were already fixed by [SB-FIX-009](https://linear.app/amo100/issue/IPI-1029) (IPI-V2-000). These no longer appear in the live advisor output.
 
@@ -225,6 +227,13 @@ This register is the single source of truth for Security Advisor classifications
 3. Link to the owning Linear ticket.
 4. Update the summary table.
 5. For **FIX** or **REVOKE** actions: re-run `supabase_get_advisors(type=security)` to confirm the finding is resolved. For **KEEP** findings: confirm the finding and its classification still match the live advisor output (no resolution required).
+
+**Refresh triggers:** Re-run `supabase_get_advisors(type=security)` and reconcile this register whenever any of the following change:
+- A `SECURITY DEFINER` function gains or loses an authenticated EXECUTE grant
+- A function body loses its auth guard (e.g., `auth.uid()` check removed)
+- An RLS policy is added or removed on a Category 1 table
+- An extension is moved out of `public` schema
+- The Supabase plan tier changes (affects HIBP availability)
 
 **Last updated:** 2026-09-03
 **Next review:** After [IPI-863 · AUTH-V2-001](https://linear.app/amo100/issue/IPI-863) (HIBP password protection) is resolved.
