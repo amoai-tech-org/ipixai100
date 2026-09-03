@@ -16,14 +16,13 @@ Optimize for:
 ## Fastest Safe Path
 
 Before coding:
-1. Inspect current repo state.
-2. Find existing iPix implementation first.
+1. Run Graphify (`graphify query "<question>"`) before using Read/Grep/Glob/Bash to explore the codebase.
+2. Inspect current repo state via the scoped graph, then find existing iPix implementation first.
 3. Check installed packages/types before web docs.
-4. Use Graphify for dependency/path discovery.
-5. Read only load-bearing files.
-6. Ask: "Is there a faster, simpler, equally reliable solution?"
-7. Use the smallest correct change.
-8. Run targeted tests before broad tests.
+4. Read only load-bearing files.
+5. Ask: "Is there a faster, simpler, equally reliable solution?"
+6. Use the smallest correct change.
+7. Run targeted tests before broad tests.
 
 Do not redesign architecture unless evidence proves the current design cannot satisfy the task.
 
@@ -92,7 +91,7 @@ Use cheapest reliable proof first:
 
 static inspection → unit test → integration test → typecheck → build → E2E/browser → live runtime proof
 
-"Done" requires observable verification, not just code existing.
+"Done" requires observable verification, not just code existing. Do not claim production-ready, persistence, authentication, or tenant isolation without the specific evidence each requires — missing evidence is `BLOCKED` or `UNVERIFIED`, per `AGENTS.md` § Completion claims.
 
 ## Git / Task Safety
 
