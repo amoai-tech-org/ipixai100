@@ -85,6 +85,8 @@ export function rejectClientSignParams(
 
   const params = paramsToSign as Record<string, unknown>;
   for (const key of Object.keys(params)) {
+    // Client may supply only timestamp; every other key is unauthorized.
+    if (key === "timestamp") continue;
     if (REJECTED_CLIENT_SIGN_KEYS.has(key) || SERVER_OWNED_KEYS.has(key)) {
       if (key === "upload_preset") {
         const preset = params[key];
@@ -92,8 +94,8 @@ export function rejectClientSignParams(
           return { ok: false, reason: "forbidden_preset" };
         }
       }
-      return { ok: false, reason: `unauthorized_param:${key}` };
     }
+    return { ok: false, reason: `unauthorized_param:${key}` };
   }
 
   if ("timestamp" in params) {

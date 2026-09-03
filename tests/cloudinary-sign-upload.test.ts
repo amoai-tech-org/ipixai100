@@ -183,6 +183,23 @@ describe("IPI-1110 · CLD-SIGN-001 upload contract helpers", () => {
     });
   });
 
+  it("rejects unknown client sign keys like tags", () => {
+    expect(rejectClientSignParams({ tags: "x" })).toEqual({
+      ok: false,
+      reason: "unauthorized_param:tags",
+    });
+  });
+
+  it("allows empty params and timestamp-only client params", () => {
+    expect(rejectClientSignParams(null)).toEqual({ ok: true, params: {} });
+    expect(rejectClientSignParams(undefined)).toEqual({ ok: true, params: {} });
+    const now = Math.floor(Date.now() / 1000);
+    expect(rejectClientSignParams({ timestamp: now }, now)).toEqual({
+      ok: true,
+      params: { timestamp: now },
+    });
+  });
+
   it("rejects stale client timestamps", () => {
     expect(
       rejectClientSignParams(
@@ -386,5 +403,24 @@ describe("IPI-1110 · CLD-SIGN-001 /api/cloudinary/sign", () => {
     claims.sub = undefined;
     const res = await POST(signRequest({ brand_id: BRAND_A }));
     expect(res.status).toBe(401);
+  });
+});
+
+describe("IPI-1110 · CLD-SIGN-001 v2_shoot_owned_by_brand RPC contract", () => {
+  it("enforces auth.uid membership inside the SECURITY DEFINER body", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const sql = readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/20260903120000_ipi1110_v2_shoot_owned_rpc.sql",
+      ),
+      "utf8",
+    );
+    expect(sql).toMatch(/security definer/i);
+    expect(sql).toMatch(/auth\.uid\(\)/);
+    expect(sql).toMatch(/public\.is_org_member/);
+    expect(sql).toMatch(/join public\.brands b/i);
+    expect(sql).toMatch(/b\.org_id is null and b\.user_id/);
   });
 });
