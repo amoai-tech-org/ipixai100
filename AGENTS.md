@@ -8,9 +8,10 @@ This is the iPix CopilotKit + Mastra runtime (`/home/sk/ipixai`). Do not impleme
 
 ```bash
 npm ci                          # install (lockfile)
-cp .env.example .env            # keys locally; never commit .env
-npm run dev:ui                  # Next.js :3000 (separate terminal)
-npm run dev:agent               # Mastra :4111 (separate terminal)
+# Secrets are injected through Infisical.
+# Repo binding: /home/sk/ipixai/.infisical.json
+infisical run --env=dev -- npm run dev:ui     # Next.js :3000 (separate terminal)
+infisical run --env=dev -- npm run dev:agent  # Mastra :4111 (separate terminal)
 ```
 
 Combined `npm run dev` is **blocked** (**DEV-STAB-001** — watcher/fork storm). Do not use `concurrently` for UI+agent.
@@ -47,11 +48,26 @@ Rules: `.cursor/rules/`. Skills: `.claude/skills/` (Cursor: `.cursor/skills` →
 ## Security considerations
 
 - Never print secrets, service-role keys, or database URLs
-- Never write **production** Supabase during audits or Core Mastra work
+- Production/hosted writes are forbidden by default
+- Exception: a Linear task may explicitly require a hosted synthetic proof on the approved project
+- Such writes require all task-specific safety gates before execution: verified project identity, synthetic IDs/namespaces, no real user/thread IDs, `disableInit: true` where required, baseline/after non-interference proof, cleanup, and explicit task authorization
+- Never convert an audit/read-only task into a hosted write
 - Default writes: local `supabase start`. Hosted reads: preview / `mastra_preview` until the golden persistence test is green
 - Never `supabase db push` against production
 - Stop if project, schema, role, or read/write boundary is uncertain
 - Advisory: https://github.com/amoai-tech/ipixai/security
+
+### Secrets / Infisical
+
+- Infisical is the canonical secret-injection path for this repository
+- Project config: `/home/sk/ipixai/.infisical.json`
+- Run secret-dependent commands through: `infisical run --env=dev -- <command>`
+- Do not read `.env` when Infisical is available
+- Never print secret values, database URLs, tokens, passwords, service-role keys, or API keys
+- When verifying configuration, print only variable names plus presence (`✅` / `❌`)
+- If a required secret is missing, report only the missing variable name and stop
+- Never copy another repository's `.infisical.json` or guess an Infisical project ID
+- `.infisical.json` contains project binding/configuration, not secret values, and may be committed when intentionally reviewed
 
 ## PR instructions
 

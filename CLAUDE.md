@@ -1,3 +1,16 @@
+## Secrets / Infisical
+
+Follow the repository-wide secret policy in `AGENTS.md`.
+
+For this repo:
+- Infisical config: `/home/sk/ipixai/.infisical.json`
+- Run secret-dependent commands with:
+  `infisical run --env=dev -- <command>`
+- Do not read `.env` when Infisical is available.
+- Never print secret values.
+- Presence checks may output only variable name + `✅/❌`.
+- If a required variable is missing, report only its name and stop.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
