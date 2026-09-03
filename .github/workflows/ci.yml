@@ -203,3 +203,34 @@ jobs:
             -f supabase/migrations/20260901183613_ipi1127_planner_thread_claims.sql
       - run: npm ci
       - run: npx vitest run tests/access-claim-001.test.ts
+
+  # IPI-1111 · CLD-WEBHOOK-001 — RPC state-machine SQL fixture (idempotency / tenant).
+  cloudinary-webhook-rpc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Seed schema, apply migration, run SQL fixture
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/cloudinary/apply-cloudinary-ci-seed.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260903020000_ipi1111_apply_cloudinary_asset_event.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/tests/cloudinary/apply-cloudinary-asset-events.sql
