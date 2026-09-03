@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loadOrgBrands } from "./command-center";
+import { loadOrgBrands } from "@/lib/dashboard/command-center";
 
 const ORG_A = "aaaaaaaa-0000-4000-8000-000000000001";
 const ORG_B = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -56,6 +56,22 @@ describe("loadOrgBrands", () => {
 
     if (resultA.ok) {
       expect(resultA.brands.map((b) => b.id)).not.toContain("brand-b1");
+    }
+  });
+
+  it("caps results at 6 brands even when more are available", async () => {
+    const sevenBrands = Array.from({ length: 7 }, (_, i) => ({
+      id: `brand-a${i + 1}`,
+      name: `Brand ${i + 1}`,
+    }));
+    const supabase = fakeSupabase({ [ORG_A]: sevenBrands });
+
+    const result = await loadOrgBrands(supabase, ORG_A);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.brands).toHaveLength(6);
+      expect(result.brands.map((b) => b.id)).not.toContain("brand-a7");
     }
   });
 
