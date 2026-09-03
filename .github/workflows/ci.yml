@@ -34,6 +34,45 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
+  # Playwright E2E — real UI login + tenant-isolation smoke against a local
+  # dev server. Requires E2E_TEST_EMAIL / E2E_TEST_PASSWORD (and, for the
+  # app itself to authenticate, NEXT_PUBLIC_SUPABASE_URL /
+  # NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) as repo secrets — a maintainer
+  # with repo admin must add these; until then this job fails with the
+  # harness's own clear "credentials missing" error, not a silent skip.
+  # Most IPI-1066-dependent specs are `test.fixme` until
+  # https://github.com/amoai-tech/ipixai/pull/52 merges — see e2e/*.spec.ts.
+  playwright-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENAI_API_KEY: placeholder
+      COPILOTKIT_TELEMETRY_DISABLED: "true"
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
   # Standing guard for IPI-897 planner default ACLs. Files are required on this
   # branch — missing migration/test fails the job instead of skipping.
   planner-default-acl:

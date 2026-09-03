@@ -1,28 +1,32 @@
 import { test, expect } from "@playwright/test";
 
+import { signInAsE2ETestOperator } from "./support/login";
+
 /**
- * The one full UI login in the suite. Every other authenticated spec reuses
- * the setup project's storageState instead of repeating this — see
- * https://playwright.dev/docs/auth.
+ * The one deliberate extra UI login in the suite, beyond auth.setup.ts —
+ * proves the real login form end-to-end rather than only reusing a saved
+ * cookie. Restricted to the "chromium" project only (see mobile-chromium's
+ * `testIgnore` in playwright.config.ts) so the hosted account is signed
+ * into exactly twice per full run (setup + this), not once per viewport.
  */
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("critical journey: login → dashboard → brand navigation", async ({ page }) => {
-  const email = process.env.E2E_TEST_EMAIL;
-  const password = process.env.E2E_TEST_PASSWORD;
-  if (!email || !password) {
-    throw new Error("E2E_TEST_EMAIL / E2E_TEST_PASSWORD are missing — set them in .env.test");
-  }
-
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).not.toHaveURL(/\/login$/);
-
-  await page.goto("/app");
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-
-  await page.getByRole("link", { name: "Open Brands" }).click();
-  await expect(page).toHaveURL(/\/app\/brands$/);
+test("critical journey: login succeeds", async ({ page }) => {
+  await signInAsE2ETestOperator(page);
 });
+
+// Blocked on https://github.com/amoai-tech/ipixai/pull/52 (IPI-1066) — /app on
+// main is still the pre-Command-Center placeholder. Remove `.fixme` once that
+// merges; the assertions below are the real, intended behavior, not a stub.
+test.fixme(
+  "critical journey: dashboard → brand navigation",
+  async ({ page }) => {
+    await signInAsE2ETestOperator(page);
+
+    await page.goto("/app");
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Open Brands" }).click();
+    await expect(page).toHaveURL(/\/app\/brands$/);
+  },
+);
