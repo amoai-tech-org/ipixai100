@@ -254,6 +254,16 @@ begin
     raise exception 'non-owner must not read org-less brand assets';
   end if;
 
+  select count(*) into seen from public.cloudinary_assets where asset_id = asset_owner;
+  if seen <> 0 then
+    raise exception 'non-owner must not read org-less brand cloudinary_assets';
+  end if;
+
+  select count(*) into seen from public.asset_events where id = event_owner;
+  if seen <> 0 then
+    raise exception 'non-owner must not read org-less brand asset_events';
+  end if;
+
   execute 'reset role';
 end
 $$;

@@ -46,6 +46,34 @@ drop policy if exists ca_delete_via_brand on public.cloudinary_assets;
 drop policy if exists anon_select_assets on public.assets;
 drop policy if exists anon_select_cloudinary_assets on public.cloudinary_assets;
 
+-- Fail loud if RLS helpers / brand tables are missing (avoid silent empty galleries).
+-- Note: production has brands + org_members; public.orgs is CI-only fixture shape.
+do $pre$
+begin
+  if to_regclass('public.brands') is null
+     or to_regclass('public.org_members') is null then
+    raise exception 'IPI-1122 requires public.brands and public.org_members';
+  end if;
+  if to_regprocedure('public.is_org_member(uuid)') is null then
+    raise exception 'IPI-1122 requires public.is_org_member(uuid)';
+  end if;
+  if to_regprocedure('auth.uid()') is null then
+    raise exception 'IPI-1122 requires auth.uid()';
+  end if;
+end
+$pre$;
+
+-- Policies SELECT brands directly; is_org_member may read org_members as invoker in some envs.
+grant select on table public.brands to authenticated;
+grant select on table public.org_members to authenticated;
+do $grant_orgs$
+begin
+  if to_regclass('public.orgs') is not null then
+    execute 'grant select on table public.orgs to authenticated';
+  end if;
+end
+$grant_orgs$;
+
 -- Replace any open/stale policies with org-member OR user-owned brand (org_id null) checks.
 -- Owner path must live on assets too so ca_select's assets join is not blocked by assets RLS.
 drop policy if exists assets_select on public.assets;
