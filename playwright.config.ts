@@ -47,12 +47,16 @@ export default defineConfig({
     // https://playwright.dev/docs/auth
     {
       name: "setup",
-      testMatch: /.*\.setup\.ts/,
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
+      name: "setup-org-b",
+      testMatch: /auth-org-b\.setup\.ts/,
     },
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
-      dependencies: ["setup"],
+      dependencies: ["setup", "setup-org-b"],
     },
     {
       name: "mobile-chromium",
@@ -63,7 +67,7 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         storageState: "playwright/.auth/user.json",
       },
-      dependencies: ["setup"],
+      dependencies: ["setup", "setup-org-b"],
       // login-journey does its own real UI login (not storageState) —
       // one extra hosted sign-in beyond setup is enough; running it per
       // viewport too would sign into the real account 3× per full run.

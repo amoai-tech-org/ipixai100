@@ -7,13 +7,11 @@ import { expect } from "@playwright/test";
  * proves the form itself, not just a saved cookie). Centralized so a label,
  * route, or credential-env-var change only needs one edit.
  */
-export async function signInAsE2ETestOperator(page: Page): Promise<void> {
-  const email = process.env.E2E_TEST_EMAIL;
-  const password = process.env.E2E_TEST_PASSWORD;
-  if (!email || !password) {
-    throw new Error("E2E_TEST_EMAIL / E2E_TEST_PASSWORD are missing — set them in .env.test");
-  }
-
+export async function signInWithCredentials(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -24,4 +22,14 @@ export async function signInAsE2ETestOperator(page: Page): Promise<void> {
   // live-region for future toasts — its mere presence isn't a failure signal,
   // so leaving /login is the correct (and only reliable) success check here.
   await expect(page).not.toHaveURL(/\/login$/);
+}
+
+export async function signInAsE2ETestOperator(page: Page): Promise<void> {
+  const email = process.env.E2E_TEST_EMAIL;
+  const password = process.env.E2E_TEST_PASSWORD;
+  if (!email || !password) {
+    throw new Error("E2E_TEST_EMAIL / E2E_TEST_PASSWORD are missing — set them in .env.test");
+  }
+
+  await signInWithCredentials(page, email, password);
 }
