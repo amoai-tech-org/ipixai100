@@ -628,11 +628,13 @@ describe("IPI-1045 · STREAM-001 authenticated planner stream", () => {
     }
   });
 
-  it("license-only runtime stays on SSE and does not call Intelligence connect", async () => {
+  it("whitespace-padded license and whitespace-only Intelligence key stay on SSE", async () => {
     const previousLicense = process.env.COPILOTKIT_LICENSE_TOKEN;
     const previousIntelligence = process.env.INTELLIGENCE_API_KEY;
-    process.env.COPILOTKIT_LICENSE_TOKEN = "test-license-token";
-    delete process.env.INTELLIGENCE_API_KEY;
+    // Without trim(), a whitespace-only Intelligence key is still truthy and
+    // would construct CopilotKitIntelligence — the regression this PR fixes.
+    process.env.COPILOTKIT_LICENSE_TOKEN = "  test-license-token  ";
+    process.env.INTELLIGENCE_API_KEY = " \t ";
     const { agent: streamAgent } = createStreamHarness();
     vi.spyOn(agent, "createLocalAgents").mockReturnValue({
       default: streamAgent,
