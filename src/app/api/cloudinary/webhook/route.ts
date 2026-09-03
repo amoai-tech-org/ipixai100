@@ -26,7 +26,8 @@ export async function POST(request: Request) {
   }
 
   const rawBody = await request.text();
-  if (rawBody.length > MAX_BODY_BYTES) {
+  // Measure UTF-8 bytes (not JS string length / UTF-16 code units).
+  if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
     return Response.json({ error: "payload_too_large" }, { status: 413 });
   }
 

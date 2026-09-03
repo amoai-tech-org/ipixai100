@@ -501,6 +501,36 @@ describe("IPI-1111 webhook route", () => {
     expect(res.status).toBe(413);
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it("returns 413 when UTF-8 bytes exceed bound despite short string length", async () => {
+    const verify = vi.fn();
+    vi.doMock("../src/lib/cloudinary/webhook-verify", () => ({
+      verifyCloudinaryNotification: verify,
+    }));
+
+    // € = 1 UTF-16 code unit, 3 UTF-8 bytes → length under cap, bytes over.
+    const rawBody = "\u20ac".repeat(349_526);
+    expect(rawBody.length).toBeLessThanOrEqual(1_048_576);
+    expect(Buffer.byteLength(rawBody, "utf8")).toBeGreaterThan(1_048_576);
+
+    const { POST } = await import("../src/app/api/cloudinary/webhook/route");
+    const res = await POST(
+      new Request("http://localhost/api/cloudinary/webhook", {
+        method: "POST",
+        headers: {
+          // Under-report so early Content-Length gate does not short-circuit.
+          "content-length": String(rawBody.length),
+          "x-cld-timestamp": "1",
+          "x-cld-signature": "x",
+        },
+        body: rawBody,
+      }),
+    );
+    expect(res.status).toBe(413);
+    expect(verify).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+    vi.doUnmock("../src/lib/cloudinary/webhook-verify");
+  });
 });
 
 describe("IPI-1111 SQL state-machine contract (documented outcomes)", () => {
