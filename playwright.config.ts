@@ -8,6 +8,17 @@ dotenv.config({ path: path.resolve(__dirname, ".env.test") });
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
 const isLocalTarget = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseURL);
 
+// These tests perform real sign-ins with real credentials — fail closed
+// rather than let a misconfigured/malicious E2E_BASE_URL point that at
+// production (ipix.co) or an arbitrary attacker-controlled host. Only
+// localhost and this project's own Vercel preview domain are allowed.
+const isAllowedBaseUrl = isLocalTarget || /^https:\/\/[a-z0-9-]+\.vercel\.app(\/|$)/i.test(baseURL);
+if (!isAllowedBaseUrl) {
+  throw new Error(
+    `E2E_BASE_URL "${baseURL}" is not localhost or a *.vercel.app preview — refusing to run real sign-in against it.`,
+  );
+}
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -44,6 +55,10 @@ export default defineConfig({
         storageState: "playwright/.auth/user.json",
       },
       dependencies: ["setup"],
+      // login-journey does its own real UI login (not storageState) —
+      // one extra hosted sign-in beyond setup is enough; running it per
+      // viewport too would sign into the real account 3× per full run.
+      testIgnore: /login-journey\.spec\.ts/,
     },
   ],
 
