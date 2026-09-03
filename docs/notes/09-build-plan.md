@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-23 · **Parent:** PROPOSED IPI-1028 · MASTRA-V2-000  
 **After:** [08-custom-code-reduction.md](08-custom-code-reduction.md)  
-**Before:** [10-core-mvp-advanced.md](./10-core-mvp-advanced.md)
+**Before:** [10-core-mvp-advanced.md](10-core-mvp-advanced.md)
 
 Keep production iPix live. Build v2 in parallel. Promote only after the golden journey.
 

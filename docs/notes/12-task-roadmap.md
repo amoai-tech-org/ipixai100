@@ -1,8 +1,8 @@
 # 12 — Task roadmap (sequential Linear backlog)
 
 **Linear IDs:** all `IPI-V2-xxx` are **PROPOSED**. Do not treat them as live Linear issues until created.  
-**After:** [11-product-plan.md](./11-product-plan.md)  
-**Parent brief:** [README.md](./README.md)  
+**After:** [11-product-plan.md](11-product-plan.md)  
+**Parent brief:** [README.md](README.md)  
 **Rule:** current production `app/` stays up. Work in a new tree (`app-v2/` or git worktree). One concern per PR.
 
 ```text
@@ -26,7 +26,7 @@ Only after Wave 4: OperatorShell → Brand/Shoots/Assets → tools → GenUI →
 
 **Three proof gates (in order):** package family → DB contract vs preview schema → persist + 403. Do not widen UI until all three are green.
 
-**Live schema SSOT:** [01-current-state-audit.md](./01-current-state-audit.md) — `mastra_workflow_definitions` **exists** (0 rows). Do not copy old `42P01 missing-table` language into new tickets.
+**Live schema SSOT:** [01-current-state-audit.md](01-current-state-audit.md) — `mastra_workflow_definitions` **exists** (0 rows). Do not copy old `42P01 missing-table` language into new tickets.
 
 **Waves (tickets stay small; execute in parallel inside a wave):**
 
@@ -160,7 +160,7 @@ Auth + org checks belong in the request hook. Keep the route **thin** (no transp
 
 ## IPI-V2-005B · DB-001 — Diff new `@mastra/pg` contract vs preview DB (before connect)
 
-**Purpose:** New Mastra storage must not assume the **preview** `mastra` schema matches the **installed** `@mastra/pg`. Live prod (2026-08-23, [01](./01-current-state-audit.md)): 34 tables; `mastra_workflow_definitions` **exists, 0 rows** (IPI-1008). Historical Studio `42P01` is closed. The new package may still add/rename tables.  
+**Purpose:** New Mastra storage must not assume the **preview** `mastra` schema matches the **installed** `@mastra/pg`. Live prod (2026-08-23, [01](01-current-state-audit.md)): 34 tables; `mastra_workflow_definitions` **exists, 0 rows** (IPI-1008). Historical Studio `42P01` is closed. The new package may still add/rename tables.  
 **User outcome:** Engineers know MATCH / NEW REQUIRED / NEW OPTIONAL / CHANGED COLUMN / DEPRECATED **before** the new runtime writes.  
 **Reuse:** [04-supabase-postgres-audit.md](../mastra/04-supabase-postgres-audit.md) + `supabase/migrations` Mastra files.  
 **Reference:** installed `@mastra/pg` types/source (constructor + expected tables).  

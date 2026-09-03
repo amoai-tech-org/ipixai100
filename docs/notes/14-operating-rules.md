@@ -1,9 +1,9 @@
 # 14 — Operating rules (before code)
 
-**After:** [13-mastra-rebuild.md](./13-mastra-rebuild.md)  
-**SSOT live DB:** [01-current-state-audit.md](./01-current-state-audit.md)  
+**After:** [13-mastra-rebuild.md](13-mastra-rebuild.md)  
+**SSOT live DB:** [01-current-state-audit.md](01-current-state-audit.md)  
 **ADRs:** [adr/](./adr/)  
-**Tickets:** [12-task-roadmap.md](./12-task-roadmap.md)
+**Tickets:** [12-task-roadmap.md](12-task-roadmap.md)
 
 These rules exist so the new repo does not grow a second walkie-talkie museum while we port the lookbook.
 
@@ -43,7 +43,7 @@ Wave 1 proof: `npm install` · typecheck · build · starter chat screenshot.
 
 ## 3. Reuse register (KEEP / PORT / ADAPT / DROP)
 
-Full matrix: [02-keep-rebuild-matrix.md](./02-keep-rebuild-matrix.md). Short list:
+Full matrix: [02-keep-rebuild-matrix.md](02-keep-rebuild-matrix.md). Short list:
 
 | Asset | Action |
 | ----- | ------ |

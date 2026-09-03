@@ -1,7 +1,7 @@
 # 11 — Product plan (reuse stages)
 
-**After:** [10-core-mvp-advanced.md](./10-core-mvp-advanced.md)  
-**Before:** [12-task-roadmap.md](./12-task-roadmap.md)
+**After:** [10-core-mvp-advanced.md](10-core-mvp-advanced.md)  
+**Before:** [12-task-roadmap.md](12-task-roadmap.md)
 
 # Overall recommendation
 

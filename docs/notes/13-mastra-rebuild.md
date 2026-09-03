@@ -1,7 +1,7 @@
 # 13 — Mastra rebuild (reuse iPix agents)
 
-**After:** [12-task-roadmap.md](./12-task-roadmap.md)  
-**Before:** [14-operating-rules.md](./14-operating-rules.md)
+**After:** [12-task-roadmap.md](12-task-roadmap.md)  
+**Before:** [14-operating-rules.md](14-operating-rules.md)
 
 The best approach is:
 

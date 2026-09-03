@@ -3,8 +3,8 @@
 **SSOT for live counts and schema.** If 12/13/README disagree with this file, this file wins until a newer dated re-audit.
 
 **Date verified:** 2026-08-23  
-**After:** [README.md](./README.md)  
-**Before:** [02-keep-rebuild-matrix.md](./02-keep-rebuild-matrix.md)  
+**After:** [README.md](README.md)  
+**Before:** [02-keep-rebuild-matrix.md](02-keep-rebuild-matrix.md)  
 **Scope:** `main` operator app (`app/`) + live Supabase `fashionos` (`nvdlhrodvevgwdsneplk`)  
 **Not verified as production-proven:** CopilotKit refresh restore, HITL interrupt/resume, Cloudflare Worker persistence as the live operator path  
 **Do not modify live DB** — this audit is read-only.

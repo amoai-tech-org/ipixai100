@@ -3,7 +3,7 @@
 **Verified:** 2026-08-24 (this session)  
 **Live project:** `nvdlhrodvevgwdsneplk` (`fashionos`, Postgres **17.6**, `ACTIVE_HEALTHY`)  
 **Local:** `/home/sk/ipixai/supabase` · Docker **up** · API `54341` · DB `54342`  
-**Plans:** [supa-fix-plan.md](../data/supa-fix-plan.md) · [data pack](../data/README.md) · [supabase-mastra.md](../mastra/supabase-mastra.md) · [todo.md](../todo.md)
+**Plans:** [supa-fix-plan.md](../data/supa-fix-plan.md) · [data pack](../data/README.md) · [supabase-mastra.md](../mastra/supabase-mastra.md) · [todo.md](todo-draft.md)
 
 **Mode:** read-only against production. No `db push`, no `db reset --linked`.
 

@@ -2,7 +2,7 @@
 
 **Linear** is status, blockers, and assignees.  
 **This file** is outcomes and order — not a 95-row status mirror.  
-**[todo.md](./todo.md)** is only NOW / NEXT / GATES.  
+**[todo.md](todo-draft.md)** is only NOW / NEXT / GATES.  
 Live project: [v2-ipix](https://linear.app/amo100/project/v2-ipix-cd2f90b58cd2/issues).
 
 Think of iPix as a **fashion studio floor**, not a chatbot on a website. CopilotKit is the intercom and the buttons. Mastra is the crew in the back. Supabase is the filing cabinet that is always right.

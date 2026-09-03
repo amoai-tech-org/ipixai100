@@ -1,9 +1,9 @@
 # 10 — Core / MVP / Advanced roadmap
 
 **Date:** 2026-08-23  
-**After:** [09-build-plan.md](./09-build-plan.md)  
-**Before:** [11-product-plan.md](./11-product-plan.md)  
-**Companion:** [01-current-state-audit.md](./01-current-state-audit.md) · [06-example-adoption.md](06-example-adoption.md) · [12-task-roadmap.md](./12-task-roadmap.md)
+**After:** [09-build-plan.md](09-build-plan.md)  
+**Before:** [11-product-plan.md](11-product-plan.md)  
+**Companion:** [01-current-state-audit.md](01-current-state-audit.md) · [06-example-adoption.md](06-example-adoption.md) · [12-task-roadmap.md](12-task-roadmap.md)
 
 Nothing else migrates until the **Core golden test** passes.
 

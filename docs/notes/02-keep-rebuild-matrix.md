@@ -1,6 +1,6 @@
 # 02 — Keep / rebuild matrix
 
-**After:** [01-current-state-audit.md](./01-current-state-audit.md)  
+**After:** [01-current-state-audit.md](01-current-state-audit.md)  
 **Before:** [03-repo-review.md](03-repo-review.md)  
 Fashion example: keep the lookbook shots and talent roster; rebuild the radio between producer and photographer.
 

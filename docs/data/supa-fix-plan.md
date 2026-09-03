@@ -62,7 +62,7 @@ Default ACLs (live `pg_default_acl`): role **`postgres`** already fail-closes ne
 → Wave 1 BOOT (CopilotKit/Mastra starter on preview)
 ```
 
-Check-off copy lives in [../todo.md](../todo.md).
+Check-off copy lives in [../todo.md](todo-draft.md).
 
 ---
 

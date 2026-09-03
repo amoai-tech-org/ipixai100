@@ -15,7 +15,7 @@ description: "iPix V2 product requirements: CopilotKit, Mastra, HITL writes, Cor
 |---|---|
 | **This page** (`docs/prd.md`) | Product requirements master |
 | **[Product sitemap](./sitemap.md)** | Product routes and phases (not HTML prototype counts) |
-| **[Execution backlog](./todo.md)** | Repo check-off order (Linear is status SSOT) |
+| **[Execution backlog](todo-draft.md)** | Repo check-off order (Linear is status SSOT) |
 | **[Legacy route audit](./design/SITEMAP-V2.md)** | Legacy React audit that informed the sitemap |
 | **[ADR index](./adr/README.md)** | Accepted architecture decisions |
 | internal architecture annex (not published) | Long-form architecture annex |

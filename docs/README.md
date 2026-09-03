@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-23  
 **Status:** planning only — current production `app/` stays live  
-**Task backlog:** [12-task-roadmap.md](./12-task-roadmap.md) · **Check-off order:** [todo.md](./todo.md) (Wave 0 = fix Supabase first)  
+**Task backlog:** [12-task-roadmap.md](12-task-roadmap.md) · **Check-off order:** [todo.md](todo-draft.md) (Wave 0 = fix Supabase first)  
 **Verified:** 2026-08-23 against `app/src/mastra/storage.ts`, live npm, [docs/mastra/04-supabase-postgres-audit.md](../mastra/04-supabase-postgres-audit.md)
 
 Read this folder **in number order**. This README is the executive brief; numbered docs are the evidence and the build sequence.
@@ -12,23 +12,23 @@ Read this folder **in number order**. This README is the executive brief; number
 | # | Doc | What it is |
 | - | --- | ---------- |
 | — | [README.md](./README.md) | Decision: new foundation + reuse iPix product |
-| 01 | [01-current-state-audit.md](./01-current-state-audit.md) | Live runtime, packages, what is proven vs broken |
-| 02 | [02-keep-rebuild-matrix.md](./02-keep-rebuild-matrix.md) | KEEP / PORT / REBUILD with fashion examples |
+| 01 | [01-current-state-audit.md](01-current-state-audit.md) | Live runtime, packages, what is proven vs broken |
+| 02 | [02-keep-rebuild-matrix.md](02-keep-rebuild-matrix.md) | KEEP / PORT / REBUILD with fashion examples |
 | 03 | [03-repo-review.md](copilotkit-mastra/03-repo-review.md) | GitHub example scores |
 | 04 | [04-example-catalog.md](copilotkit-mastra/04-example-catalog.md) | One starter + reference examples |
 | 05 | [05-starter-decision.md](05-starter-decision.md) | Why `integrations/mastra`, not mastra-pm |
 | 06 | [06-example-adoption.md](06-example-adoption.md) | How to copy official APIs into iPix |
 | 07 | [07-repo-to-task-map.md](07-repo-to-task-map.md) | Repo → proposed Linear tasks |
 | 08 | [08-custom-code-reduction.md](08-custom-code-reduction.md) | Glue to delete vs official replacement |
-| 09 | [09-build-plan.md](./09-build-plan.md) | Target architecture + golden journey |
-| 10 | [10-core-mvp-advanced.md](./10-core-mvp-advanced.md) | Phased product scope |
-| 11 | [11-product-plan.md](./11-product-plan.md) | Full product reuse / stage plan |
-| 12 | [12-task-roadmap.md](./12-task-roadmap.md) | Sequential implementation tasks |
-| 13 | [13-mastra-rebuild.md](./13-mastra-rebuild.md) | Mastra agents/tools/workflows reuse |
-| 14 | [14-operating-rules.md](./14-operating-rules.md) | Env matrix, reuse register, authz/idempotency, HITL, CI |
+| 09 | [09-build-plan.md](09-build-plan.md) | Target architecture + golden journey |
+| 10 | [10-core-mvp-advanced.md](10-core-mvp-advanced.md) | Phased product scope |
+| 11 | [11-product-plan.md](11-product-plan.md) | Full product reuse / stage plan |
+| 12 | [12-task-roadmap.md](12-task-roadmap.md) | Sequential implementation tasks |
+| 13 | [13-mastra-rebuild.md](13-mastra-rebuild.md) | Mastra agents/tools/workflows reuse |
+| 14 | [14-operating-rules.md](14-operating-rules.md) | Env matrix, reuse register, authz/idempotency, HITL, CI |
 | — | [adr/](./adr/) | Short ADRs (Node first, Mastra memory, tenancy, CF deferred) |
 
-**Live numbers SSOT:** [01-current-state-audit.md](./01-current-state-audit.md) (2026-08-23: 34 tables, 45 threads, 101 messages, `mastra_workflow_definitions` present / 0 rows).
+**Live numbers SSOT:** [01-current-state-audit.md](01-current-state-audit.md) (2026-08-23: 34 tables, 45 threads, 101 messages, `mastra_workflow_definitions` present / 0 rows).
 
 **Live Supabase architecture pack (2026-08-24, read-only):** [data/README.md](./data/README.md) — schemas, ERDs, RLS, RPCs, Edge, Mastra, scores.
 
@@ -83,7 +83,7 @@ The architecture is right. These implementation details were **wrong or too aggr
 | `new PostgresStore({ schema: "mastra" })` | **Wrong** | Live code: `id`, `connectionString`, **`schemaName`**, **`disableInit: true`** (`app/src/mastra/storage.ts`). **Verify installed `@mastra/pg` types before coding.** |
 | Pin CopilotKit `1.69.x` blindly | **Wrong rule** | `npm view` 2026-08-23: runtime/react-core/react-ui all **1.69.0**. Still pin the **starter-compatible family**. `@ag-ui/mastra@1.1.2` wants `@mastra/core` ≥1.29; `@mastra/pg@1.21.1` wants core ≥1.53 |
 | Write new runtime into production `mastra.*` on day one | **Too aggressive** | 45 threads / 101 messages live. Use preview/branch DB (or isolated schema) until gold |
-| Connect PG before schema-contract diff | **Still required** | Live catalog **now has** `mastra_workflow_definitions` (0 rows, IPI-1008). Historical `42P01` is closed. Diff **new** `@mastra/pg` vs **preview** DB anyway. SSOT: [01](./01-current-state-audit.md) |
+| Connect PG before schema-contract diff | **Still required** | Live catalog **now has** `mastra_workflow_definitions` (0 rows, IPI-1008). Historical `42P01` is closed. Diff **new** `@mastra/pg` vs **preview** DB anyway. SSOT: [01](01-current-state-audit.md) |
 | Handler AC `&lt;80 lines` | **Guideline only** | Thin route; auth may make it longer |
 | `getLocalAgents()` only | **Compare at implement** | Prefer **request-scoped** `getLocalAgent({ mastra, agentId, resourceId })` if types support it |
 | `resourceId = org:user` forever | **Core only** | Later shared shoot threads: `org:{orgId}:shoot:{shootId}` |
@@ -298,7 +298,7 @@ Run this against **preview/staging Mastra storage**, not production `mastra.*`.
 
 ## 10. Core / MVP / Advanced
 
-See also [10-core-mvp-advanced.md](./10-core-mvp-advanced.md).
+See also [10-core-mvp-advanced.md](10-core-mvp-advanced.md).
 
 | Stage | Includes | Gate |
 | ----- | -------- | ---- |
@@ -313,7 +313,7 @@ See also [10-core-mvp-advanced.md](./10-core-mvp-advanced.md).
 
 ## 11. Linear task list
 
-Canonical ordered backlog: **[12-task-roadmap.md](./12-task-roadmap.md)**. All IDs are **PROPOSED** (`IPI-V2-xxx`) until created in Linear.
+Canonical ordered backlog: **[12-task-roadmap.md](12-task-roadmap.md)**. All IDs are **PROPOSED** (`IPI-V2-xxx`) until created in Linear.
 
 Epic A Clean AI Runtime → B UI Reuse → C AI-native MVP → D Cloudflare → E Advanced.
 
@@ -388,4 +388,4 @@ Worker as Copilot host, CopilotKit Intelligence product, MCP, A2A (Signals first
 
 ## 17. Next
 
-Execute [12-task-roadmap.md](./12-task-roadmap.md) Task 0 onward in a worktree. Do not edit production Copilot route as part of this rebuild.
+Execute [12-task-roadmap.md](12-task-roadmap.md) Task 0 onward in a worktree. Do not edit production Copilot route as part of this rebuild.
