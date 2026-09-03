@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import styles from "./operator-panel.module.css";
 
+// Keep in sync with operator-panel.module.css @media (max-width: 767px)
 const MOBILE_NAV = "(max-width: 767px)";
 
 function useMobileNav() {

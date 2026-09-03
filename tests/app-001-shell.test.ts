@@ -9,10 +9,17 @@ const redirect = vi.hoisted(() =>
   }),
 );
 
+const notFound = vi.hoisted(() =>
+  vi.fn(() => {
+    throw new Error("NOT_FOUND");
+  }),
+);
+
 const getVerifiedOperatorFromCookies = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   redirect,
+  notFound,
   usePathname: () => "/app",
 }));
 
@@ -32,6 +39,10 @@ vi.mock("../src/components/operator-panel/operator-panel.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
+vi.mock("../src/components/ui/empty-state.module.css", () => ({
+  default: new Proxy({}, { get: (_, key) => String(key) }),
+}));
+
 vi.mock("../src/app/planner-app", () => ({
   PlannerApp: () => createElement("div", { "data-testid": "planner-app" }, "Planner"),
 }));
@@ -40,6 +51,7 @@ vi.mock("../src/lib/auth/copilot-hooks", () => ({
   getVerifiedOperatorFromCookies,
 }));
 
+import AppSectionPage from "../src/app/app/[section]/page";
 import AppLayout from "../src/app/app/layout";
 import HomePage from "../src/app/page";
 import { requireAppWorkspace } from "../src/lib/auth/app-shell";
@@ -50,6 +62,7 @@ afterEach(() => cleanup());
 
 beforeEach(() => {
   redirect.mockClear();
+  notFound.mockClear();
   getVerifiedOperatorFromCookies.mockReset();
 });
 
@@ -84,5 +97,30 @@ describe("APP-001 route split", () => {
     render(ui);
     expect(screen.queryByTestId("operator-panel")).toBeNull();
     expect(screen.getByTestId("planner-app")).toBeDefined();
+  });
+
+  it("signed-out / redirects to login", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(null);
+    await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
+    expect(redirect).toHaveBeenCalledWith("/login");
+  });
+
+  it("unknown /app/[section] calls notFound", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    await expect(
+      AppSectionPage({ params: Promise.resolve({ section: "not-a-real-section" }) }),
+    ).rejects.toThrow("NOT_FOUND");
+    expect(notFound).toHaveBeenCalled();
+  });
+
+  it("known /app/brands renders the EmptyState placeholder", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    const ui = await AppSectionPage({
+      params: Promise.resolve({ section: "brands" }),
+    });
+    render(ui);
+    expect(notFound).not.toHaveBeenCalled();
+    expect(screen.getByTestId("empty-state")).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Brands" })).toBeDefined();
   });
 });

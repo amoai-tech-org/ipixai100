@@ -2,20 +2,51 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+type MqListener = (event: MediaQueryListEvent) => void;
+
 function mockMobileNav(matches: boolean) {
+  let listener: MqListener | null = null;
+  const mq = {
+    matches,
+    media: "(max-width: 767px)",
+    addEventListener: (_event: string, cb: MqListener) => {
+      listener = cb;
+    },
+    removeEventListener: (_event: string, cb: MqListener) => {
+      if (listener === cb) listener = null;
+    },
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+    emit(next: boolean) {
+      this.matches = next;
+      listener?.({ matches: next } as MediaQueryListEvent);
+    },
+    hasListener() {
+      return listener !== null;
+    },
+  };
+
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     configurable: true,
-    value: (query: string) => ({
-      matches: query.includes("767") ? matches : false,
-      media: query,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      addListener: () => {},
-      removeListener: () => {},
-      dispatchEvent: () => false,
-    }),
+    value: (query: string) => {
+      if (!query.includes("767")) {
+        return {
+          matches: false,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          dispatchEvent: () => false,
+        };
+      }
+      return mq;
+    },
   });
+
+  return mq;
 }
 
 vi.mock("./operator-panel.module.css", () => ({
@@ -92,6 +123,24 @@ describe("OperatorPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Menu" }));
     await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(false));
     expect(screen.getByRole("link", { name: "Home" })).toBeDefined();
+  });
+
+  it("updates inert when the breakpoint changes and removes the listener on unmount", async () => {
+    const mq = mockMobileNav(true);
+    const { unmount } = render(
+      <OperatorPanel>
+        <p>Body</p>
+      </OperatorPanel>,
+    );
+    const nav = document.getElementById("operator-nav");
+    await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(true));
+    expect(mq.hasListener()).toBe(true);
+
+    mq.emit(false);
+    await waitFor(() => expect(nav?.hasAttribute("inert")).toBe(false));
+
+    unmount();
+    expect(mq.hasListener()).toBe(false);
   });
 });
 
