@@ -1,11 +1,15 @@
 import {
-  normalizeCloudinaryNotification,
+  normalizeCloudinaryNotifications,
+  outcomeNeedsRetry,
   toRpcPayload,
 } from "@/lib/cloudinary/webhook-normalize";
-import { applyCloudinaryAssetEvent } from "@/lib/cloudinary/webhook-persist";
+import { applyCloudinaryAssetEvents } from "@/lib/cloudinary/webhook-persist";
 import { verifyCloudinaryNotification } from "@/lib/cloudinary/webhook-verify";
 
 export const runtime = "nodejs";
+
+/** Bound raw body before verify/parse (Cloudinary notifications are small). */
+const MAX_BODY_BYTES = 1_048_576;
 
 /**
  * Cloudinary notification webhook (IPI-1111 · CLD-WEBHOOK-001).
@@ -13,7 +17,18 @@ export const runtime = "nodejs";
  * Do NOT retarget production notification URLs here — cutover is IPI-1115.
  */
 export async function POST(request: Request) {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength != null) {
+    const n = Number(contentLength);
+    if (Number.isFinite(n) && n > MAX_BODY_BYTES) {
+      return Response.json({ error: "payload_too_large" }, { status: 413 });
+    }
+  }
+
   const rawBody = await request.text();
+  if (rawBody.length > MAX_BODY_BYTES) {
+    return Response.json({ error: "payload_too_large" }, { status: 413 });
+  }
 
   const verified = verifyCloudinaryNotification({
     rawBody,
@@ -34,19 +49,24 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, outcome: "noop_invalid_json" }, { status: 200 });
   }
 
-  const event = normalizeCloudinaryNotification(parsed);
-  if (!event) {
+  const events = normalizeCloudinaryNotifications(parsed);
+  if (events.length === 0) {
     return Response.json({ ok: true, outcome: "noop_unrecognized" }, { status: 200 });
   }
 
-  if (event.kind === "ignored") {
+  if (events.every((e) => e.kind === "ignored")) {
     return Response.json(
-      { ok: true, outcome: "noop_ignored", notification_type: event.notificationType },
+      {
+        ok: true,
+        outcome: "noop_ignored",
+        notification_type: events[0]?.notificationType,
+      },
       { status: 200 },
     );
   }
 
-  const applied = await applyCloudinaryAssetEvent(toRpcPayload(event));
+  const actionable = events.filter((e) => e.kind !== "ignored");
+  const applied = await applyCloudinaryAssetEvents(actionable.map(toRpcPayload));
   if (!applied.ok) {
     return Response.json(
       { error: "persistence_failed", detail: applied.error },
@@ -54,8 +74,26 @@ export async function POST(request: Request) {
     );
   }
 
+  const results = applied.result.results;
+  const needsRetry = results.some((r) => outcomeNeedsRetry(r.outcome));
+  if (needsRetry) {
+    return Response.json(
+      {
+        error: "persistence_declined",
+        outcome: applied.result.outcome,
+        results,
+      },
+      { status: 503 },
+    );
+  }
+
   return Response.json(
-    { ok: true, outcome: applied.result.outcome, result: applied.result },
+    {
+      ok: true,
+      outcome: applied.result.outcome,
+      count: applied.result.count ?? results.length,
+      results,
+    },
     { status: 200 },
   );
 }

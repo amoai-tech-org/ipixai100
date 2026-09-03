@@ -39,7 +39,7 @@ export function isUuid(value: string | null | undefined): value is string {
 
 /**
  * Flatten Cloudinary context / metadata bags into a string map.
- * Tolerates: `{ custom: { k: v } }`, flat `{ k: v }`, and `k=v|k2=v2` strings.
+ * Signed `context.custom` wins over top-level context and structured metadata.
  */
 export function flattenContextBag(
   context: unknown,
@@ -47,7 +47,7 @@ export function flattenContextBag(
 ): Record<string, string> {
   const out: Record<string, string> = {};
 
-  const absorb = (value: unknown) => {
+  const absorb = (value: unknown, opts?: { skipCustom?: boolean }) => {
     if (value == null) return;
     if (typeof value === "string") {
       for (const part of value.split("|")) {
@@ -61,9 +61,6 @@ export function flattenContextBag(
     }
     if (typeof value !== "object") return;
     const obj = value as Record<string, unknown>;
-    if (obj.custom && typeof obj.custom === "object") {
-      absorb(obj.custom);
-    }
     for (const [k, v] of Object.entries(obj)) {
       if (k === "custom") continue;
       if (v == null) continue;
@@ -71,10 +68,22 @@ export function flattenContextBag(
         out[k] = String(v);
       }
     }
+    if (!opts?.skipCustom && obj.custom && typeof obj.custom === "object") {
+      absorb(obj.custom, { skipCustom: true });
+    }
   };
 
-  absorb(context);
+  // Lowest trust first → signed custom last (authoritative).
   absorb(metadata);
+  if (context != null && typeof context === "object" && !Array.isArray(context)) {
+    const obj = context as Record<string, unknown>;
+    absorb(obj, { skipCustom: true });
+    if (obj.custom && typeof obj.custom === "object") {
+      absorb(obj.custom, { skipCustom: true });
+    }
+  } else {
+    absorb(context);
+  }
   return out;
 }
 

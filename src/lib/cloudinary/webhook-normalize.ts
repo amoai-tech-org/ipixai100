@@ -12,16 +12,20 @@ export type CloudinaryWebhookKind =
   | "deleted"
   | "ignored";
 
+/** Cloudinary immutable provider asset id (`asset_id` on the notification). */
+export type CloudinaryProviderAssetId = string;
+
 export type NormalizedCloudinaryEvent = {
   kind: CloudinaryWebhookKind;
   notificationType: string;
-  /** Cloudinary immutable provider asset id */
-  cloudinaryAssetId: string | null;
+  cloudinaryAssetId: CloudinaryProviderAssetId | null;
   version: number | null;
   publicId: string | null;
   secureUrl: string | null;
-  resourceType: string;
-  deliveryType: string;
+  /** Null when omitted — RPC must not overwrite with defaults. */
+  resourceType: string | null;
+  /** Null when omitted — RPC must not overwrite with defaults. */
+  deliveryType: string | null;
   width: number | null;
   height: number | null;
   bytes: number | null;
@@ -71,46 +75,31 @@ function mapKind(notificationType: string): CloudinaryWebhookKind {
   }
 }
 
-function pickResource(body: Record<string, unknown>): Record<string, unknown> {
-  const resources = body.resources;
-  if (Array.isArray(resources) && resources.length > 0) {
-    const first = asRecord(resources[0]);
-    if (first) return { ...body, ...first };
-  }
-  return body;
-}
-
 function deterministicRequestId(parts: {
   notificationType: string;
   cloudinaryAssetId: string | null;
   version: number | null;
   publicId: string | null;
+  resourceIndex: number;
 }): string {
   const material = [
     parts.notificationType,
     parts.cloudinaryAssetId ?? "",
     parts.version == null ? "" : String(parts.version),
     parts.publicId ?? "",
+    String(parts.resourceIndex),
   ].join("|");
   const digest = createHash("sha256").update(material).digest("hex").slice(0, 32);
   return `cld:evt:${digest}`;
 }
 
-/**
- * Normalize a verified Cloudinary notification JSON object.
- * Unknown fields are tolerated and kept on `raw`.
- */
-export function normalizeCloudinaryNotification(
-  body: unknown,
-): NormalizedCloudinaryEvent | null {
-  const root = asRecord(body);
-  if (!root) return null;
-
-  const notificationType =
-    asString(root.notification_type) ?? asString(root.notificationType) ?? "unknown";
-  const kind = mapKind(notificationType);
-  const resource = pickResource(root);
-
+function normalizeResource(
+  root: Record<string, unknown>,
+  resource: Record<string, unknown>,
+  notificationType: string,
+  kind: CloudinaryWebhookKind,
+  resourceIndex: number,
+): NormalizedCloudinaryEvent {
   const cloudinaryAssetId =
     asString(resource.asset_id) ?? asString(resource.assetId);
   const version = asNumber(resource.version);
@@ -119,23 +108,30 @@ export function normalizeCloudinaryNotification(
     asString(resource.secure_url) ??
     asString(resource.secureUrl) ??
     asString(resource.url);
+  // Do not invent defaults — partial rename/overwrite must preserve stored values.
   const resourceType =
-    asString(resource.resource_type) ?? asString(resource.resourceType) ?? "image";
+    asString(resource.resource_type) ?? asString(resource.resourceType);
   const deliveryType =
-    asString(resource.type) ?? asString(resource.delivery_type) ?? "authenticated";
+    asString(resource.type) ?? asString(resource.delivery_type);
 
   const context = readIpixUploadContext(resource.context, resource.metadata);
 
+  const rootRequestId =
+    asString(root.request_id) ?? asString(root.requestId);
+  const resourceRequestId = asString(resource.request_id);
   const requestId =
-    asString(root.request_id) ??
-    asString(root.requestId) ??
-    asString(resource.request_id) ??
-    deterministicRequestId({
-      notificationType,
-      cloudinaryAssetId,
-      version,
-      publicId,
-    });
+    resourceRequestId ??
+    (rootRequestId && resourceIndex === 0
+      ? rootRequestId
+      : rootRequestId
+        ? `${rootRequestId}:${resourceIndex}`
+        : deterministicRequestId({
+            notificationType,
+            cloudinaryAssetId,
+            version,
+            publicId,
+            resourceIndex,
+          }));
 
   return {
     kind,
@@ -157,14 +153,106 @@ export function normalizeCloudinaryNotification(
   };
 }
 
+/**
+ * Normalize a verified Cloudinary notification into one event per resource.
+ * Bulk deletes (`resources[]`) expand to multiple events.
+ */
+export function normalizeCloudinaryNotifications(
+  body: unknown,
+): NormalizedCloudinaryEvent[] {
+  const root = asRecord(body);
+  if (!root) return [];
+
+  const notificationType =
+    asString(root.notification_type) ?? asString(root.notificationType) ?? "unknown";
+  const kind = mapKind(notificationType);
+
+  if (kind === "ignored") {
+    return [
+      {
+        kind: "ignored",
+        notificationType,
+        cloudinaryAssetId: null,
+        version: null,
+        publicId: null,
+        secureUrl: null,
+        resourceType: null,
+        deliveryType: null,
+        width: null,
+        height: null,
+        bytes: null,
+        format: null,
+        folder: null,
+        requestId:
+          asString(root.request_id) ??
+          asString(root.requestId) ??
+          deterministicRequestId({
+            notificationType,
+            cloudinaryAssetId: null,
+            version: null,
+            publicId: null,
+            resourceIndex: 0,
+          }),
+        context: {
+          assetId: null,
+          orgId: null,
+          brandId: null,
+          v2ShootId: null,
+        },
+        raw: root,
+      },
+    ];
+  }
+
+  const resources = root.resources;
+  if (Array.isArray(resources) && resources.length > 0) {
+    const events: NormalizedCloudinaryEvent[] = [];
+    // Keep notification-level request_id on `root` only so each resource gets a
+    // distinct idempotency key (`request_id` or `request_id:index`).
+    const {
+      resources: _resources,
+      request_id: _requestId,
+      requestId: _requestIdCamel,
+      ...rootRest
+    } = root;
+    void _resources;
+    void _requestId;
+    void _requestIdCamel;
+    for (let i = 0; i < resources.length; i++) {
+      const item = asRecord(resources[i]);
+      if (!item) continue;
+      events.push(
+        normalizeResource(
+          root,
+          { ...rootRest, ...item },
+          notificationType,
+          kind,
+          i,
+        ),
+      );
+    }
+    return events;
+  }
+
+  return [normalizeResource(root, root, notificationType, kind, 0)];
+}
+
+/** @deprecated Prefer normalizeCloudinaryNotifications for bulk deletes. */
+export function normalizeCloudinaryNotification(
+  body: unknown,
+): NormalizedCloudinaryEvent | null {
+  const events = normalizeCloudinaryNotifications(body);
+  return events[0] ?? null;
+}
+
 export type ApplyCloudinaryEventPayload = {
   kind: string;
   cloudinary_asset_id: string | null;
   version: number | null;
   public_id: string | null;
   secure_url: string | null;
-  resource_type: string;
-  delivery_type: string;
+  resource_type: string | null;
+  delivery_type: string | null;
   width: number | null;
   height: number | null;
   bytes: number | null;
@@ -200,4 +288,31 @@ export function toRpcPayload(
     org_id: event.context.orgId,
     v2_shoot_id: event.context.v2ShootId,
   };
+}
+
+/** Outcomes that should 200 (success / permanent noop). */
+export const WEBHOOK_OK_OUTCOMES = new Set([
+  "applied",
+  "archived",
+  "noop_duplicate",
+  "noop_duplicate_delete",
+  "noop_stale",
+  "noop_equal_version",
+  "noop_ignored_kind",
+  "noop_delete_unknown",
+  "noop_missing_request_id",
+  "batch_applied",
+]);
+
+/** Declined outcomes that need Cloudinary retry (503). */
+export const WEBHOOK_RETRY_OUTCOMES = new Set([
+  "noop_missing_asset_id",
+  "noop_missing_brand_id",
+  "noop_missing_delivery_fields",
+  "noop_unknown_brand",
+  "noop_missing_provider_id",
+]);
+
+export function outcomeNeedsRetry(outcome: string): boolean {
+  return WEBHOOK_RETRY_OUTCOMES.has(outcome);
 }
