@@ -92,6 +92,7 @@ All 33 functions verified via behavioral evidence — `has_function_privilege('a
 ```sql
 SELECT n.nspname AS schema, p.proname AS function,
        pg_get_function_arguments(p.oid) AS args,
+       p.proconfig AS config,
        has_function_privilege('authenticated', p.oid, 'execute') AS auth_execute
 FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
@@ -99,8 +100,10 @@ WHERE p.prosecdef = true
   AND n.nspname IN ('public', 'planner', 'talent')
   AND has_function_privilege('authenticated', p.oid, 'execute') = true
 ORDER BY n.nspname, p.proname;
--- Returns exactly 33 rows
+-- Returns exactly 33 rows; all have proconfig containing search_path
 ```
+
+**Per-function evidence:** Each of the 33 functions in the table above was confirmed to have `prosecdef = true`, `proconfig` containing `search_path`, and `has_function_privilege('authenticated', oid, 'execute') = true`. Auth-guard patterns are documented in the `Auth Guard` column. Body-level authorization (row-level ownership, org scoping at runtime) is **UNVERIFIED** — see note below.
 
 **Excluded from this category** (SECURITY DEFINER but NOT executable by `authenticated`):
 - `expire_stale_bookings` — cron/service_role only, no authenticated EXECUTE grant
@@ -194,7 +197,7 @@ This is the only finding that requires a product/plan change rather than a code 
 | Metric | Original | After Fixes | Current |
 |--------|---------:|------------:|--------:|
 | `rls_enabled_no_policy` | 36 | 5 (IPI-801 moved 33 Mastra tables to `mastra` schema) | 5 |
-| `authenticated_security_definer_function_executable` | 37 | 33 (SB-FIX-001 revoked anon EXECUTE on `get_brand_assets`) | 33 |
+| `authenticated_security_definer_function_executable` | 37 | 33 (SB-FIX-001 revoked authenticated EXECUTE on `get_brand_assets`) | 33 |
 | `anon_security_definer_function_executable` | 13 | 0 (IPI-664/665/668/677/673) | 0 |
 | `extension_in_public` | 3 | 3 (IPI-1030 KEEP) | 3 |
 | `function_search_path_mutable` | 2 | 0 (SB-FIX-009) | 0 |
