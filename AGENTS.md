@@ -8,8 +8,10 @@ This is the iPix CopilotKit + Mastra runtime (`/home/sk/ipixai`). Do not impleme
 
 ```bash
 npm ci                          # install (lockfile)
-# Secrets are injected through Infisical.
-# Repo binding: /home/sk/ipixai/.infisical.json
+# Secrets are injected through Infisical (needs `infisical login` once — see
+# § Secrets / Infisical below). No Infisical session available? Fall back to
+# a local .env (cp .env.example .env, fill it in, never commit it) — the app
+# reads plain process.env either way.
 infisical run --env=dev -- npm run dev:ui     # Next.js :3000 (separate terminal)
 infisical run --env=dev -- npm run dev:agent  # Mastra :4111 (separate terminal)
 ```
@@ -60,7 +62,8 @@ Rules: `.cursor/rules/`. Skills: `.claude/skills/` (Cursor: `.cursor/skills` →
 ### Secrets / Infisical
 
 - Infisical is the canonical secret-injection path for this repository
-- Project config: `/home/sk/ipixai/.infisical.json`
+- Requires the `infisical` CLI (not an npm dependency — install per [infisical.com/docs/cli/overview](https://infisical.com/docs/cli/overview)) and an authenticated Infisical session (`infisical login`) with access to this project
+- Project config: `.infisical.json` (repo root, committed — binding only, no secret values)
 - Run secret-dependent commands through: `infisical run --env=dev -- <command>`
 - Do not read `.env` when Infisical is available
 - Never print secret values, database URLs, tokens, passwords, service-role keys, or API keys
