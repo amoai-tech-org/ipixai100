@@ -24,23 +24,23 @@ const BRANDS_FAILED = { ok: false as const };
 describe("CommandCenter", () => {
   it("renders a Planner quick link to /app/plans", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} />);
-    const link = screen.getAllByRole("link", { name: "Open" }).find(
-      (el) => el.getAttribute("href") === "/app/plans",
-    );
-    expect(link).toBeDefined();
+    const link = screen.getByRole("link", { name: "Open Plans" });
+    expect(link.getAttribute("href")).toBe("/app/plans");
   });
 
-  it("renders Brands and Shoots quick links too", () => {
+  it("renders Brands and Shoots quick links with distinct accessible names", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} />);
-    const hrefs = screen.getAllByRole("link", { name: "Open" }).map((el) => el.getAttribute("href"));
-    expect(hrefs).toEqual(expect.arrayContaining(["/app/brands", "/app/shoots", "/app/plans"]));
+    expect(screen.getByRole("link", { name: "Open Brands" }).getAttribute("href")).toBe("/app/brands");
+    expect(screen.getByRole("link", { name: "Open Shoots" }).getAttribute("href")).toBe("/app/shoots");
   });
 
   it("keeps quick links usable when the brands read fails", () => {
     render(<CommandCenter brandsResult={BRANDS_FAILED} />);
     expect(screen.getByText(/Couldn't load your brands/)).toBeDefined();
     // Quick links are static and must not disappear with the failed section.
-    expect(screen.getAllByRole("link", { name: "Open" })).toHaveLength(3);
+    expect(screen.getByRole("link", { name: "Open Brands" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Open Shoots" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Open Plans" })).toBeDefined();
   });
 
   it("shows the empty state with no brands", () => {

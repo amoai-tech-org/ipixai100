@@ -19,6 +19,30 @@ type Props = {
   brandsResult: BrandsResult;
 };
 
+const QUICK_LINKS = [
+  {
+    key: "brands",
+    href: "/app/brands",
+    icon: Building2,
+    title: "Brands",
+    body: "Browse and open brand profiles.",
+  },
+  {
+    key: "shoots",
+    href: "/app/shoots",
+    icon: Camera,
+    title: "Shoots",
+    body: "Not available yet on this dashboard.",
+  },
+  {
+    key: "plans",
+    href: "/app/plans",
+    icon: ClipboardList,
+    title: "Plans",
+    body: "Enter the production planning workspace.",
+  },
+] as const;
+
 /**
  * DASH-MAIN-001 Command Center. COPY+CLEAN of the Lumina hero/recent-work
  * layout, ADAPTed to org-scoped server data and current DESIGN-001 atoms
@@ -80,42 +104,22 @@ export function CommandCenter({ brandsResult }: Props) {
           Quick links
         </h2>
         <div className={styles.quickLinks}>
-          <Card className={styles.quickLinkCard}>
-            <CardContent className={`${styles.quickLinkContent} pt-6`}>
-              <Building2 aria-hidden className={styles.quickLinkIcon} />
-              <div>
-                <p className={styles.quickLinkTitle}>Brands</p>
-                <p className={styles.quickLinkBody}>Browse and open brand profiles.</p>
-              </div>
-              <Link href="/app/brands" className={styles.link}>
-                Open
-              </Link>
-            </CardContent>
-          </Card>
-          <Card className={styles.quickLinkCard}>
-            <CardContent className={`${styles.quickLinkContent} pt-6`}>
-              <Camera aria-hidden className={styles.quickLinkIcon} />
-              <div>
-                <p className={styles.quickLinkTitle}>Shoots</p>
-                <p className={styles.quickLinkBody}>Not available yet on this dashboard.</p>
-              </div>
-              <Link href="/app/shoots" className={styles.link}>
-                Open
-              </Link>
-            </CardContent>
-          </Card>
-          <Card className={styles.quickLinkCard}>
-            <CardContent className={`${styles.quickLinkContent} pt-6`}>
-              <ClipboardList aria-hidden className={styles.quickLinkIcon} />
-              <div>
-                <p className={styles.quickLinkTitle}>Plans</p>
-                <p className={styles.quickLinkBody}>Enter the production planning workspace.</p>
-              </div>
-              <Link href="/app/plans" className={styles.link}>
-                Open
-              </Link>
-            </CardContent>
-          </Card>
+          {QUICK_LINKS.map(({ key, href, icon: Icon, title, body }) => (
+            <Card key={key} className={styles.quickLinkCard}>
+              <CardContent className={`${styles.quickLinkContent} pt-6`}>
+                <Icon aria-hidden className={styles.quickLinkIcon} />
+                <div>
+                  <p className={styles.quickLinkTitle}>{title}</p>
+                  <p className={styles.quickLinkBody}>{body}</p>
+                </div>
+                {/* Distinct accessible name per link — three "Open" links are
+                    indistinguishable to screen readers / voice control. */}
+                <Link href={href} className={styles.link} aria-label={`Open ${title}`}>
+                  Open
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
     </div>
