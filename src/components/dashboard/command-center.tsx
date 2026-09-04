@@ -52,10 +52,11 @@ const QUICK_LINKS = [
  * (Card, EmptyState, ErrorState) instead of Lumina's `CommandCenterBrandSync`
  * / sample-image fixtures.
  *
- * Deliberately dropped vs. Lumina: fashion-stock-photo fallbacks (brands
- * have no real cover yet, shoots render an honest no-image tile instead),
- * the `?skip=1`/`?skip=approval` dev-preview bypasses, and the approvals
- * block (no owning source until
+ * Deliberately dropped vs. Lumina: fashion-stock-photo fallbacks (every
+ * shoot renders an honest no-image tile — brands have no real cover column,
+ * and shoots' `cover_url` has no proven secure-delivery path yet, see the
+ * `.recentThumb` comment below), the `?skip=1`/`?skip=approval` dev-preview
+ * bypasses, and the approvals block (no owning source until
  * IPI-1084 · APPROVAL-001 — Let Operators Review, Edit, Approve, or Reject
  * AI Plans Before Anything Is Saved ships — see the Linear issue).
  *
@@ -75,12 +76,13 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
 
   return (
     <div className={styles.root} data-testid="command-center">
-      {/* Server-rendered freshness, not a live websocket feed — honest about
-          what "Live" means here. */}
+      {/* "Live" would claim a continuously-current feed this page doesn't
+          have — no websocket/realtime signal backs it. This says only what's
+          actually true: a successful server render for this request. */}
       <p className={styles.statusStrip}>
         <span className={styles.statusDot} aria-hidden />
-        <span className={styles.statusLabel}>Live</span>
-        <span>Data synced on this load.</span>
+        <span className={styles.statusLabel}>Workspace ready</span>
+        <span>Data loaded for this session.</span>
       </p>
 
       <header className={styles.hero}>
@@ -158,23 +160,18 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
             {shootsResult.shoots.map((shoot) => (
               <Link key={shoot.id} href="/app/shoots" className={styles.recentTile}>
                 <div className={styles.recentThumb}>
-                  {shoot.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- remote
-                    // Cloudinary host isn't in next/image's allowlist; plain <img>
-                    // avoids widening next.config.ts for one card.
-                    <img
-                      src={shoot.coverUrl}
-                      alt={`${shoot.name} cover`}
-                      loading="lazy"
-                      className={styles.recentImage}
-                    />
-                  ) : (
-                    // Honest no-image state — never a stock fashion photo
-                    // standing in for a real shoot asset.
-                    <span className={styles.recentThumbPlaceholder} aria-hidden>
-                      <Camera />
-                    </span>
-                  )}
+                  {/* No cover image yet: shoot_portfolio_view.cover_url comes
+                      from mood_board_urls, which has no bridge to this app's
+                      one proven secure-delivery contract (signed
+                      `authenticated`-type Cloudinary assets via
+                      cloudinary_assets + get-authorized-asset-preview.ts).
+                      Rendering it directly would be an unproven, possibly
+                      cross-org-leakable path — honest no-image placeholder
+                      until IPI-1112 · CLD-DELIVERY-001 ships a real signed
+                      preview route for it. */}
+                  <span className={styles.recentThumbPlaceholder} aria-hidden>
+                    <Camera />
+                  </span>
                   {typeof shoot.dnaScore === "number" && (
                     <span
                       className={dnaBadgeClass(shoot.dnaScore)}

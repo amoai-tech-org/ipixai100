@@ -24,15 +24,7 @@ const BRANDS_FAILED = { ok: false as const };
 const SHOOTS_OK = {
   ok: true as const,
   shoots: [
-    {
-      id: "shoot-1",
-      name: "Shoot One",
-      status: "in_progress",
-      coverUrl: null,
-      dnaScore: null,
-      channel: null,
-      updatedAt: null,
-    },
+    { id: "shoot-1", name: "Shoot One", status: "in_progress", dnaScore: null, channel: null },
   ],
 };
 const SHOOTS_EMPTY = { ok: true as const, shoots: [] };
@@ -111,33 +103,17 @@ describe("CommandCenter", () => {
     expect(screen.queryByTestId("command-center-hero")).toBeNull();
   });
 
-  it("renders an honest no-image placeholder for a shoot with no real cover", () => {
-    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
-    const tile = screen.getByText("Shoot One").closest("a");
-    expect(tile?.querySelector("img")).toBeNull();
-  });
-
-  it("renders the real cover image and DNA score when a shoot has them", () => {
-    const coverUrl = "https://res.cloudinary.com/demo/image/upload/shoot-2.jpg";
+  it("never renders a shoot cover image — no proven secure-delivery path yet", () => {
+    // Even a shoot with a real DNA score and channel gets the honest
+    // placeholder: cover_url has no bridge to this app's signed-delivery
+    // contract yet (see the .recentThumb comment in command-center.tsx).
     const shoots = {
       ok: true as const,
-      shoots: [
-        {
-          id: "shoot-2",
-          name: "Shoot Two",
-          status: "active",
-          coverUrl,
-          dnaScore: 91,
-          channel: "IG",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-      ],
+      shoots: [{ id: "shoot-2", name: "Shoot Two", status: "active", dnaScore: 91, channel: "IG" }],
     };
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
     const tile = screen.getByText("Shoot Two").closest("a");
-    // Asserted against the literal above, not read back off the fixture, so a
-    // mistaken fixture edit can't silently update both sides of this check.
-    expect(tile?.querySelector("img")?.getAttribute("src")).toBe(coverUrl);
+    expect(tile?.querySelector("img")).toBeNull();
     expect(screen.getByText("91")).toBeDefined();
     expect(screen.getByText("IG")).toBeDefined();
   });
@@ -145,17 +121,7 @@ describe("CommandCenter", () => {
   it("shows a DNA score of exactly 0 rather than treating it as unscored", () => {
     const shoots = {
       ok: true as const,
-      shoots: [
-        {
-          id: "shoot-3",
-          name: "Shoot Three",
-          status: "planning",
-          coverUrl: null,
-          dnaScore: 0,
-          channel: null,
-          updatedAt: null,
-        },
-      ],
+      shoots: [{ id: "shoot-3", name: "Shoot Three", status: "planning", dnaScore: 0, channel: null }],
     };
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
     expect(screen.getByText("0")).toBeDefined();
