@@ -1,4 +1,5 @@
--- CI-only seed for IPI-1147 SB-SEC-010 proofs.
+-- IPI-1147 · SPEC — Remove Unexpected Supabase Privileged Function Access and Prove Tenant-Safe RPCs
+-- CI-only seed for the IPI-1147 proofs.
 -- Creates insecure pre-state matching production gaps, then the migration
 -- hardens it. Includes production-shaped auth.uid / is_org_member / brands /
 -- campaigns / campaign_deliverables / talent trigger so migration RLS applies.

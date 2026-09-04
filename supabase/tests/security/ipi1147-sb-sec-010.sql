@@ -1,5 +1,5 @@
--- IPI-1147 · SB-SEC-010 — ACL + RLS regression for trigger EXECUTE and
--- campaign policy role targeting.
+-- IPI-1147 · SPEC — Remove Unexpected Supabase Privileged Function Access and Prove Tenant-Safe RPCs
+-- ACL + RLS regression for trigger EXECUTE and campaign policy role targeting.
 -- Runner: .github/workflows/ci.yml (after IPI-1147 migration applied).
 -- Assumes: talent schema + talent.bookings + trg_bookings_log_status_change
 -- exist (legacy history), and public.campaigns / campaign_deliverables exist.
@@ -16,12 +16,14 @@ declare
   campaign_a uuid := gen_random_uuid();
   campaign_b uuid := gen_random_uuid();
   deliverable_a uuid := gen_random_uuid();
+  deliverable_b uuid := gen_random_uuid();
   n integer;
   anon_exec boolean;
   auth_exec boolean;
   pub_exec boolean;
-  campaign_roles text[];
-  deliverable_roles text[];
+  auth_oid oid;
+  p record;
+  inserted boolean;
 begin
   -- 1) Trigger function: no direct EXECUTE for PUBLIC / anon / authenticated.
   if to_regprocedure('talent.log_booking_status_change()') is null then
@@ -47,38 +49,39 @@ begin
     raise exception 'trg_bookings_log_status_change missing or disabled';
   end if;
 
-  -- 2) Campaign policies target authenticated only (no empty-role / public).
-  select array_agg(rolname order by rolname)
-    into campaign_roles
-    from pg_policy p
-    cross join lateral (
-      select rolname from pg_roles where oid = any(p.polroles)
-    ) r
-    where p.polrelid = 'public.campaigns'::regclass;
+  -- 2) Per-policy role targeting: every campaign policy must target exactly
+  --    the authenticated role. polroles containing the zero OID (0) means the
+  --    policy applies to PUBLIC — reject it explicitly (OID 0 does not join
+  --    to pg_roles, so a naive join silently hides PUBLIC policies).
+  select oid into auth_oid from pg_roles where rolname = 'authenticated';
 
-  if campaign_roles is null or array_length(campaign_roles, 1) = 0 then
-    raise exception 'campaigns policies must target authenticated, not public';
-  end if;
-  if exists (select 1 from unnest(campaign_roles) r where r <> 'authenticated') then
-    raise exception 'campaigns policies must target ONLY authenticated, got %', campaign_roles;
+  for p in
+    select polrelid::regclass::text as tbl, polname,
+           array(select unnest(polroles)) as roles
+    from pg_policy
+    where polrelid in ('public.campaigns'::regclass, 'public.campaign_deliverables'::regclass)
+    order by polrelid::regclass::text, polname
+  loop
+    if p.roles is null or array_length(p.roles, 1) <> 1 then
+      raise exception 'policy % on % must target exactly one role, got %', p.polname, p.tbl, p.roles;
+    end if;
+    if p.roles[1] = 0 then
+      raise exception 'policy % on % targets PUBLIC (OID 0) — must be authenticated', p.polname, p.tbl;
+    end if;
+    if p.roles[1] <> auth_oid then
+      raise exception 'policy % on % must target authenticated, got OID %', p.polname, p.tbl, p.roles[1];
+    end if;
+  end loop;
+
+  -- 3) Expected policy count: 4 on campaigns + 4 on campaign_deliverables.
+  select count(*) into n
+    from pg_policy
+    where polrelid in ('public.campaigns'::regclass, 'public.campaign_deliverables'::regclass);
+  if n <> 8 then
+    raise exception 'expected 8 campaign policies, got %', n;
   end if;
 
-  select array_agg(rolname order by rolname)
-    into deliverable_roles
-    from pg_policy p
-    cross join lateral (
-      select rolname from pg_roles where oid = any(p.polroles)
-    ) r
-    where p.polrelid = 'public.campaign_deliverables'::regclass;
-
-  if deliverable_roles is null or array_length(deliverable_roles, 1) = 0 then
-    raise exception 'campaign_deliverables policies must target authenticated, not public';
-  end if;
-  if exists (select 1 from unnest(deliverable_roles) r where r <> 'authenticated') then
-    raise exception 'campaign_deliverables policies must target ONLY authenticated, got %', deliverable_roles;
-  end if;
-
-  -- 3) Predicates preserved: is_org_member gates every policy.
+  -- 4) Predicates preserved: is_org_member gates every USING predicate.
   select count(*) into n
     from pg_policy
     where polrelid in ('public.campaigns'::regclass, 'public.campaign_deliverables'::regclass)
@@ -88,33 +91,66 @@ begin
     raise exception 'expected >= 6 campaign policies with is_org_member USING predicate, got %', n;
   end if;
 
-  -- 4) Tenant isolation: Org B cannot read Org A campaign via RLS.
+  -- 5) Tenant isolation: Org B cannot read Org A campaign / deliverable via RLS.
   insert into public.orgs (id) values (org_a), (org_b);
   insert into public.org_members (org_id, user_id) values (org_a, user_a), (org_b, user_b);
   insert into public.brands (id, org_id, user_id) values (brand_a, org_a, user_a);
   insert into public.campaigns (id, org_id, brand_id, name, status)
     values (campaign_a, org_a, brand_a, 'IPI-1147 Campaign A', 'planning'),
            (campaign_b, org_b, brand_a, 'IPI-1147 Campaign B', 'planning');
+  insert into public.campaign_deliverables (id, campaign_id, phase, label, status)
+    values (deliverable_a, campaign_a, 1, 'IPI-1147 Deliverable A', 'draft'),
+           (deliverable_b, campaign_b, 1, 'IPI-1147 Deliverable B', 'draft');
 
   execute 'set local role authenticated';
   perform set_config('request.jwt.claim.sub', user_b::text, true);
 
-  -- Org B user must not see Org A campaign.
+  -- Org B user must not see Org A campaign or its deliverable.
   if exists (select 1 from public.campaigns where id = campaign_a) then
     raise exception 'Org B user saw Org A campaign (RLS leak)';
   end if;
-  -- Org B user must see own campaign.
+  if exists (select 1 from public.campaign_deliverables where id = deliverable_a) then
+    raise exception 'Org B user saw Org A deliverable (RLS leak)';
+  end if;
+  -- Org B user must see own campaign and deliverable.
   if not exists (select 1 from public.campaigns where id = campaign_b) then
     raise exception 'Org B user could not see own campaign';
   end if;
+  if not exists (select 1 from public.campaign_deliverables where id = deliverable_b) then
+    raise exception 'Org B user could not see own deliverable';
+  end if;
+
+  -- 6) INSERT with-check: Org B cannot insert a deliverable into Org A campaign.
+  inserted := false;
+  begin
+    insert into public.campaign_deliverables (id, campaign_id, phase, label, status)
+      values (gen_random_uuid(), campaign_a, 1, 'IPI-1147 cross-org insert', 'draft');
+    inserted := true;
+  exception when insufficient_privilege or check_violation then
+    null;
+  end;
+  if inserted then
+    raise exception 'Org B user inserted a deliverable into Org A campaign (with-check leak)';
+  end if;
+
+  -- Org B CAN insert a deliverable into own campaign.
+  begin
+    insert into public.campaign_deliverables (id, campaign_id, phase, label, status)
+      values (gen_random_uuid(), campaign_b, 1, 'IPI-1147 own insert', 'draft');
+  exception when others then
+    raise exception 'Org B user could not insert into own campaign: %', sqlerrm;
+  end;
 
   reset role;
   perform set_config('request.jwt.claim.sub', '', true);
 
-  -- 5) anon gets zero campaign data.
+  -- 7) anon gets zero campaign / deliverable data.
   execute 'set local role anon';
   if exists (select 1 from public.campaigns) then
     raise exception 'anon saw campaign rows (RLS leak)';
+  end if;
+  if exists (select 1 from public.campaign_deliverables) then
+    raise exception 'anon saw deliverable rows (RLS leak)';
   end if;
   reset role;
 

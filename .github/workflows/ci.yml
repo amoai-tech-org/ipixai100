@@ -235,7 +235,7 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/cloudinary/apply-cloudinary-asset-events.sql
 
-  # IPI-1147 · SB-SEC-010 — trigger EXECUTE revoke + campaign RLS role targeting.
+  # IPI-1147 · SPEC — Remove Unexpected Supabase Privileged Function Access and Prove Tenant-Safe RPCs
   sb-sec-010-acl:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -251,7 +251,7 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
-          --health-timeout 5s
+          --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     steps:

@@ -1,5 +1,4 @@
--- IPI-1147 · SB-SEC-010 — Remove unexpected privileged function access and
--- prove tenant-safe RPCs.
+-- IPI-1147 · SPEC — Remove Unexpected Supabase Privileged Function Access and Prove Tenant-Safe RPCs
 --
 -- Purpose (forward-only; do not edit applied history):
 --   1) Revoke direct EXECUTE on talent.log_booking_status_change() from
@@ -10,8 +9,11 @@
 --      trigger. service_role keeps EXECUTE for any server-side callers.
 --   2) Retarget the 8 campaigns / campaign_deliverables RLS policies from the
 --      implicit `public` role (empty polroles = all roles incl. anon) to
---      `authenticated`, preserving the exact existing predicates
---      (is_org_member(...) and the brand-owner / assigned_to checks).
+--      `authenticated`, preserving the existing predicates
+--      (is_org_member(...) and the brand-owner / assigned_to checks) and
+--      adding an is_org_member check on the resulting campaign_id to the
+--      deliverable UPDATE with-check so a row cannot be reparented into
+--      another organization's campaign.
 --
 -- Does NOT: mass-revoke the 34 authenticated SECURITY DEFINER RPCs; redesign
 -- the trigger function; change policy predicates; touch performance/indexes;
@@ -101,12 +103,17 @@ create policy campaign_deliverables_update_assigned_or_owner
     )
   )
   with check (
-    (select auth.uid()) = assigned_to
-    or (select auth.uid()) = (
-      select user_id from public.brands
-      where brands.id = (
-        select brand_id from public.campaigns
-        where campaigns.id = campaign_deliverables.campaign_id
+    is_org_member(
+      (select org_id from public.campaigns where campaigns.id = campaign_deliverables.campaign_id)
+    )
+    and (
+      (select auth.uid()) = assigned_to
+      or (select auth.uid()) = (
+        select user_id from public.brands
+        where brands.id = (
+          select brand_id from public.campaigns
+          where campaigns.id = campaign_deliverables.campaign_id
+        )
       )
     )
   );
