@@ -25,6 +25,12 @@ create schema if not exists talent;
 
 grant usage on schema public to anon, authenticated;
 grant usage on schema talent to anon, authenticated;
+grant usage on schema auth to anon, authenticated;
+grant usage on schema auth to anon, authenticated;
+grant usage on schema auth to anon, authenticated;
+grant usage on schema auth to anon, authenticated;
+grant usage on schema auth to anon, authenticated;
+grant usage on schema auth to anon, authenticated;
 
 -- JWT claim bridge used by production is_org_member / policies.
 create or replace function auth.uid()
@@ -34,6 +40,8 @@ stable
 as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
+
+grant execute on function auth.uid() to anon, authenticated;
 
 create table if not exists public.orgs (
   id uuid primary key default gen_random_uuid()

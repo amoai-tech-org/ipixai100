@@ -127,3 +127,34 @@ create policy campaign_deliverables_delete_org_member
       (select org_id from public.campaigns where campaigns.id = campaign_deliverables.campaign_id)
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- 3) Cross-org reparent invariant (schema-level, not just RLS)
+-- ---------------------------------------------------------------------------
+-- RLS with-check cannot see the OLD row, so a user who is a member of BOTH
+-- org A and org B could reparent a deliverable from an org B campaign into an
+-- org A campaign (is_org_member passes for both). Enforce at the schema level:
+-- a deliverable's campaign may only change within the same organization.
+create or replace function public.campaign_deliverables_block_cross_org_reparent()
+returns trigger
+language plpgsql
+as $$
+declare
+  old_org uuid;
+  new_org uuid;
+begin
+  if new.campaign_id is distinct from old.campaign_id then
+    select org_id into old_org from public.campaigns where id = old.campaign_id;
+    select org_id into new_org from public.campaigns where id = new.campaign_id;
+    if old_org is distinct from new_org then
+      raise exception 'campaign_deliverables cannot be reparented across organizations';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_campaign_deliverables_block_cross_org_reparent on public.campaign_deliverables;
+create trigger trg_campaign_deliverables_block_cross_org_reparent
+  before update on public.campaign_deliverables
+  for each row execute function public.campaign_deliverables_block_cross_org_reparent();

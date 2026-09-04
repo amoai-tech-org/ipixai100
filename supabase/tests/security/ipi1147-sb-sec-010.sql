@@ -17,6 +17,8 @@ declare
   campaign_b uuid := gen_random_uuid();
   deliverable_a uuid := gen_random_uuid();
   deliverable_b uuid := gen_random_uuid();
+  deliverable_dual uuid := gen_random_uuid();
+  user_dual uuid := gen_random_uuid();
   n integer;
   anon_exec boolean;
   auth_exec boolean;
@@ -93,14 +95,15 @@ begin
 
   -- 5) Tenant isolation: Org B cannot read Org A campaign / deliverable via RLS.
   insert into public.orgs (id) values (org_a), (org_b);
-  insert into public.org_members (org_id, user_id) values (org_a, user_a), (org_b, user_b);
+  insert into public.org_members (org_id, user_id) values (org_a, user_a), (org_b, user_b), (org_a, user_dual), (org_b, user_dual);
   insert into public.brands (id, org_id, user_id) values (brand_a, org_a, user_a);
   insert into public.campaigns (id, org_id, brand_id, name, status)
     values (campaign_a, org_a, brand_a, 'IPI-1147 Campaign A', 'planning'),
            (campaign_b, org_b, brand_a, 'IPI-1147 Campaign B', 'planning');
-  insert into public.campaign_deliverables (id, campaign_id, phase, label, status)
-    values (deliverable_a, campaign_a, 1, 'IPI-1147 Deliverable A', 'draft'),
-           (deliverable_b, campaign_b, 1, 'IPI-1147 Deliverable B', 'draft');
+  insert into public.campaign_deliverables (id, campaign_id, phase, label, status, assigned_to)
+    values (deliverable_a, campaign_a, 1, 'IPI-1147 Deliverable A', 'draft', user_a),
+           (deliverable_b, campaign_b, 1, 'IPI-1147 Deliverable B', 'draft', user_b),
+           (deliverable_dual, campaign_b, 1, 'IPI-1147 Deliverable Dual', 'draft', user_dual);
 
   execute 'set local role authenticated';
   perform set_config('request.jwt.claim.sub', user_b::text, true);
@@ -140,6 +143,55 @@ begin
   exception when others then
     raise exception 'Org B user could not insert into own campaign: %', sqlerrm;
   end;
+
+  -- 6b) UPDATE with-check: Org B cannot reparent own deliverable into Org A
+  --     campaign (the cross-tenant reparenting exploit). WITH CHECK must
+  --     reject it and the original campaign_id must remain unchanged.
+  begin
+    update public.campaign_deliverables
+    set campaign_id = campaign_a
+    where id = deliverable_b;
+    inserted := true;
+  exception when others then
+    null;
+  end;
+  if inserted then
+    raise exception 'Org B user reparented deliverable into Org A campaign (with-check leak)';
+  end if;
+
+  if exists (
+    select 1 from public.campaign_deliverables
+    where id = deliverable_b and campaign_id <> campaign_b
+  ) then
+    raise exception 'Org B deliverable campaign_id changed after rejected reparent';
+  end if;
+
+  -- 6c) Dual-membership denial: a user who belongs to BOTH org A and org B
+  --     and is assigned_to on the deliverable must still not reparent it
+  --     across organizations. RLS with-check passes (is_org_member true for
+  --     both orgs, assigned_to matches), so the schema-level trigger
+  --     (trg_campaign_deliverables_block_cross_org_reparent) must reject it.
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claim.sub', user_dual::text, true);
+  inserted := false;
+  begin
+    update public.campaign_deliverables
+    set campaign_id = campaign_a
+    where id = deliverable_dual;
+    inserted := true;
+  exception when others then
+    null;
+  end;
+  if inserted then
+    raise exception 'dual-membership user reparented deliverable across orgs (trigger leak)';
+  end if;
+
+  if exists (
+    select 1 from public.campaign_deliverables
+    where id = deliverable_dual and campaign_id <> campaign_b
+  ) then
+    raise exception 'dual-membership deliverable campaign_id changed after rejected reparent';
+  end if;
 
   reset role;
   perform set_config('request.jwt.claim.sub', '', true);
