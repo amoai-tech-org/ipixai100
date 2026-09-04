@@ -192,8 +192,10 @@ begin
     set campaign_id = campaign_a
     where id = deliverable_dual;
     inserted := true;
-  exception when others then
-    null;
+  exception when raise_exception then
+    if sqlerrm <> 'campaign_deliverables cannot be reparented across organizations' then
+      raise;
+    end if;
   end;
   if inserted then
     raise exception 'dual-membership user reparented deliverable across orgs (trigger leak)';
