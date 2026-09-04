@@ -46,24 +46,59 @@ const QUICK_LINKS = [
 ] as const;
 
 /**
- * DASH-MAIN-001 Command Center. COPY+CLEAN of the Lumina hero/recent-work
- * layout, ADAPTed to org-scoped server data and current DESIGN-001 atoms
+ * DASH-MAIN-001/002 Command Center. COPY+CLEAN of the Lumina status-strip /
+ * hero / recent-work layout (github.com/amoai-tech/luminaai, pinned SHA
+ * b2d3de8e), ADAPTed to org-scoped server data and current DESIGN-001 atoms
  * (Card, EmptyState, ErrorState) instead of Lumina's `CommandCenterBrandSync`
- * / fixtures.
+ * / sample-image fixtures.
+ *
+ * Deliberately dropped vs. Lumina: fashion-stock-photo fallbacks (brands
+ * have no real cover yet, shoots render an honest no-image tile instead),
+ * the `?skip=1`/`?skip=approval` dev-preview bypasses, and the approvals
+ * block (no owning source until IPI-1084 ships — see the Linear issue).
  *
  * Brands and Shoots are independent reads/sections — a failed or empty
  * result in one never blocks or hides the other, and Quick links are
- * static and stay usable regardless of either query's outcome. Planner and
- * Approvals stay off this page; they're optional per DASH-MAIN-001's
- * accepted scope, not implemented as honest-empty-only sections here.
+ * static and stay usable regardless of either query's outcome. Planner
+ * stays off this page; it's optional per accepted scope.
  */
+function dnaBadgeClass(score: number): string {
+  if (score >= 80) return `${styles.recentDnaBadge} ${styles.recentDnaHigh}`;
+  if (score >= 60) return `${styles.recentDnaBadge} ${styles.recentDnaMid}`;
+  return `${styles.recentDnaBadge} ${styles.recentDnaLow}`;
+}
+
 export function CommandCenter({ brandsResult, shootsResult }: Props) {
+  const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
+
   return (
     <div className={styles.root} data-testid="command-center">
+      {/* Server-rendered freshness, not a live websocket feed — honest about
+          what "Live" means here. */}
+      <p className={styles.statusStrip}>
+        <span className={styles.statusDot} aria-hidden />
+        <span className={styles.statusLabel}>Live</span>
+        <span>Data synced on this load.</span>
+      </p>
+
       <header className={styles.hero}>
         <h1 className={styles.heading}>Dashboard</h1>
         <p className={styles.subheading}>Your organization&apos;s brands.</p>
       </header>
+
+      {heroBrand && (
+        <div className={styles.heroCard} data-testid="command-center-hero">
+          {/* No stock photo standing in for a real brand cover — brands
+              don't have one yet, so this is an honest initial avatar. */}
+          <span className={styles.heroAvatar} aria-hidden>
+            {heroBrand.name.charAt(0).toUpperCase()}
+          </span>
+          <div className={styles.heroBody}>
+            <p className={styles.heroEyebrow}>Active brand</p>
+            <h2 className={styles.heroName}>{heroBrand.name}</h2>
+          </div>
+        </div>
+      )}
 
       <section aria-labelledby="command-center-brands">
         <h2 id="command-center-brands" className={styles.sectionHeading}>
@@ -117,19 +152,38 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
             }
           />
         ) : (
-          <ul className={styles.grid} data-testid="command-center-shoot-list">
+          <div className={styles.recentScroll} data-testid="command-center-shoot-list">
             {shootsResult.shoots.map((shoot) => (
-              <li key={shoot.id}>
-                <Link href="/app/shoots" className={styles.brandCardLink}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className={styles.brandName}>{shoot.name}</CardTitle>
-                    </CardHeader>
-                  </Card>
-                </Link>
-              </li>
+              <Link key={shoot.id} href="/app/shoots" className={styles.recentTile}>
+                <div className={styles.recentThumb}>
+                  {shoot.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- remote
+                    // Cloudinary host isn't in next/image's allowlist; plain <img>
+                    // avoids widening next.config.ts for one card.
+                    <img
+                      src={shoot.coverUrl}
+                      alt={`${shoot.name} cover`}
+                      loading="lazy"
+                      className={styles.recentImage}
+                    />
+                  ) : (
+                    // Honest no-image state — never a stock fashion photo
+                    // standing in for a real shoot asset.
+                    <span className={styles.recentThumbPlaceholder} aria-hidden>
+                      <Camera />
+                    </span>
+                  )}
+                  {typeof shoot.dnaScore === "number" && shoot.dnaScore > 0 && (
+                    <span className={dnaBadgeClass(shoot.dnaScore)}>
+                      {Math.round(shoot.dnaScore)}
+                    </span>
+                  )}
+                </div>
+                <p className={styles.recentTitle}>{shoot.name}</p>
+                {shoot.channel && <p className={styles.recentMeta}>{shoot.channel}</p>}
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 

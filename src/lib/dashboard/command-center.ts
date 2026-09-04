@@ -9,6 +9,15 @@ export type DashboardShoot = {
   id: string;
   name: string;
   status: string | null;
+  /** Real Cloudinary cover, when the shoot has one. No fashion-sample
+   *  fallback — the UI renders an honest no-image state instead. */
+  coverUrl: string | null;
+  /** Real DNA score (0-100), when scored. Never fabricated. */
+  dnaScore: number | null;
+  /** First target channel, when set — used for the "IG · 4:5"-style meta
+   *  line. No invented channel. */
+  channel: string | null;
+  updatedAt: string | null;
 };
 
 const BRAND_LIMIT = 6;
@@ -138,7 +147,7 @@ export async function loadOrgShoots(
   try {
     const { data, error } = await supabase
       .from("shoot_portfolio_view")
-      .select("id,name,status,brand_id")
+      .select("id,name,status,brand_id,cover_url,dna_score,target_channels,updated_at")
       .in("brand_id", brandIds)
       // Same deterministic-order contract as loadOrgBrands: most-recently-
       // updated first, id as a stable tie-breaker.
@@ -149,13 +158,25 @@ export async function loadOrgShoots(
       console.error("dashboard.loadOrgShoots: query failed", { error });
       return { ok: false };
     }
-    const rows = data as { id: string; name: string | null; status: string | null }[];
+    const rows = data as {
+      id: string;
+      name: string | null;
+      status: string | null;
+      cover_url: string | null;
+      dna_score: number | null;
+      target_channels: string[] | null;
+      updated_at: string | null;
+    }[];
     return {
       ok: true,
       shoots: rows.map((row) => ({
         id: row.id,
         name: row.name ?? "Untitled shoot",
         status: row.status,
+        coverUrl: row.cover_url ?? null,
+        dnaScore: row.dna_score ?? null,
+        channel: row.target_channels?.[0] ?? null,
+        updatedAt: row.updated_at ?? null,
       })),
     };
   } catch (err) {

@@ -91,8 +91,18 @@ function fakeBrandIdsSupabase(
 
 /** Mimics the `shoot_portfolio_view` read `loadOrgShoots` makes, scoped by
  *  `.in("brand_id", brandIds)` rather than `.eq()`. */
+type ShootRow = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  cover_url?: string | null;
+  dna_score?: number | null;
+  target_channels?: string[] | null;
+  updated_at?: string | null;
+};
+
 function fakeShootsSupabase(
-  rowsByBrandId: Record<string, { id: string; name: string | null; status: string | null }[]>,
+  rowsByBrandId: Record<string, ShootRow[]>,
   orderCalls: OrderCall[] = [],
 ) {
   const orderBuilder = (brandIds: string[]) => ({
@@ -291,6 +301,8 @@ describe("loadOrgShoots", () => {
     expect(called).toBe(false);
   });
 
+  const EMPTY_MEDIA = { coverUrl: null, dnaScore: null, channel: null, updatedAt: null };
+
   it("scopes shoots to only the given trusted brand ids, never another brand's", async () => {
     const supabase = fakeShootsSupabase({
       [BRAND_A1]: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress" }],
@@ -300,11 +312,56 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress" }],
+      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress", ...EMPTY_MEDIA }],
     });
     if (result.ok) {
       expect(result.shoots.map((s) => s.id)).not.toContain("shoot-b1");
     }
+  });
+
+  it("maps real cover_url/dna_score/target_channels through, without fabricating any of them", async () => {
+    const supabase = fakeShootsSupabase({
+      [BRAND_A1]: [
+        {
+          id: "shoot-a1",
+          name: "Shoot Alpha",
+          status: "active",
+          cover_url: "https://res.cloudinary.com/demo/image/upload/shoot-a1.jpg",
+          dna_score: 91,
+          target_channels: ["IG", "TikTok"],
+          updated_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const result = await loadOrgShoots(supabase, [BRAND_A1]);
+    expect(result).toEqual({
+      ok: true,
+      shoots: [
+        {
+          id: "shoot-a1",
+          name: "Shoot Alpha",
+          status: "active",
+          coverUrl: "https://res.cloudinary.com/demo/image/upload/shoot-a1.jpg",
+          dnaScore: 91,
+          // First target channel only — the meta line shows one channel, not a list.
+          channel: "IG",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+  });
+
+  it("maps a shoot with no real media/score to nulls, never a fabricated placeholder", async () => {
+    const supabase = fakeShootsSupabase({
+      [BRAND_A1]: [{ id: "shoot-a1", name: "Shoot Alpha", status: "planning" }],
+    });
+
+    const result = await loadOrgShoots(supabase, [BRAND_A1]);
+    expect(result).toEqual({
+      ok: true,
+      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "planning", ...EMPTY_MEDIA }],
+    });
   });
 
   it("reads shoot_portfolio_view, not raw shoot.shoots", async () => {
@@ -377,7 +434,7 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Untitled shoot", status: null }],
+      shoots: [{ id: "shoot-a1", name: "Untitled shoot", status: null, ...EMPTY_MEDIA }],
     });
   });
 });
