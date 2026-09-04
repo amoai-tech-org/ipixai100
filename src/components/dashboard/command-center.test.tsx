@@ -134,4 +134,24 @@ describe("CommandCenter", () => {
     // No numeric badge and no meta line for this null-score, null-channel shoot.
     expect(tile?.textContent).toBe("Shoot One");
   });
+
+  it("says the workspace is ready only when both reads actually succeeded", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByText("Workspace ready")).toBeDefined();
+    expect(screen.getByText("Data loaded for this session.")).toBeDefined();
+  });
+
+  it("does not claim the workspace is ready when a read failed (mixed success)", () => {
+    render(<CommandCenter brandsResult={BRANDS_FAILED} shootsResult={SHOOTS_OK} />);
+    // Same bug either direction — assert both, not just one result failing.
+    expect(screen.queryByText("Workspace ready")).toBeNull();
+    expect(screen.queryByText("Data loaded for this session.")).toBeNull();
+    expect(screen.getByText("Workspace loaded")).toBeDefined();
+  });
+
+  it("does not claim the workspace is ready when the other read failed either", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_FAILED} />);
+    expect(screen.queryByText("Workspace ready")).toBeNull();
+    expect(screen.getByText("Workspace loaded")).toBeDefined();
+  });
 });

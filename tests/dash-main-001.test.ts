@@ -104,6 +104,7 @@ type ShootRow = {
 function fakeShootsSupabase(
   rowsByBrandId: Record<string, ShootRow[]>,
   orderCalls: OrderCall[] = [],
+  selectCalls: string[] = [],
 ) {
   const orderBuilder = (brandIds: string[]) => ({
     order: (column: string, opts: { ascending: boolean }) => {
@@ -119,7 +120,8 @@ function fakeShootsSupabase(
     from(table: string) {
       expect(table).toBe("shoot_portfolio_view");
       return {
-        select() {
+        select(columns: string) {
+          selectCalls.push(columns);
           return {
             in(column: string, brandIds: string[]) {
               expect(column).toBe("brand_id");
@@ -348,28 +350,40 @@ describe("loadOrgShoots", () => {
     });
   });
 
-  it("does not select or map cover_url — no proven secure-delivery path for it yet", async () => {
-    // Even if the underlying view row carried a cover_url, the mapped
+  it("does not select or map cover_url/updated_at — no proven secure-delivery path for cover_url yet", async () => {
+    // Two boundaries, both asserted: the query itself must not ask for
+    // cover_url/updated_at (a leftover row column proves nothing about the
+    // real select() string), and even if it somehow came back, the mapped
     // DashboardShoot must not surface it (see command-center.ts's doc
     // comment on loadOrgShoots — blocked on IPI-1112 · CLD-DELIVERY-001).
-    const supabase = fakeShootsSupabase({
-      [BRAND_A1]: [
-        {
-          id: "shoot-a1",
-          name: "Shoot Alpha",
-          status: "active",
-          cover_url: "https://res.cloudinary.com/demo/image/upload/shoot-a1.jpg",
-        },
-      ],
-    });
+    const selectCalls: string[] = [];
+    const supabase = fakeShootsSupabase(
+      {
+        [BRAND_A1]: [
+          {
+            id: "shoot-a1",
+            name: "Shoot Alpha",
+            status: "active",
+            cover_url: "https://res.cloudinary.com/demo/image/upload/shoot-a1.jpg",
+          },
+        ],
+      },
+      undefined,
+      selectCalls,
+    );
 
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
+
+    expect(selectCalls).toHaveLength(1);
+    expect(selectCalls[0]).not.toMatch(/\bcover_url\b/);
+    expect(selectCalls[0]).not.toMatch(/\bupdated_at\b/);
     expect(result).toEqual({
       ok: true,
       shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "active", ...EMPTY_MEDIA }],
     });
     if (result.ok) {
       expect(result.shoots[0]).not.toHaveProperty("coverUrl");
+      expect(result.shoots[0]).not.toHaveProperty("updatedAt");
     }
   });
 

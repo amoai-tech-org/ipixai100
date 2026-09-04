@@ -73,16 +73,22 @@ function dnaBadgeClass(score: number): string {
 
 export function CommandCenter({ brandsResult, shootsResult }: Props) {
   const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
+  // "Live" would claim a continuously-current feed this page doesn't have —
+  // no websocket/realtime signal backs it. This says only what's actually
+  // true: whether this request's own reads succeeded — never "ready" while
+  // an ErrorState is rendering right below it.
+  const hasLoadError = !brandsResult.ok || !shootsResult.ok;
 
   return (
     <div className={styles.root} data-testid="command-center">
-      {/* "Live" would claim a continuously-current feed this page doesn't
-          have — no websocket/realtime signal backs it. This says only what's
-          actually true: a successful server render for this request. */}
-      <p className={styles.statusStrip}>
+      <p className={styles.statusStrip} data-tone={hasLoadError ? "warn" : undefined}>
         <span className={styles.statusDot} aria-hidden />
-        <span className={styles.statusLabel}>Workspace ready</span>
-        <span>Data loaded for this session.</span>
+        <span className={styles.statusLabel}>
+          {hasLoadError ? "Workspace loaded" : "Workspace ready"}
+        </span>
+        <span>
+          {hasLoadError ? "Some data couldn't be refreshed." : "Data loaded for this session."}
+        </span>
       </p>
 
       <header className={styles.hero}>

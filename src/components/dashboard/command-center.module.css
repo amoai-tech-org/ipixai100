@@ -116,6 +116,12 @@
   flex-shrink: 0;
 }
 
+/* A failed brand/shoot read is already shown via its own ErrorState below —
+   this just stops the status strip from contradicting it. */
+.statusStrip[data-tone="warn"] .statusDot {
+  background: var(--color-warning);
+}
+
 .statusLabel {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
