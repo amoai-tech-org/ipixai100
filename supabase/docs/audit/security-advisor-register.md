@@ -14,7 +14,7 @@
 |---|---------|------:|:--------:|:--------------:|---------------|
 | 1 | `rls_enabled_no_policy` | 5 | INFO | **KEEP** (deny-all intentional) | [IPI-241 · SB-HYGIENE-002 — Chatbot RLS deny-all](https://linear.app/amo100/issue/IPI-241) / [IPI-801 · SB-V2-001 — Move Mastra tables to mastra schema](https://linear.app/amo100/issue/IPI-801) |
 | 2 | `extension_in_public` | 3 | WARN | **KEEP** (proven dependencies) | [IPI-1030 · SB-EXT-001 — KEEP public extensions (vector, pg_trgm, btree_gist)](https://linear.app/amo100/issue/IPI-1030) |
-| 3 | `authenticated_security_definer_function_executable` | 33 | WARN | **KEEP** (auth-guarded) | [IPI-1029 · SB-FIX-002 — Classify authenticated SECURITY DEFINER RPCs (no mass revoke)](https://linear.app/amo100/issue/IPI-1029) |
+| 3 | `authenticated_security_definer_function_executable` | 34 | WARN | **KEEP** (auth-guarded) | [IPI-1029 · SB-FIX-002 — Classify authenticated SECURITY DEFINER RPCs (no mass revoke)](https://linear.app/amo100/issue/IPI-1029) |
 | 4 | `auth_leaked_password_protection` | 1 | WARN | **FIX** (Pro Plan required) | [IPI-863 · AUTH-V2-001 — Block Known Leaked Passwords for iPix Accounts](https://linear.app/amo100/issue/IPI-863) |
 
 ---
@@ -81,13 +81,13 @@ All three extensions were classified KEEP per [IPI-1030 · SB-EXT-001](https://l
 
 ---
 
-## Category 3 — `authenticated_security_definer_function_executable` (WARN, 33 findings)
+## Category 3 — `authenticated_security_definer_function_executable` (WARN, 34 findings)
 
-**Classification: KEEP** — All 33 functions are `SECURITY DEFINER` with `SET search_path` and contain explicit auth checks (`auth.uid()` directly or via `is_org_member` / `is_at_least` / `is_org_owner` / `is_org_editor_or_above` / `is_assigned` / `is_organizer_team_member` / `claim_token`).
+**Classification: KEEP** — All 34 functions are `SECURITY DEFINER` with `SET search_path` and contain explicit auth checks (`auth.uid()` directly or via `is_org_member` / `is_at_least` / `is_org_owner` / `is_org_editor_or_above` / `is_assigned` / `is_organizer_team_member` / `claim_token`).
 
 ### Evidence
 
-All 33 functions verified via behavioral evidence — `has_function_privilege('authenticated', oid, 'execute') = true` AND `prosecdef = true` AND `proconfig` includes `search_path`:
+All 34 functions verified via behavioral evidence — `has_function_privilege('authenticated', oid, 'execute') = true` AND `prosecdef = true` AND `proconfig` includes `search_path`:
 
 ```sql
 SELECT n.nspname AS schema, p.proname AS function,
@@ -100,10 +100,12 @@ WHERE p.prosecdef = true
   AND n.nspname IN ('public', 'planner', 'talent')
   AND has_function_privilege('authenticated', p.oid, 'execute') = true
 ORDER BY n.nspname, p.proname;
--- Returns exactly 33 rows; all have proconfig containing search_path
+-- Returns exactly 34 rows; all have proconfig containing search_path
 ```
 
-**Per-function evidence:** Each of the 33 functions in the table above was confirmed to have `prosecdef = true`, `proconfig` containing `search_path`, and `has_function_privilege('authenticated', oid, 'execute') = true`. Auth-guard patterns are documented in the `Auth Guard` column. Body-level authorization (row-level ownership, org scoping at runtime) is **UNVERIFIED** — see note below.
+**Per-function evidence:** Each of the 34 functions in the table above was confirmed to have `prosecdef = true`, `proconfig` containing `search_path`, and `has_function_privilege('authenticated', oid, 'execute') = true`. Auth-guard patterns are documented in the `Auth Guard` column. Body-level authorization (row-level ownership, org scoping at runtime) is **UNVERIFIED** — see note below.
+
+**Refresh (IPI-1147 · SB-SEC-010, 2026-09-04):** count updated 33 → 34 — `v2_shoot_owned_by_brand` (IPI-1110) added as row 34. `talent.log_booking_status_change()` was removed from the advisor set by revoking its direct `PUBLIC`/`anon`/`authenticated` EXECUTE (it is a trigger function, not a client RPC).
 
 **Excluded from this category** (SECURITY DEFINER but NOT executable by `authenticated`):
 - `expire_stale_bookings` — cron/service_role only, no authenticated EXECUTE grant
@@ -147,26 +149,27 @@ These are classified separately as service-role/cron-only and do not trigger the
 | 31 | public | `search_talent` | `p_shoot_type text, p_budget_tier text, p_date_start date, p_date_end date, p_representation text, p_only_shortlist_id uuid` | `auth.uid()` | KEEP |
 | 32 | public | `toggle_shortlist_item` | `p_shortlist_id uuid, p_talent_profile_id uuid, p_add boolean` | `is_org_member` | KEEP |
 | 33 | public | `transition_booking` | `p_booking_id uuid, p_expected_version integer, p_to_status text, p_rate_quoted numeric, p_date_start date, p_date_end date, p_cancellation_reason text` | `is_org_member` / `is_assigned` | KEEP |
+| 34 | public | `v2_shoot_owned_by_brand` | `p_shoot_id uuid, p_brand_id uuid` | `is_org_member` / `auth.uid()` | KEEP |
 
-### Per-finding metadata (all 33 functions)
+### Per-finding metadata (all 34 functions)
 
 | Field | Value |
 |-------|-------|
 | **Owner** | [IPI-1029 · SB-FIX-002 — Classify authenticated SECURITY DEFINER RPCs (no mass revoke)](https://linear.app/amo100/issue/IPI-1029) |
-| **Evidence** | `pg_proc` query: `prosecdef = true` AND `has_function_privilege('authenticated', oid, 'execute') = true` AND `proconfig` includes `search_path`. Returns exactly 33 rows. |
-| **Rationale** | All 33 functions are `SECURITY DEFINER` with `SET search_path` and contain explicit auth checks. Revoking EXECUTE would break operator workflows (shoot planning, booking, CRM, talent search) after login. |
+| **Evidence** | `pg_proc` query: `prosecdef = true` AND `has_function_privilege('authenticated', oid, 'execute') = true` AND `proconfig` includes `search_path`. Returns exactly 34 rows. |
+| **Rationale** | All 34 functions are `SECURITY DEFINER` with `SET search_path` and contain explicit auth checks. Revoking EXECUTE would break operator workflows (shoot planning, booking, CRM, talent search) after login. |
 | **Priority** | P2 (lint) — P0 if any function loses its auth guard |
 | **Next Action** | [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) optional body-audit pass: verify each function body enforces row-level ownership and org scoping at runtime. Do **not** mass-revoke. |
 
 ### Rationale
 
-All 33 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029). Each function:
+All 34 functions were classified KEEP per [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029). Each function:
 
 1. Has `SECURITY DEFINER` set (required for cross-table access under RLS)
 2. Has `SET search_path` configured (prevents search-path injection)
 3. Contains an explicit auth check — either `auth.uid()` directly, or via a helper (`is_org_member`, `is_at_least`, `is_org_owner`, `is_org_editor_or_above`, `is_assigned`, `is_organizer_team_member`, or `claim_token` validation)
 
-**Historical note:** The advisor originally reported 37 `authenticated_security_definer_function_executable` findings. [IPI-1029](https://linear.app/amo100/issue/IPI-1029) revoked authenticated EXECUTE on `get_brand_assets` (migration `20260902223000_ipi1122_sb_media_harden.sql:283-285`), reducing the count by 1. The remaining 3-function reduction (37 → 33) is **UNVERIFIED** — no migration or Linear evidence was found for the other 3 functions. The current live count of 33 is confirmed by the evidence query above.
+**Historical note:** The advisor originally reported 37 `authenticated_security_definer_function_executable` findings. [IPI-1029](https://linear.app/amo100/issue/IPI-1029) revoked authenticated EXECUTE on `get_brand_assets` (migration `20260902223000_ipi1122_sb_media_harden.sql:283-285`), reducing the count by 1. The remaining 3-function reduction (37 → 33) is **UNVERIFIED** — no migration or Linear evidence was found for the other 3 functions. [IPI-1147 · SB-SEC-010](https://linear.app/amo100/issue/IPI-1147) then added `v2_shoot_owned_by_brand` (IPI-1110) to the authenticated set (33 → 34) and removed `talent.log_booking_status_change()` from the advisor set by revoking its direct `PUBLIC`/`anon`/`authenticated` EXECUTE (trigger function, not a client RPC). The current live count of 34 is confirmed by the evidence query above.
 
 **Body-level authorization audit: UNVERIFIED.** This register confirms each function has `SECURITY DEFINER` (via `prosecdef = true`), `SET search_path` (via `proconfig` containing `search_path`), and an authenticated EXECUTE grant (via `has_function_privilege`). It does **not** verify that every function body enforces row-level ownership, org scoping, or write-safety at runtime — that requires executing each function as a signed-out caller, which is **NOT VERIFIED** here. A dedicated body-audit pass (tracked as optional follow-up in [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029)) is required before treating any function as fully authorized.
 
@@ -197,7 +200,7 @@ This is the only finding that requires a product/plan change rather than a code 
 | Metric | Original | After Fixes | Current |
 |--------|---------:|------------:|--------:|
 | `rls_enabled_no_policy` | 36 | 5 (IPI-801 moved 33 Mastra tables to `mastra` schema) | 5 |
-| `authenticated_security_definer_function_executable` | 37 | 33 (IPI-1029 revoked authenticated EXECUTE on `get_brand_assets`; 3 additional UNVERIFIED) | 33 |
+| `authenticated_security_definer_function_executable` | 37 | 33 (IPI-1029 revoked authenticated EXECUTE on `get_brand_assets`; 3 additional UNVERIFIED) | 34 (IPI-1147 added `v2_shoot_owned_by_brand`; removed trigger `talent.log_booking_status_change`) |
 | `anon_security_definer_function_executable` | 13 | 0 (IPI-664/665/668/677/673) | 0 |
 | `extension_in_public` | 3 | 3 (IPI-1030 KEEP) | 3 |
 | `function_search_path_mutable` | 2 | 0 (IPI-1029) | 0 |
@@ -215,9 +218,11 @@ This is the only finding that requires a product/plan change rather than a code 
 | [IPI-673](https://linear.app/amo100/issue/IPI-673) | Revoke anon EXECUTE on all public RPCs | 13 anon DEFINER → 0 |
 | [IPI-801 · SB-V2-001](https://linear.app/amo100/issue/IPI-801) | Move 33 Mastra tables to `mastra` schema | 36 RLS-no-policy → 5 |
 | [IPI-1029](https://linear.app/amo100/issue/IPI-1029) | Revoke authenticated EXECUTE on `get_brand_assets` | 37 authenticated DEFINER → 33 (1 proven; 3 UNVERIFIED) |
+| [IPI-1147 · SB-SEC-010](https://linear.app/amo100/issue/IPI-1147) | Revoke trigger `talent.log_booking_status_change` PUBLIC/anon/authenticated EXECUTE; add `v2_shoot_owned_by_brand` to register | 33 authenticated DEFINER → 34 (net +1: +1 new RPC, −1 trigger) |
 | [IPI-1029](https://linear.app/amo100/issue/IPI-1029) | Lock `search_path` on trigger helpers | 2 function_search_path_mutable → 0 |
 | [IPI-1030 · SB-EXT-001](https://linear.app/amo100/issue/IPI-1030) | Classify 3 extensions as KEEP | 3 extension_in_public → KEEP |
 | [IPI-1029 · SB-FIX-002](https://linear.app/amo100/issue/IPI-1029) | Classify 33 authenticated DEFINER as KEEP | 33 authenticated DEFINER → KEEP |
+| [IPI-1147 · SB-SEC-010](https://linear.app/amo100/issue/IPI-1147) | Classify 34 authenticated DEFINER as KEEP (incl. `v2_shoot_owned_by_brand`) | 34 authenticated DEFINER → KEEP |
 
 ---
 
