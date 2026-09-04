@@ -1,0 +1,100 @@
+/* DASH-MAIN-001 Command Center. Tokens from tokens.css, matching entity-list/empty-state. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.subheading {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.sectionHeading {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 12px;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+}
+
+.brandName {
+  font-size: 1rem;
+}
+
+.brandCardLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brandCardLink:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.quickLinks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+
+.quickLinkCard {
+  min-width: 0;
+}
+
+.quickLinkContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quickLinkIcon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.quickLinkTitle {
+  font-weight: 600;
+  margin: 0;
+}
+
+.quickLinkBody {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.link {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}

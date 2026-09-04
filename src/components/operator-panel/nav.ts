@@ -1,6 +1,6 @@
 /** APP-001 destinations. Child tasks own page bodies; these are shell routes only. */
 export const OPERATOR_NAV = [
-  { href: "/app", label: "Home" },
+  { href: "/app", label: "Dashboard" },
   { href: "/app/brands", label: "Brands" },
   { href: "/app/shoots", label: "Shoots" },
   { href: "/app/assets", label: "Assets" },
