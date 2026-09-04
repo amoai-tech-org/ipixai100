@@ -26,6 +26,11 @@
 revoke execute on function talent.log_booking_status_change()
   from public, anon, authenticated;
 
+-- Every role is implicitly a member of PUBLIC, so the revoke above also
+-- removed service_role's inherited EXECUTE. Restore it explicitly for
+-- server-side callers (the trigger path fires as the table owner regardless).
+grant execute on function talent.log_booking_status_change() to service_role;
+
 -- ---------------------------------------------------------------------------
 -- 2) Campaign RLS role targeting: public (implicit) -> authenticated
 -- ---------------------------------------------------------------------------
@@ -146,7 +151,10 @@ begin
   if new.campaign_id is distinct from old.campaign_id then
     select org_id into old_org from public.campaigns where id = old.campaign_id;
     select org_id into new_org from public.campaigns where id = new.campaign_id;
-    if old_org is distinct from new_org then
+    if old_org is null or new_org is null then
+      raise exception 'campaign_deliverables reparent references unknown campaign (old=%, new=%)', old_org, new_org;
+    end if;
+    if old_org <> new_org then
       raise exception 'campaign_deliverables cannot be reparented across organizations';
     end if;
   end if;

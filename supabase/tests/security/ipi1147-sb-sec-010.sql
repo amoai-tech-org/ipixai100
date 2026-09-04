@@ -23,6 +23,7 @@ declare
   anon_exec boolean;
   auth_exec boolean;
   pub_exec boolean;
+  svc_exec boolean;
   auth_oid oid;
   p record;
   inserted boolean;
@@ -34,12 +35,14 @@ begin
 
   select has_function_privilege('anon', 'talent.log_booking_status_change()', 'execute'),
          has_function_privilege('authenticated', 'talent.log_booking_status_change()', 'execute'),
-         has_function_privilege('public', 'talent.log_booking_status_change()', 'execute')
-    into anon_exec, auth_exec, pub_exec;
+         has_function_privilege('public', 'talent.log_booking_status_change()', 'execute'),
+         has_function_privilege('service_role', 'talent.log_booking_status_change()', 'execute')
+    into anon_exec, auth_exec, pub_exec, svc_exec;
 
   if anon_exec then raise exception 'anon must not EXECUTE talent.log_booking_status_change'; end if;
   if auth_exec then raise exception 'authenticated must not EXECUTE talent.log_booking_status_change'; end if;
   if pub_exec then raise exception 'PUBLIC must not EXECUTE talent.log_booking_status_change'; end if;
+  if not svc_exec then raise exception 'service_role must retain EXECUTE on talent.log_booking_status_change'; end if;
 
   -- Trigger still exists and is enabled.
   if not exists (
