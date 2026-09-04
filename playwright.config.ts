@@ -39,8 +39,14 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // 1 worker on CI, not the usual 2 — every project depends on `setup`
+  // signing into one real, shared Org A account; running 2 workers would
+  // race two logins against that single session.
   workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  // https://playwright.dev/docs/ci-intro — 'github' annotates failures
+  // directly on the Actions run; keep 'html' too so CI still produces the
+  // playwright-report/ dir the workflow uploads as an artifact.
+  reporter: process.env.CI ? [["github"], ["html"]] : "html",
   use: {
     baseURL,
     trace: "on-first-retry",
@@ -56,13 +62,9 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
     {
-      name: "setup-org-b",
-      testMatch: /auth-org-b\.setup\.ts/,
-    },
-    {
       name: "chromium",
       use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
-      dependencies: ["setup", "setup-org-b"],
+      dependencies: ["setup"],
     },
     {
       name: "mobile-chromium",
@@ -73,7 +75,7 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         storageState: "playwright/.auth/user.json",
       },
-      dependencies: ["setup", "setup-org-b"],
+      dependencies: ["setup"],
       // login-journey does its own real UI login (not storageState) —
       // one extra hosted sign-in beyond setup is enough; running it per
       // viewport too would sign into the real account 3× per full run.

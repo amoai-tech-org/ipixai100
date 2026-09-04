@@ -1,5 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Browser, type Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
+
+import { signInWithCredentials } from "./support/login";
 
 /**
  * usera@ipix.co and userb@ipix.co are dedicated QA users in separate,
@@ -23,6 +25,32 @@ function supabaseConfig() {
     );
   }
   return { url, key };
+}
+
+/**
+ * Org B has no saved storageState — it's only needed by this one test, so
+ * it authenticates fresh here (https://playwright.dev/docs/auth#multiple-signed-in-roles)
+ * instead of running as a project dependency for every browser project.
+ * Missing credentials throw (fail closed), matching signInAsE2ETestOperator:
+ * this is a security proof, not a test to silently skip.
+ */
+async function signInOrgB(browser: Browser): Promise<{ page: Page; close: () => Promise<void> }> {
+  const email = process.env.E2E_TEST_EMAIL_ORG_B;
+  const password = process.env.E2E_TEST_PASSWORD_ORG_B;
+  if (!email || !password) {
+    throw new Error(
+      "E2E_TEST_EMAIL_ORG_B / E2E_TEST_PASSWORD_ORG_B are missing — set them in .env.test",
+    );
+  }
+  // browser.newContext() defaults to the project's own `use` options — which,
+  // under chromium/mobile-chromium, is Org A's storageState. Without this
+  // override the "fresh" Org B context silently starts pre-authenticated as
+  // Org A instead of logged out, so /login redirects away and Org B never
+  // actually signs in. Empty storageState is the explicit logged-out state.
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const page = await context.newPage();
+  await signInWithCredentials(page, email, password);
+  return { page, close: () => context.close() };
 }
 
 async function supabaseForPage(page: Page) {
@@ -87,11 +115,8 @@ test.fixme(
   async ({ browser, page }) => {
     const orgAId = await getOwnOrgId(page);
 
-    const orgB = await browser.newContext({
-      storageState: "playwright/.auth/user-org-b.json",
-    });
+    const { page: orgBPage, close: closeOrgB } = await signInOrgB(browser);
     try {
-      const orgBPage = await orgB.newPage();
       const orgBId = await getOwnOrgId(orgBPage);
 
       expect(orgAId, "Org A and Org B sessions must belong to different organizations").not.toBe(
@@ -106,7 +131,7 @@ test.fixme(
       await expectEmptyIsolatedDashboard(page);
       await expectEmptyIsolatedDashboard(orgBPage);
     } finally {
-      await orgB.close();
+      await closeOrgB();
     }
   },
 );
