@@ -55,9 +55,14 @@ function fakeSupabase(
   return fake as unknown as SupabaseClient;
 }
 
-/** Mimics the id-only, unordered `brands` read `loadTrustedBrandIds` makes
- *  (`select("id").eq("org_id", …).limit(ceiling)` — no `.order()` calls). */
-function fakeBrandIdsSupabase(rowsByOrg: Record<string, { id: string }[]>) {
+/** Mimics the paginated, unordered `brands` read `loadTrustedBrandIds` makes
+ *  (`select("id").eq("org_id", …).range(from, to)`, called repeatedly until
+ *  a page comes back shorter than the page size). `rangeCalls`, when passed,
+ *  records every `[from, to]` pair so tests can assert page boundaries. */
+function fakeBrandIdsSupabase(
+  rowsByOrg: Record<string, { id: string }[]>,
+  rangeCalls?: [number, number][],
+) {
   const fake = {
     from(table: string) {
       expect(table).toBe("brands");
@@ -67,9 +72,10 @@ function fakeBrandIdsSupabase(rowsByOrg: Record<string, { id: string }[]>) {
             eq(column: string, value: string) {
               expect(column).toBe("org_id");
               return {
-                limit(n: number) {
+                range(from: number, to: number) {
+                  rangeCalls?.push([from, to]);
                   return Promise.resolve({
-                    data: (rowsByOrg[value] ?? []).slice(0, n),
+                    data: (rowsByOrg[value] ?? []).slice(from, to + 1),
                     error: null,
                   });
                 },
@@ -217,11 +223,51 @@ describe("loadTrustedBrandIds", () => {
     }
   });
 
+  it("paginates past a single page (500) instead of silently truncating the scope", async () => {
+    // 500 (page size) + 1 spans two pages — page 1 full, page 2 has exactly
+    // the remainder. A single-`.limit()` read would drop this last id.
+    const manyBrandIds = Array.from({ length: 501 }, (_, i) => ({ id: `brand-a${i + 1}` }));
+    const rangeCalls: [number, number][] = [];
+    const supabase = fakeBrandIdsSupabase({ [ORG_A]: manyBrandIds }, rangeCalls);
+
+    const result = await loadTrustedBrandIds(supabase, ORG_A);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.brandIds).toHaveLength(501);
+      expect(result.brandIds).toContain("brand-a501");
+    }
+    expect(rangeCalls).toEqual([
+      [0, 499],
+      [500, 999],
+    ]);
+  });
+
+  it("refuses a partial scope instead of returning ok:true when the org exceeds the page-count ceiling", async () => {
+    // Every page comes back completely full, forever — this must give up
+    // and fail rather than loop indefinitely or hand back a truncated list.
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            range: (from: number, to: number) =>
+              Promise.resolve({
+                data: Array.from({ length: to - from + 1 }, (_, i) => ({ id: `brand-${from + i}` })),
+                error: null,
+              }),
+          }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(loadTrustedBrandIds(supabase, ORG_A)).resolves.toEqual({ ok: false });
+  });
+
   it("returns ok:false on a Supabase error", async () => {
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({ limit: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
+          eq: () => ({ range: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
         }),
       }),
     } as unknown as SupabaseClient;

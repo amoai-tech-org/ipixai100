@@ -13,10 +13,16 @@ export type DashboardShoot = {
 
 const BRAND_LIMIT = 6;
 const SHOOT_LIMIT = 6;
-// Safety ceiling on the org's own brand id list used to scope Shoots — not a
-// display cap (that's BRAND_LIMIT). RLS + the org_id filter already bound
-// this to one org's real brands; this just guards against an unbounded read.
-const TRUSTED_BRAND_ID_CEILING = 500;
+// Page size for the org's own brand id list used to scope Shoots — not a
+// display cap (that's BRAND_LIMIT). Paginated rather than a single capped
+// read: silently truncating would under-scope Shoots for an org with more
+// brands than one page, excluding real shoots from "Recent shoots" with no
+// error surfaced.
+const TRUSTED_BRAND_ID_PAGE_SIZE = 500;
+// Sanity ceiling on total pages so a corrupt/unbounded result set can't spin
+// this loop forever — 50 pages * 500 is far beyond any real org's brand
+// count. Hitting it is treated as a failure, not a silent partial result.
+const TRUSTED_BRAND_ID_MAX_PAGES = 50;
 
 /**
  * DASH-MAIN-001: org-scoped brand read for the Command Center.
@@ -63,23 +69,43 @@ export async function loadOrgBrands(
  * DASH-MAIN-001: every trusted-org brand id (uncapped, unlike the display
  * list `loadOrgBrands` returns), so Shoots can be scoped to the org's full
  * brand set — not just the 6 cards shown on the dashboard.
+ *
+ * Paginates in pages of `TRUSTED_BRAND_ID_PAGE_SIZE` rather than a single
+ * `.limit()` read: a single capped read silently drops brands beyond the
+ * cap, and `loadOrgShoots` would then under-scope Shoots for that org with
+ * no error surfaced. Returns `ok: false` — never a partial list — if the
+ * org's brand count exceeds what `TRUSTED_BRAND_ID_MAX_PAGES` pages can
+ * hold; that ceiling exists only to bound the loop, not as a soft cap.
  */
 export async function loadTrustedBrandIds(
   supabase: SupabaseClient,
   orgId: string,
 ): Promise<{ ok: true; brandIds: string[] } | { ok: false }> {
+  const brandIds: string[] = [];
   try {
-    const { data, error } = await supabase
-      .from("brands")
-      .select("id")
-      .eq("org_id", orgId)
-      .limit(TRUSTED_BRAND_ID_CEILING);
-    if (error || !data) {
-      console.error("dashboard.loadTrustedBrandIds: query failed", { orgId, error });
-      return { ok: false };
+    for (let page = 0; page < TRUSTED_BRAND_ID_MAX_PAGES; page++) {
+      const from = page * TRUSTED_BRAND_ID_PAGE_SIZE;
+      const to = from + TRUSTED_BRAND_ID_PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("brands")
+        .select("id")
+        .eq("org_id", orgId)
+        .range(from, to);
+      if (error || !data) {
+        console.error("dashboard.loadTrustedBrandIds: query failed", { orgId, page, error });
+        return { ok: false };
+      }
+      const rows = data as { id: string }[];
+      brandIds.push(...rows.map((row) => row.id));
+      if (rows.length < TRUSTED_BRAND_ID_PAGE_SIZE) {
+        return { ok: true, brandIds };
+      }
     }
-    const rows = data as { id: string }[];
-    return { ok: true, brandIds: rows.map((row) => row.id) };
+    console.error("dashboard.loadTrustedBrandIds: exceeded max pages, refusing a partial scope", {
+      orgId,
+      pages: TRUSTED_BRAND_ID_MAX_PAGES,
+    });
+    return { ok: false };
   } catch (err) {
     console.error("dashboard.loadTrustedBrandIds: threw", { orgId, err });
     return { ok: false };
