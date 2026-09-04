@@ -55,7 +55,9 @@ const QUICK_LINKS = [
  * Deliberately dropped vs. Lumina: fashion-stock-photo fallbacks (brands
  * have no real cover yet, shoots render an honest no-image tile instead),
  * the `?skip=1`/`?skip=approval` dev-preview bypasses, and the approvals
- * block (no owning source until IPI-1084 ships — see the Linear issue).
+ * block (no owning source until
+ * IPI-1084 · APPROVAL-001 — Let Operators Review, Edit, Approve, or Reject
+ * AI Plans Before Anything Is Saved ships — see the Linear issue).
  *
  * Brands and Shoots are independent reads/sections — a failed or empty
  * result in one never blocks or hides the other, and Quick links are
@@ -94,7 +96,7 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
             {heroBrand.name.charAt(0).toUpperCase()}
           </span>
           <div className={styles.heroBody}>
-            <p className={styles.heroEyebrow}>Active brand</p>
+            <p className={styles.heroEyebrow}>Most recent brand</p>
             <h2 className={styles.heroName}>{heroBrand.name}</h2>
           </div>
         </div>
@@ -173,8 +175,11 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
                       <Camera />
                     </span>
                   )}
-                  {typeof shoot.dnaScore === "number" && shoot.dnaScore > 0 && (
-                    <span className={dnaBadgeClass(shoot.dnaScore)}>
+                  {typeof shoot.dnaScore === "number" && (
+                    <span
+                      className={dnaBadgeClass(shoot.dnaScore)}
+                      aria-label={`DNA score: ${Math.round(shoot.dnaScore)}`}
+                    >
                       {Math.round(shoot.dnaScore)}
                     </span>
                   )}

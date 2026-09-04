@@ -118,6 +118,7 @@ describe("CommandCenter", () => {
   });
 
   it("renders the real cover image and DNA score when a shoot has them", () => {
+    const coverUrl = "https://res.cloudinary.com/demo/image/upload/shoot-2.jpg";
     const shoots = {
       ok: true as const,
       shoots: [
@@ -125,7 +126,7 @@ describe("CommandCenter", () => {
           id: "shoot-2",
           name: "Shoot Two",
           status: "active",
-          coverUrl: "https://res.cloudinary.com/demo/image/upload/shoot-2.jpg",
+          coverUrl,
           dnaScore: 91,
           channel: "IG",
           updatedAt: "2026-01-01T00:00:00.000Z",
@@ -134,9 +135,31 @@ describe("CommandCenter", () => {
     };
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
     const tile = screen.getByText("Shoot Two").closest("a");
-    expect(tile?.querySelector("img")?.getAttribute("src")).toBe(shoots.shoots[0].coverUrl);
+    // Asserted against the literal above, not read back off the fixture, so a
+    // mistaken fixture edit can't silently update both sides of this check.
+    expect(tile?.querySelector("img")?.getAttribute("src")).toBe(coverUrl);
     expect(screen.getByText("91")).toBeDefined();
     expect(screen.getByText("IG")).toBeDefined();
+  });
+
+  it("shows a DNA score of exactly 0 rather than treating it as unscored", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-3",
+          name: "Shoot Three",
+          status: "planning",
+          coverUrl: null,
+          dnaScore: 0,
+          channel: null,
+          updatedAt: null,
+        },
+      ],
+    };
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
+    expect(screen.getByText("0")).toBeDefined();
+    expect(screen.getByLabelText("DNA score: 0")).toBeDefined();
   });
 
   it("never fabricates a DNA score or channel when the shoot has none", () => {
