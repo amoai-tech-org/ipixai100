@@ -56,22 +56,22 @@ begin
 
   -- Cross-org reparent trigger function must exist with an empty (pinned)
   -- search_path — the IPI-1147 search_path follow-up migration requirement.
+  -- Match the exact zero-argument function via to_regprocedure (not just
+  -- schema+name, which could match a different overload) and require the
+  -- complete proconfig entry to be exactly the pinned empty search path.
   if to_regprocedure('public.campaign_deliverables_block_cross_org_reparent()') is null then
     raise exception 'campaign_deliverables_block_cross_org_reparent missing — apply IPI-1147 migration first';
   end if;
   if not exists (
     select 1 from pg_proc pr
-    join pg_namespace ns on ns.oid = pr.pronamespace
-    where ns.nspname = 'public'
-      and pr.proname = 'campaign_deliverables_block_cross_org_reparent'
+    where pr.oid = to_regprocedure('public.campaign_deliverables_block_cross_org_reparent()')
       and pr.proconfig is not null
       and exists (
         select 1 from unnest(pr.proconfig) cfg
-        where cfg like 'search_path=%'
-          and cfg like '%""%'
+        where cfg = 'search_path=""'
       )
   ) then
-    raise exception 'campaign_deliverables_block_cross_org_reparent must have empty search_path';
+    raise exception 'campaign_deliverables_block_cross_org_reparent must have exactly empty search_path';
   end if;
 
   -- 2) Per-policy role targeting: every campaign policy must target exactly
