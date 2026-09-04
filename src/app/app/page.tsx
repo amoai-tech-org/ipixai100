@@ -6,18 +6,25 @@ import {
   listMembershipOrgIdsFromServerClient,
   resolveRuntimeTenant,
 } from "@/lib/auth/runtime-org";
-import { loadOrgBrands } from "@/lib/dashboard/command-center";
+import {
+  loadOrgBrands,
+  loadOrgShoots,
+  loadTrustedBrandIds,
+} from "@/lib/dashboard/command-center";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * DASH-MAIN-001 — the authenticated `/app` Command Center.
  *
  * Trusted org is resolved server-side from AUTH-002 membership rows only
- * (never a client-supplied org id). Brands are the sole live read for this
- * page — see command-center.tsx for why shoots are not read here yet.
+ * (never a client-supplied org id). Brands and Shoots are independent live
+ * reads — see command-center.ts for why Shoots goes through
+ * shoot_portfolio_view (not raw shoot.shoots). Planner/approvals stay
+ * deferred per the accepted scope (honest empty, not a live read).
  *
- * A failed brand read degrades only the brands section, not the whole page
- * — the hero and quick links are static and don't depend on that query.
+ * A failed brand or shoot read degrades only its own section, not the
+ * whole page — the hero and quick links are static and don't depend on
+ * either query, and the two reads don't depend on each other's success.
  */
 export default async function AppHomePage() {
   const operator = await requireAppWorkspace();
@@ -65,11 +72,19 @@ export default async function AppHomePage() {
     );
   }
 
-  const brandsResult = await loadOrgBrands(supabase, tenant.orgId);
+  // Independent reads: brands and the trusted brand-id scope for shoots
+  // don't depend on each other, so run them together rather than in series.
+  const [brandsResult, trustedBrandIdsResult] = await Promise.all([
+    loadOrgBrands(supabase, tenant.orgId),
+    loadTrustedBrandIds(supabase, tenant.orgId),
+  ]);
+  const shootsResult = trustedBrandIdsResult.ok
+    ? await loadOrgShoots(supabase, trustedBrandIdsResult.brandIds)
+    : ({ ok: false } as const);
 
   return (
     <div className="p-8">
-      <CommandCenter brandsResult={brandsResult} />
+      <CommandCenter brandsResult={brandsResult} shootsResult={shootsResult} />
     </div>
   );
 }

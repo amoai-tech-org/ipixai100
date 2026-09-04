@@ -9,14 +9,16 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
-import type { DashboardBrand } from "@/lib/dashboard/command-center";
+import type { DashboardBrand, DashboardShoot } from "@/lib/dashboard/command-center";
 
 import styles from "./command-center.module.css";
 
 type BrandsResult = { ok: true; brands: DashboardBrand[] } | { ok: false };
+type ShootsResult = { ok: true; shoots: DashboardShoot[] } | { ok: false };
 
 type Props = {
   brandsResult: BrandsResult;
+  shootsResult: ShootsResult;
 };
 
 const QUICK_LINKS = [
@@ -32,7 +34,7 @@ const QUICK_LINKS = [
     href: "/app/shoots",
     icon: Camera,
     title: "Shoots",
-    body: "Not available yet on this dashboard.",
+    body: "Browse and open shoot records.",
   },
   {
     key: "plans",
@@ -49,15 +51,13 @@ const QUICK_LINKS = [
  * (Card, EmptyState, ErrorState) instead of Lumina's `CommandCenterBrandSync`
  * / fixtures.
  *
- * No shoot card here: `shoot.shoots` is not PostgREST-exposed and no
- * org/brand-scoped read RPC exists yet (verified live 2026-09-03) — showing
- * a shoot count would mean faking it. Honest "not available yet" instead of
- * a zero, per the no-fake-metrics rule.
- *
- * A failed brand read only replaces the brands section — Quick links are
- * static and stay usable regardless of that query's outcome.
+ * Brands and Shoots are independent reads/sections — a failed or empty
+ * result in one never blocks or hides the other, and Quick links are
+ * static and stay usable regardless of either query's outcome. Planner and
+ * Approvals stay off this page; they're optional per DASH-MAIN-001's
+ * accepted scope, not implemented as honest-empty-only sections here.
  */
-export function CommandCenter({ brandsResult }: Props) {
+export function CommandCenter({ brandsResult, shootsResult }: Props) {
   return (
     <div className={styles.root} data-testid="command-center">
       <header className={styles.hero}>
@@ -90,6 +90,40 @@ export function CommandCenter({ brandsResult }: Props) {
                   <Card>
                     <CardHeader>
                       <CardTitle className={styles.brandName}>{brand.name}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="command-center-shoots">
+        <h2 id="command-center-shoots" className={styles.sectionHeading}>
+          Recent shoots
+        </h2>
+        {!shootsResult.ok ? (
+          <ErrorState message="Couldn't load your shoots. Please try again shortly." />
+        ) : shootsResult.shoots.length === 0 ? (
+          <EmptyState
+            heading="No shoots yet"
+            body="Shoots your organization creates will show up here."
+            icon={<Camera aria-hidden />}
+            action={
+              <Link href="/app/shoots" className={styles.link}>
+                Go to Shoots
+              </Link>
+            }
+          />
+        ) : (
+          <ul className={styles.grid} data-testid="command-center-shoot-list">
+            {shootsResult.shoots.map((shoot) => (
+              <li key={shoot.id}>
+                <Link href="/app/shoots" className={styles.brandCardLink}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className={styles.brandName}>{shoot.name}</CardTitle>
                     </CardHeader>
                   </Card>
                 </Link>
