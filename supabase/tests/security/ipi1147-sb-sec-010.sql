@@ -145,19 +145,32 @@ begin
   end;
 
   -- 6b) UPDATE with-check: Org B cannot reparent own deliverable into Org A
-  --     campaign (the cross-tenant reparenting exploit). WITH CHECK must
-  --     reject it and the original campaign_id must remain unchanged.
+  --     campaign (the cross-tenant reparenting exploit). Disable the
+  --     cross-org trigger within this rolled-back transaction so the test
+  --     isolates the RLS WITH CHECK denial specifically (the trigger would
+  --     otherwise reject first). Re-enabled before 6c.
+  reset role;
+  alter table public.campaign_deliverables
+    disable trigger trg_campaign_deliverables_block_cross_org_reparent;
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claim.sub', user_b::text, true);
+  inserted := false;
   begin
     update public.campaign_deliverables
     set campaign_id = campaign_a
     where id = deliverable_b;
     inserted := true;
-  exception when others then
+  exception when insufficient_privilege or check_violation then
     null;
   end;
   if inserted then
     raise exception 'Org B user reparented deliverable into Org A campaign (with-check leak)';
   end if;
+  reset role;
+  alter table public.campaign_deliverables
+    enable trigger trg_campaign_deliverables_block_cross_org_reparent;
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claim.sub', user_b::text, true);
 
   if exists (
     select 1 from public.campaign_deliverables
