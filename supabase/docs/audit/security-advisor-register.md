@@ -14,7 +14,7 @@
 |---|---------|------:|:--------:|:--------------:|---------------|
 | 1 | `rls_enabled_no_policy` | 5 | INFO | **KEEP** (deny-all intentional) | [IPI-241 · SB-HYGIENE-002 — Chatbot RLS deny-all](https://linear.app/amo100/issue/IPI-241) / [IPI-801 · SB-V2-001 — Move Mastra tables to mastra schema](https://linear.app/amo100/issue/IPI-801) |
 | 2 | `extension_in_public` | 3 | WARN | **KEEP** (proven dependencies) | [IPI-1030 · SB-EXT-001 — KEEP public extensions (vector, pg_trgm, btree_gist)](https://linear.app/amo100/issue/IPI-1030) |
-| 3 | `authenticated_security_definer_function_executable` | 34 | WARN | **KEEP** (auth-guarded) | [IPI-1029 · SB-FIX-002 — Classify authenticated SECURITY DEFINER RPCs (no mass revoke)](https://linear.app/amo100/issue/IPI-1029) |
+| 3 | `authenticated_security_definer_function_executable` | 34 (last verified pre-revoke 2026-09-03/04; post-revoke NOT VERIFIED) | WARN | **KEEP** (auth-guarded) | [IPI-1029 · SB-FIX-002 — Classify authenticated SECURITY DEFINER RPCs (no mass revoke)](https://linear.app/amo100/issue/IPI-1029) |
 | 4 | `auth_leaked_password_protection` | 1 | WARN | **FIX** (Pro Plan required) | [IPI-863 · AUTH-V2-001 — Block Known Leaked Passwords for iPix Accounts](https://linear.app/amo100/issue/IPI-863) |
 
 ---
@@ -200,7 +200,7 @@ This is the only finding that requires a product/plan change rather than a code 
 | Metric | Original | After Fixes | Current |
 |--------|---------:|------------:|--------:|
 | `rls_enabled_no_policy` | 36 | 5 (IPI-801 moved 33 Mastra tables to `mastra` schema) | 5 |
-| `authenticated_security_definer_function_executable` | 37 | 33 (IPI-1029 revoked authenticated EXECUTE on `get_brand_assets`; 3 additional UNVERIFIED) | 34 (register refresh adds `v2_shoot_owned_by_brand`; trigger `talent.log_booking_status_change` was never counted) |
+| `authenticated_security_definer_function_executable` | 37 | 33 (IPI-1029 revoked authenticated EXECUTE on `get_brand_assets`; 3 additional UNVERIFIED) | 34 (last verified pre-revoke 2026-09-03/04; expected post-revoke 34; production post-revoke verification pending IPI-1147 apply) |
 | `anon_security_definer_function_executable` | 13 | 0 (IPI-664/665/668/677/673) | 0 |
 | `extension_in_public` | 3 | 3 (IPI-1030 KEEP) | 3 |
 | `function_search_path_mutable` | 2 | 0 (IPI-1029) | 0 |
