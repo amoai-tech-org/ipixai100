@@ -106,11 +106,9 @@ async function expectEmptyIsolatedDashboard(page: Page) {
   }
 }
 
-// Blocked on https://github.com/amoai-tech/ipixai/pull/52 (IPI-1066) — /app
-// on main has no "Dashboard" heading or brand list yet. Remove `.fixme` once
-// that merges — the assertions below are the real, intended two-account
-// reciprocal proof, not a stub.
-test.fixme(
+// PR #52 (IPI-1066) merged — /app has the real "Dashboard" heading and
+// brand list now. This is the real, intended two-account reciprocal proof.
+test(
   "org A vs org B: signed-in dashboards remain tenant-isolated",
   async ({ browser, page }) => {
     const orgAId = await getOwnOrgId(page);

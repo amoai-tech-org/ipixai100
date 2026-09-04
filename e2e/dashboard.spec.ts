@@ -1,11 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-// Blocked on https://github.com/amoai-tech/ipixai/pull/52 (IPI-1066) — /app on
-// main is still the pre-Command-Center placeholder ("HOME-001 will fill this
-// slot"), so every assertion below is against real, intended behavior that
-// doesn't exist on main yet. Remove `.fixme` once that PR merges — do not
-// weaken these to match the placeholder.
-test.describe.fixme("dashboard (authenticated)", () => {
+// PR #52 (IPI-1066) merged — /app is the real Command Center now, not the
+// pre-merge placeholder. These assertions run for real.
+test.describe("dashboard (authenticated)", () => {
   test("loads /app without console or page errors", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (err) => errors.push(err.message));

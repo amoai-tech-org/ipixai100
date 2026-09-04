@@ -15,10 +15,8 @@ test("critical journey: login succeeds", async ({ page }) => {
   await signInAsE2ETestOperator(page);
 });
 
-// Blocked on https://github.com/amoai-tech/ipixai/pull/52 (IPI-1066) — /app on
-// main is still the pre-Command-Center placeholder. Remove `.fixme` once that
-// merges; the assertions below are the real, intended behavior, not a stub.
-test.fixme(
+// PR #52 (IPI-1066) merged — /app is the real Command Center now.
+test(
   "critical journey: dashboard → brand navigation",
   async ({ page }) => {
     await signInAsE2ETestOperator(page);
