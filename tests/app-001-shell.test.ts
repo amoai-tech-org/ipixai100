@@ -62,7 +62,7 @@ vi.mock("../src/lib/auth/copilot-hooks", () => ({
 
 import AppSectionPage from "../src/app/app/[section]/page";
 import AppLayout from "../src/app/app/layout";
-import HomePage from "../src/app/page";
+import PlannerPage from "../src/app/planner/page";
 import { requireAppWorkspace } from "../src/lib/auth/app-shell";
 
 const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
@@ -100,17 +100,17 @@ describe("APP-001 route split", () => {
     expect(screen.getByText("Workspace body")).toBeDefined();
   });
 
-  it("signed-in / does not expose the operator workspace", async () => {
+  it("signed-in /planner does not expose the operator workspace", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
-    const ui = await HomePage();
+    const ui = await PlannerPage();
     render(ui);
     expect(screen.queryByTestId("operator-panel")).toBeNull();
     expect(screen.getByTestId("planner-app")).toBeDefined();
   });
 
-  it("signed-out / redirects to login", async () => {
+  it("signed-out /planner redirects to login", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(null);
-    await expect(HomePage()).rejects.toThrow("REDIRECT:/login");
+    await expect(PlannerPage()).rejects.toThrow("REDIRECT:/login");
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
