@@ -72,6 +72,15 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     expect(screen.getByTestId("onboarding-form").textContent).toBe(operator.id);
   });
 
+  it("IPI-1157 · AUTH-UX-001 — onboarding always renders a visible Sign out posting to /auth/sign-out", async () => {
+    serverCreateClient.mockReturnValue(clientWithOrgIds([]));
+    const ui = await OnboardingPage();
+    const { container } = render(ui);
+    const form = container.querySelector('form[action="/auth/sign-out"]');
+    expect(form?.getAttribute("method")).toBe("post");
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
+  });
+
   it("onboarding redirects a single-org operator to /app", async () => {
     serverCreateClient.mockReturnValue(
       clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
@@ -114,6 +123,20 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     render(ui);
     expect(redirect).not.toHaveBeenCalled();
     expect(screen.getByTestId("empty-state")).toBeDefined();
+  });
+
+  it("IPI-1157 · AUTH-UX-001 — org-selection always renders a visible Sign out posting to /auth/sign-out", async () => {
+    serverCreateClient.mockReturnValue(
+      clientWithOrgIds([
+        "22222222-2222-4222-8222-222222222222",
+        "33333333-3333-4333-8333-333333333333",
+      ]),
+    );
+    const ui = await OrgSelectionPage();
+    const { container } = render(ui);
+    const form = container.querySelector('form[action="/auth/sign-out"]');
+    expect(form?.getAttribute("method")).toBe("post");
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
   });
 
   it("org-selection redirects a single-org operator to /app", async () => {

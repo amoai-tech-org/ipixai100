@@ -72,7 +72,7 @@ vi.mock("../src/lib/supabase/server", () => ({
   createClientFromRequest: serverCreateClientFromRequest,
 }));
 
-vi.mock("../src/app/(marketing)/login/login.module.css", () => ({
+vi.mock("../src/components/auth/auth-form.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
@@ -189,48 +189,23 @@ describe("successful authentication navigates to /app", () => {
     });
   });
 
-  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form calls signUp in signup mode and does not enumerate", async () => {
-    signUp.mockResolvedValue({ data: { session: {} }, error: null });
+  it("IPI-1157 · AUTH-UX-001 — Split Sign In and Sign Up: /login is sign-in intent only — no signup toggle, links to /signup instead", async () => {
     render(createElement(LoginForm, { next: null }));
-    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
-    await waitFor(() => {
-      expect(signUp).toHaveBeenCalledWith({
-        email: "new@example.com",
-        password: "secret",
-      });
-      expect(push).toHaveBeenCalledWith("/app");
-    });
+    expect(screen.queryByRole("button", { name: "Create an account" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Create an account" }).getAttribute("href")).toBe("/signup");
   });
 
-  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: signup with a null session shows confirmation-required and does not navigate", async () => {
-    signUp.mockResolvedValue({ data: { session: null }, error: null });
+  it("IPI-1157 · AUTH-UX-001 — Split Sign In and Sign Up: sign-in never calls signUp()", async () => {
+    signInWithPassword.mockResolvedValue({ error: null });
+    getClaims.mockResolvedValue({});
     render(createElement(LoginForm, { next: null }));
-    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
-      expect(screen.getByText(/Check your email to confirm your account/i)).toBeDefined();
+      expect(signInWithPassword).toHaveBeenCalled();
     });
-    expect(push).not.toHaveBeenCalled();
-  });
-
-  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: Back to sign in restores the sign-in form after confirmation", async () => {
-    signUp.mockResolvedValue({ data: { session: null }, error: null });
-    render(createElement(LoginForm, { next: null }));
-    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
-    await waitFor(() => {
-      expect(screen.getByText(/Check your email to confirm your account/i)).toBeDefined();
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Back to sign in" }));
-    expect(screen.getByRole("heading", { name: "Welcome" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: Google button becomes disabled after the first click", async () => {

@@ -46,7 +46,7 @@ export function MarketingFooter() {
         <div>
           <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white">Get started</h4>
           <ul className="space-y-2 text-sm text-stone-300">
-            <li><Link href="/login">Sign in</Link></li>
+            <li><Link href="/signup">Create account</Link></li>
             <li><Link href="/#contact">Request a quote</Link></li>
           </ul>
         </div>
