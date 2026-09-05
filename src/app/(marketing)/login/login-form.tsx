@@ -1,10 +1,9 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
-import { safeRedirect } from "@/lib/auth/post-auth-destination";
 
 import styles from "./login.module.css";
 
@@ -15,9 +14,8 @@ const GOOGLE_OAUTH_ENABLED =
 
 type Mode = "signin" | "signup";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next: string | null }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,11 +24,9 @@ export function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
-  const next = safeRedirect(searchParams.get("next"));
   const destination = next ?? "/planner";
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submit() {
     if (submittedRef.current) return;
     submittedRef.current = true;
     setError(null);
@@ -114,7 +110,13 @@ export function LoginForm() {
               <h1 className={styles.title}>
                 {mode === "signin" ? "Welcome" : "Sign up"}
               </h1>
-          <form onSubmit={onSubmit} className={styles.form}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+            className={styles.form}
+          >
             <div className={styles.field}>
               <label htmlFor="email">Email</label>
               <input
@@ -148,7 +150,12 @@ export function LoginForm() {
                 {error}
               </p>
             ) : null}
-            <button className={styles.submit} type="submit" disabled={submitting}>
+            <button
+              type="button"
+              className={styles.submit}
+              onClick={() => void submit()}
+              disabled={submitting}
+            >
               {submitting
                 ? "Please wait…"
                 : mode === "signin"

@@ -2,18 +2,22 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getVerifiedOperatorFromCookies } from "@/lib/auth/copilot-hooks";
-import { postAuthDestinationFor } from "@/lib/auth/post-auth-destination";
+import { postAuthDestinationFor, safeRedirect } from "@/lib/auth/post-auth-destination";
 import { listMembershipOrgIdsFromServerClient } from "@/lib/auth/runtime-org";
 import { createClient } from "@/lib/supabase/server";
 
-import { LoginForm } from "@/app/(marketing)/login/login-form";
+import LoginFormLazy from "@/app/(marketing)/login/login-form-lazy";
 
 export const metadata: Metadata = {
   title: "Sign in — iPix",
   robots: { index: false, follow: false },
 };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
   const operator = await getVerifiedOperatorFromCookies();
   if (operator) {
     const supabase = await createClient();
@@ -27,9 +31,10 @@ export default async function LoginPage() {
       if (destination !== "/login") {
         redirect(destination);
       }
-    } else {
-      redirect("/planner");
     }
+    // supabase null (env missing) → render the form; unknown tenant state
+    // never grants access and never redirects into a /planner loop.
   }
-  return <LoginForm />;
+  const { next } = await searchParams;
+  return <LoginFormLazy next={safeRedirect(next)} />;
 }
