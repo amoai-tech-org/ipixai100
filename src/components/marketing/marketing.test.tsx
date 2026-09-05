@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MarketingHeader } from "./header";
 import { MarketingFooter } from "./footer";
@@ -42,6 +42,15 @@ describe("MarketingHeader (IPI-1053)", () => {
     const toggle = screen.getByRole("button", { name: "Toggle menu" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(toggle.getAttribute("aria-controls")).toBeTruthy();
+  });
+
+  it("renders Work and Process links in the mobile sheet", () => {
+    render(<MarketingHeader />);
+    const toggle = screen.getByRole("button", { name: "Toggle menu" });
+    fireEvent.click(toggle);
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile" });
+    expect(within(mobileNav).getByRole("link", { name: "Work" })).toBeTruthy();
+    expect(within(mobileNav).getByRole("link", { name: "Process" })).toBeTruthy();
   });
 });
 

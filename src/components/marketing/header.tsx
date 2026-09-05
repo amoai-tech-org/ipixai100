@@ -102,7 +102,7 @@ export function MarketingHeader() {
       {mobileOpen && (
         <div
           id={mobileMenuId}
-          className="md:hidden"
+          className="md:hidden max-h-[calc(100dvh-4rem)] overflow-y-auto"
           style={{ background: "var(--mk-bg)", borderTop: "1px solid var(--mk-border)" }}
         >
           <nav className="flex flex-col gap-1 px-6 py-4" aria-label="Mobile">
@@ -111,6 +111,8 @@ export function MarketingHeader() {
                 {s.label}
               </Link>
             ))}
+            <Link href="/#portfolio" className="py-2 text-sm" onClick={() => setMobileOpen(false)}>Work</Link>
+            <Link href="/#process" className="py-2 text-sm" onClick={() => setMobileOpen(false)}>Process</Link>
             <Link href="/login" className="py-2 text-sm" onClick={() => setMobileOpen(false)}>Sign in</Link>
             <Link
               href="/#contact"
