@@ -16,6 +16,7 @@ const notFound = vi.hoisted(() =>
 );
 
 const getVerifiedOperatorFromCookies = vi.hoisted(() => vi.fn());
+const serverCreateClient = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   redirect,
@@ -66,12 +67,32 @@ vi.mock("../src/lib/auth/copilot-hooks", () => ({
   getVerifiedOperatorFromCookies,
 }));
 
+vi.mock("../src/lib/supabase/server", () => ({
+  createClient: serverCreateClient,
+}));
+
 import AppSectionPage from "../src/app/app/[section]/page";
 import AppLayout from "../src/app/app/layout";
 import PlannerPage from "../src/app/planner/page";
-import { requireAppWorkspace } from "../src/lib/auth/app-shell";
+import {
+  requireAppWorkspace,
+  requireResolvedAppWorkspace,
+} from "../src/lib/auth/app-shell";
 
 const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
+
+function clientWithOrgIds(orgIds: string[], error: unknown = null) {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: vi.fn().mockResolvedValue({
+          data: orgIds.map((org_id) => ({ org_id })),
+          error,
+        }),
+      }),
+    }),
+  };
+}
 
 afterEach(() => cleanup());
 
@@ -79,6 +100,7 @@ beforeEach(() => {
   redirect.mockClear();
   notFound.mockClear();
   getVerifiedOperatorFromCookies.mockReset();
+  serverCreateClient.mockReset();
 });
 
 describe("requireAppWorkspace", () => {
@@ -95,9 +117,65 @@ describe("requireAppWorkspace", () => {
   });
 });
 
+describe("requireResolvedAppWorkspace", () => {
+  it("admits a single-org operator", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(
+      clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
+    );
+    await expect(requireResolvedAppWorkspace()).resolves.toEqual(operator);
+  });
+
+  it("uses caller-provided workspace dependencies", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    await expect(
+      requireResolvedAppWorkspace({
+        getServerClient: async () => ({} as never),
+        listOrgIds: async () => ({
+          ok: true as const,
+          orgIds: ["22222222-2222-4222-8222-222222222222"],
+        }),
+      }),
+    ).resolves.toEqual(operator);
+    expect(serverCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("redirects a zero-org operator before the app shell mounts", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(clientWithOrgIds([]));
+    await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/onboarding");
+  });
+
+  it("redirects a multi-org operator before the app shell mounts", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(
+      clientWithOrgIds([
+        "22222222-2222-4222-8222-222222222222",
+        "33333333-3333-4333-8333-333333333333",
+      ]),
+    );
+    await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/org-selection");
+  });
+
+  it("fails closed when the membership lookup fails", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(clientWithOrgIds([], new Error("db")));
+    await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/login");
+  });
+
+  it("fails closed when the server Supabase client is unavailable", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(null);
+    await expect(requireResolvedAppWorkspace()).rejects.toThrow("REDIRECT:/login");
+  });
+});
+
 describe("APP-001 route split", () => {
   it("signed-in /app layout exposes the operator workspace around children", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(
+      clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
+    );
     const ui = await AppLayout({
       children: createElement("p", null, "Workspace body"),
     });
@@ -125,6 +203,9 @@ describe("APP-001 route split", () => {
 
   it("unknown /app/[section] calls notFound", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(
+      clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
+    );
     await expect(
       AppSectionPage({ params: Promise.resolve({ section: "not-a-real-section" }) }),
     ).rejects.toThrow("NOT_FOUND");
@@ -133,6 +214,9 @@ describe("APP-001 route split", () => {
 
   it("known /app/brands renders the EmptyState placeholder", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(
+      clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
+    );
     const ui = await AppSectionPage({
       params: Promise.resolve({ section: "brands" }),
     });
@@ -140,5 +224,13 @@ describe("APP-001 route split", () => {
     expect(notFound).not.toHaveBeenCalled();
     expect(screen.getByTestId("empty-state")).toBeDefined();
     expect(screen.getByRole("heading", { name: "Brands" })).toBeDefined();
+  });
+
+  it("redirects a zero-org operator from an app section before rendering it", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockResolvedValue(clientWithOrgIds([]));
+    await expect(
+      AppSectionPage({ params: Promise.resolve({ section: "brands" }) }),
+    ).rejects.toThrow("REDIRECT:/onboarding");
   });
 });

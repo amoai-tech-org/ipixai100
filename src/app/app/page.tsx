@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { CommandCenter } from "@/components/dashboard/command-center";
 import { ReportWorkspaceStats } from "@/components/operator-panel/workspace-stats";
 import { ErrorState } from "@/components/ui/error-state";
-import { requireAppWorkspace } from "@/lib/auth/app-shell";
 import {
-  listMembershipOrgIdsFromServerClient,
+  appWorkspaceDependencies,
+  requireResolvedAppWorkspace,
+} from "@/lib/auth/app-shell";
+import {
   resolveRuntimeTenant,
 } from "@/lib/auth/runtime-org";
 import {
@@ -14,7 +16,6 @@ import {
   loadOrgShoots,
   loadTrustedBrandIds,
 } from "@/lib/dashboard/command-center";
-import { createClient } from "@/lib/supabase/server";
 
 /**
  * DASH-MAIN-001 — the authenticated `/app` Command Center.
@@ -35,9 +36,9 @@ import { createClient } from "@/lib/supabase/server";
  * a membership lookup failure fails closed to /login.
  */
 export default async function AppHomePage() {
-  const operator = await requireAppWorkspace();
+  const operator = await requireResolvedAppWorkspace(appWorkspaceDependencies);
 
-  const supabase = await createClient();
+  const supabase = await appWorkspaceDependencies.getServerClient();
   if (!supabase) {
     return (
       <div className="p-8">
@@ -47,7 +48,7 @@ export default async function AppHomePage() {
   }
 
   const tenant = await resolveRuntimeTenant({
-    listOrgIds: () => listMembershipOrgIdsFromServerClient(supabase, operator.id),
+    listOrgIds: () => appWorkspaceDependencies.listOrgIds(operator.id),
   });
 
   if (tenant.status === "needs_onboarding") {
