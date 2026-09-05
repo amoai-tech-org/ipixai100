@@ -51,11 +51,11 @@ describe("MarketingHomePage (IPI-1057)", () => {
   it("CTA links point to supported destinations", () => {
     render(<MarketingHomePage />);
     const getStarted = screen.getByRole("link", { name: "Get Started" });
-    expect(getStarted.getAttribute("href")).toBe("/login");
+    expect(getStarted.getAttribute("href")).toBe("/signup");
     const howItWorks = screen.getByRole("link", { name: "How It Works" });
     expect(howItWorks.getAttribute("href")).toBe("#process");
     const startPlanning = screen.getByRole("link", { name: "Start Planning" });
-    expect(startPlanning.getAttribute("href")).toBe("/login");
+    expect(startPlanning.getAttribute("href")).toBe("/signup");
   });
 
   it("contains no legacy named clients or unsupported claims", () => {

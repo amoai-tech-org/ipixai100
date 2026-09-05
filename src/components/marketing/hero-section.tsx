@@ -3,7 +3,8 @@ import { AnimatedSection } from "./animated-section";
 
 // Home hero: split copy/visual, two CTAs. Visual is a neutral gradient
 // placeholder until MEDIA-001 supplies approved imagery — no invented
-// provenance. CTAs target supported destinations.
+// provenance. "Get Started" is an acquisition CTA — it targets /signup
+// (IPI-1157 · AUTH-UX-001), not sign-in-only /login.
 export function HeroSection() {
   return (
     <section className="relative flex min-h-screen items-center pt-20">
@@ -25,7 +26,7 @@ export function HeroSection() {
             </p>
             <div className="flex flex-col gap-4 sm:flex-row">
               <Link
-                href="/login"
+                href="/signup"
                 className="px-8 py-4 text-center text-sm font-medium uppercase tracking-wide text-white transition-opacity hover:opacity-90"
                 style={{ background: "var(--mk-text)" }}
               >
