@@ -18,6 +18,7 @@ import {
   asOnboardingUserId,
   getOrCreateOnboardingIdempotencyKey,
   getOrCreateOnboardingSession,
+  hasMaterializedOnboardingSession,
   materializeOnboarding,
   parseDraftAnswers,
   serializeDraftAnswers,
@@ -74,6 +75,14 @@ export function OnboardingForm({ userId }: { userId: string }) {
           router.replace("/app");
           return;
         }
+        // Defense-in-depth: a user who completed onboarding under a different
+        // key (e.g. cleared browser storage) must not be shown the form again.
+        const alreadyOnboarded = await hasMaterializedOnboardingSession(supabase, operatorId);
+        if (cancelled) return;
+        if (alreadyOnboarded) {
+          router.replace("/app");
+          return;
+        }
         sessionIdRef.current = asOnboardingSessionId(session.id);
         const draft = parseDraftAnswers(session.draft_answers);
         setBrandName(draft.brandName);
@@ -94,11 +103,17 @@ export function OnboardingForm({ userId }: { userId: string }) {
   /**
    * Serialized autosave: writes run one at a time and always end on the latest
    * snapshot, so an older in-flight request can never overwrite a newer draft.
-   * On failure the snapshot is kept so Retry re-saves the newest state.
+   * On failure the snapshot is kept (unless a newer edit superseded it) so
+   * Retry re-saves the newest state. Returns false when a write failed.
    */
-  const flushSave = useCallback(async () => {
+  const flushSave = useCallback(async (): Promise<boolean> => {
     const sessionId = sessionIdRef.current;
-    if (!sessionId || saveInFlightRef.current) return;
+    if (!sessionId) return true;
+    // Wait for any in-flight save to settle so submit can drain the queue
+    // before materializing — a stale autosave must never touch a materialized row.
+    while (saveInFlightRef.current) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
     saveInFlightRef.current = true;
     try {
       while (pendingSaveRef.current) {
@@ -111,11 +126,16 @@ export function OnboardingForm({ userId }: { userId: string }) {
           });
           setSaveState("saved");
         } catch {
-          pendingSaveRef.current = snapshot;
+          // Restore the failed snapshot only when no newer edit arrived while it
+          // was in flight — otherwise Retry would persist stale edits.
+          if (!pendingSaveRef.current) {
+            pendingSaveRef.current = snapshot;
+          }
           setSaveState("error");
-          break;
+          return false;
         }
       }
+      return true;
     } finally {
       saveInFlightRef.current = false;
     }
@@ -151,6 +171,14 @@ export function OnboardingForm({ userId }: { userId: string }) {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // Persist any pending draft first; a failed save must block materialization
+      // so the user's latest edits are never lost.
+      const saved = await flushSave();
+      if (!saved) {
+        setSubmitError("Couldn't save your draft. Please retry.");
+        setSubmitting(false);
+        return;
+      }
       const supabase = createClient();
       const key = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId(userId));
       await materializeOnboarding(supabase, { brandName: name, websiteUrl }, { idempotencyKey: key });
@@ -201,6 +229,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
                 setBrandName(event.target.value);
                 saveDraft(event.target.value, websiteUrl);
               }}
+              disabled={submitting}
               autoComplete="organization"
               placeholder="Maison Noir"
               className={inputClassName}
@@ -220,6 +249,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
                 setWebsiteUrl(event.target.value);
                 saveDraft(brandName, event.target.value);
               }}
+              disabled={submitting}
               inputMode="url"
               autoComplete="url"
               placeholder="https://maisonnoir.com"

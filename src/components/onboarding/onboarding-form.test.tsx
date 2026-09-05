@@ -48,7 +48,12 @@ function fakeSupabase(session: TestSession) {
     from: vi.fn(() => supabase),
     select: vi.fn(() => supabase),
     eq: vi.fn(() => supabase),
-    maybeSingle: vi.fn().mockResolvedValue({ data: session, error: null }),
+    // First maybeSingle = getOrCreateOnboardingSession (returns the session);
+    // subsequent = hasMaterializedOnboardingSession (no other materialized row).
+    maybeSingle: vi
+      .fn()
+      .mockResolvedValueOnce({ data: session, error: null })
+      .mockResolvedValue({ data: null, error: null }),
     single: vi.fn(),
     insert: vi.fn(() => supabase),
     update: vi.fn(() => supabase),
@@ -63,10 +68,16 @@ function fakeSupabase(session: TestSession) {
   return supabase;
 }
 
-const replaceMock = vi.fn();
+// Stable router identity: useRouter() must return the same object every render,
+// otherwise the load effect re-runs on every setState and re-enters the
+// get-or-create path (second run hits the insert branch).
+const { replaceMock, routerMock } = vi.hoisted(() => {
+  const replaceMock = vi.fn();
+  return { replaceMock, routerMock: { replace: replaceMock } };
+});
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: replaceMock }),
+  useRouter: () => routerMock,
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -135,6 +146,54 @@ describe("OnboardingForm (IPI-1089 · ONBOARD-001)", () => {
       p_brand_name: "Maison Noir",
       p_brand_url: null,
     });
+  });
+
+  it("persists a pending draft before materializing on submit", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    const order: string[] = [];
+    supabaseMock.update.mockImplementation(() => {
+      order.push("update");
+      return supabaseMock;
+    });
+    supabaseMock.rpc.mockImplementation(async () => {
+      order.push("rpc");
+      return {
+        data: {
+          organization_id: "33333333-3333-3333-3333-333333333333",
+          brand_id: "44444444-4444-4444-4444-444444444444",
+        },
+        error: null,
+      };
+    });
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    await screen.findByTestId("onboarding-form");
+    // Distinct value so React fires onChange (the draft already holds "Maison Noir").
+    fireEvent.change(screen.getByLabelText("Brand name"), {
+      target: { value: "New Brand" },
+    });
+    // Submit before the 400ms debounce fires so the save is still pending.
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app"));
+    expect(order.indexOf("update")).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf("rpc")).toBeGreaterThan(order.indexOf("update"));
+  });
+
+  it("blocks materialization when the draft save fails", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    supabaseMock.update.mockReturnValue({
+      eq: () => ({
+        eq: () => Promise.resolve({ data: null, error: { message: "network down" } }),
+      }),
+    } as never);
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    await screen.findByTestId("onboarding-form");
+    fireEvent.change(screen.getByLabelText("Brand name"), {
+      target: { value: "New Brand" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    expect(await screen.findByTestId("onboarding-submit-error")).toBeDefined();
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
   it("shows a retryable error when materialization fails", async () => {

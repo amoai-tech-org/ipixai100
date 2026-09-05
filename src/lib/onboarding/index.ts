@@ -96,11 +96,35 @@ export const updateOnboardingSessionDraft = async (
   const { error } = await supabase
     .from("onboarding_sessions")
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", sessionId);
+    .eq("id", sessionId)
+    .eq("status", "draft");
 
   if (error) {
     throw new Error(error.message ?? "Failed to update onboarding session");
   }
+};
+
+/**
+ * True when the user already completed onboarding under any idempotency key.
+ * Defense-in-depth for cleared browser storage: a fresh key must not re-show
+ * the form to a user who already materialized (the DB partial unique index is
+ * the authoritative guard).
+ */
+export const hasMaterializedOnboardingSession = async (
+  supabase: SupabaseClient,
+  userId: OnboardingUserId,
+): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from("onboarding_sessions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("status", "materialized")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message ?? "Failed to check onboarding status");
+  }
+  return data != null;
 };
 
 /**

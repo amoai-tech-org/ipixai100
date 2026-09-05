@@ -6,6 +6,7 @@ import {
   asOnboardingUserId,
   getOrCreateOnboardingIdempotencyKey,
   getOrCreateOnboardingSession,
+  hasMaterializedOnboardingSession,
   materializeOnboarding,
   parseDraftAnswers,
   serializeDraftAnswers,
@@ -50,6 +51,22 @@ describe("getOrCreateOnboardingIdempotencyKey", () => {
     expect(() =>
       getOrCreateOnboardingIdempotencyKey(asOnboardingUserId(""), {} as Storage),
     ).toThrow();
+  });
+
+  it("mints distinct keys across separate storage contexts (DB index is the guard)", () => {
+    const storeA = new Map<string, string>();
+    const storeB = new Map<string, string>();
+    const storageA = {
+      getItem: (k: string) => storeA.get(k) ?? null,
+      setItem: (k: string, v: string) => void storeA.set(k, v),
+    };
+    const storageB = {
+      getItem: (k: string) => storeB.get(k) ?? null,
+      setItem: (k: string, v: string) => void storeB.set(k, v),
+    };
+    const keyA = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId("user-1"), storageA);
+    const keyB = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId("user-1"), storageB);
+    expect(keyA).not.toBe(keyB);
   });
 });
 
@@ -183,7 +200,7 @@ describe("updateOnboardingSessionDraft", () => {
   it("updates draft_answers on the session row", async () => {
     const supabase = mockSupabase();
     supabase.update.mockReturnValue(supabase);
-    supabase.eq.mockResolvedValue({ error: null });
+    supabase.eq.mockReturnValueOnce(supabase).mockResolvedValue({ error: null });
     await updateOnboardingSessionDraft(supabase as never, asOnboardingSessionId("session-1"), {
       draft_answers: { brandName: "Maison Noir" },
     });
@@ -191,6 +208,40 @@ describe("updateOnboardingSessionDraft", () => {
       expect.objectContaining({ draft_answers: { brandName: "Maison Noir" } }),
     );
     expect(supabase.eq).toHaveBeenCalledWith("id", "session-1");
+  });
+
+  it("only persists sessions still in draft state", async () => {
+    const supabase = mockSupabase();
+    supabase.update.mockReturnValue(supabase);
+    supabase.eq.mockReturnValueOnce(supabase).mockResolvedValue({ error: null });
+    await updateOnboardingSessionDraft(supabase as never, asOnboardingSessionId("session-1"), {
+      draft_answers: { brandName: "Maison Noir" },
+    });
+    expect(supabase.eq).toHaveBeenCalledWith("status", "draft");
+  });
+});
+
+describe("hasMaterializedOnboardingSession", () => {
+  it("returns true when the user already completed onboarding", async () => {
+    const supabase = mockSupabase();
+    supabase.maybeSingle.mockResolvedValue({ data: { id: "session-1" }, error: null });
+    const result = await hasMaterializedOnboardingSession(
+      supabase as never,
+      asOnboardingUserId("user-1"),
+    );
+    expect(result).toBe(true);
+    expect(supabase.eq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(supabase.eq).toHaveBeenCalledWith("status", "materialized");
+  });
+
+  it("returns false for a user who never completed onboarding", async () => {
+    const supabase = mockSupabase();
+    supabase.maybeSingle.mockResolvedValue({ data: null, error: null });
+    const result = await hasMaterializedOnboardingSession(
+      supabase as never,
+      asOnboardingUserId("user-1"),
+    );
+    expect(result).toBe(false);
   });
 });
 
