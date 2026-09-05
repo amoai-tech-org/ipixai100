@@ -164,12 +164,11 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       <main className={styles.main}>
         <div className={styles.mainScroll}>{children}</div>
         <div className={styles.chatDock} data-testid="operator-chat-dock">
-          {/* agentId="default" resolves to weatherAgent
-              (src/mastra/agents/index.ts) — a generic demo assistant with
-              no brand/shoot context, not a real production-planning agent.
-              Copy here stays honest about that until a real planning agent
-              is registered. Planner internals are out of scope for this
-              parity pass — that's the owning follow-up under
+          {/* agentId="default" now resolves to productionPlannerAgent
+              (src/mastra/agents/index.ts, IPI-1048 · PLANNER-001) — still no
+              brand/shoot context wired into this dock's copy/suggestions yet.
+              Updating this dock's welcome copy/props for that is Dashboard
+              composition work, out of scope here — owning follow-up remains
               IPI-1149 · DASH-MAIN-002 — Restore the Portfolio-First Command
               Center Experience in iPix V2 */}
           <CopilotChat
