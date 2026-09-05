@@ -84,7 +84,9 @@ export default defineConfig({
       // login-journey does its own real UI login (not storageState) —
       // one extra hosted sign-in beyond setup is enough; running it per
       // viewport too would sign into the real account 3× per full run.
-      testIgnore: /login-journey\.spec\.ts/,
+      // Keep the production-only smoke excluded here too because project-level
+      // testIgnore replaces the inherited/global value.
+      testIgnore: [/login-journey\.spec\.ts/, /production-smoke\.spec\.ts/],
     },
   ],
 
