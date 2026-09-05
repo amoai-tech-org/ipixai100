@@ -12,7 +12,17 @@ export async function signInWithCredentials(
   email: string,
   password: string,
 ): Promise<void> {
-  await page.goto("/login");
+  try {
+    await page.goto("/login");
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("ERR_NETWORK_CHANGED")) {
+      throw error;
+    }
+    // Chromium can briefly abort navigation when the host switches network
+    // routes (for example Wi-Fi/VPN handoff). Retry only that transport error;
+    // HTTP/app failures are never retried or hidden.
+    await page.goto("/login");
+  }
   // The form is client-only (ssr: false), so it only appears after React
   // mounts and the submit handler is attached. Waiting for the accessible
   // "Sign in" button synchronizes with that mount without inspecting private
