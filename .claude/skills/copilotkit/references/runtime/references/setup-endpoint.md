@@ -1,5 +1,13 @@
 # CopilotKit Runtime Endpoint
 
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+- [See also](#see-also)
+
+
 `createCopilotRuntimeHandler` is the strongly-preferred primitive. It returns a
 `(Request) => Promise<Response>` that works in every fetch-native runtime and can be
 delegated to from Express/Hono/Node. Avoid `createCopilotExpressHandler` and

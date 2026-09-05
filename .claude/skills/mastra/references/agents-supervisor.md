@@ -10,6 +10,23 @@ mdeapp: phase2-defer
 
 # Supervisor agents
 
+## Contents
+
+- [When to use supervisor agents](#when-to-use-supervisor-agents)
+- [Quickstart](#quickstart)
+- [Delegation hooks](#delegation-hooks)
+- [Message filtering](#message-filtering)
+- [Subagent result context](#subagent-result-context)
+- [Iteration monitoring](#iteration-monitoring)
+- [Memory isolation](#memory-isolation)
+- [Tool approval propagation](#tool-approval-propagation)
+- [Task completion scoring](#task-completion-scoring)
+- [Writing effective instructions](#writing-effective-instructions)
+- [Running subagents in the background](#running-subagents-in-the-background)
+- [Subagent versioning](#subagent-versioning)
+- [Related](#related)
+
+
 **Added in:** `@mastra/core@1.8.0`
 
 A supervisor agent coordinates multiple subagents using [`Agent.stream()`](https://mastra.ai/reference/streaming/agents/stream) or [`Agent.generate()`](https://mastra.ai/reference/agents/generate). You configure subagents on the supervisor's `agents` property, and the supervisor uses its instructions and each subagent's `description` to decide when and how to delegate tasks.
@@ -24,7 +41,7 @@ Common use cases:
 - Multi-step tasks that need different expertise at each stage
 - Tasks where you need fine-grained control over delegation behavior
 
-> **Note:** Supervisor agents are one approach to building multi-agent systems in Mastra. For other patterns, read the [conceptual overview](https://mastra.ai/guides/concepts/multi-agent-systems).
+> **Note:** Supervisor agents are one approach to building multi-agent systems in Mastra. For other patterns, read the [conceptual overview](https://mastra.ai/docs/guides/multi-agent-systems).
 
 ## Quickstart
 
@@ -382,4 +399,4 @@ Version overrides propagate automatically through delegation. See [Subagent vers
 - [Agent.generate() reference](https://mastra.ai/reference/agents/generate)
 - [Agent approval](https://mastra.ai/docs/agents/agent-approval)
 - [Memory in multi-agent systems](https://mastra.ai/docs/memory/overview)
-- [Concept: Multi-agent systems](https://mastra.ai/guides/concepts/multi-agent-systems)
+- [Concept: Multi-agent systems](https://mastra.ai/docs/guides/multi-agent-systems)

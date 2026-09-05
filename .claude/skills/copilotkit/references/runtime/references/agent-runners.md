@@ -1,5 +1,14 @@
 # CopilotKit Agent Runners
 
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+- [References](#references)
+- [See also](#see-also)
+
+
 `AgentRunner` is the abstraction that owns thread run state — active runs, the event stream
 replay, and stop semantics. Pick one per `CopilotRuntime` instance.
 
@@ -299,6 +308,6 @@ Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:63-96`.
 
 ## See also
 
-- `copilotkit/intelligence-mode` — managed durability alternative (CopilotKit Intelligence managed service, not self-hostable)
+- `copilotkit/intelligence-mode` — CopilotKit Intelligence durability path (cloud-hosted or licensed self-hosted)
 - `copilotkit/setup-endpoint` — runner is passed via the CopilotRuntime constructor
 - `copilotkit/scale-to-multi-agent` — horizontal scaling considerations

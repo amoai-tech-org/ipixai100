@@ -1,5 +1,15 @@
 # CopilotKit Error Pattern Catalog
 
+## Contents
+
+- [V1 Error Codes (`CopilotKitErrorCode`)](#v1-error-codes-copilotkiterrorcode)
+- [V1 Error Classes](#v1-error-classes)
+- [V2 Error Codes (`CopilotKitCoreErrorCode`)](#v2-error-codes-copilotkitcoreerrorcode)
+- [Transcription Error Codes (`TranscriptionErrorCode`)](#transcription-error-codes-transcriptionerrorcode)
+- [Intelligence Platform Error (`PlatformRequestError`)](#intelligence-platform-error-platformrequesterror)
+- [Common GitHub-Reported Issues](#common-github-reported-issues)
+
+
 ## V1 Error Codes (`CopilotKitErrorCode`)
 
 Legacy error codes from the v1 runtime layer. These still surface in `@copilotkit/*` packages since they wrap v2 internally. Defined in `packages/v1/shared/src/utils/errors.ts`.

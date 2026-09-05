@@ -1,13 +1,16 @@
 # CopilotKit Intelligence Mode
 
-Intelligence currently ships as a managed cloud service. The only supported `apiUrl` /
-`wsUrl` today is the CopilotKit-managed cloud Intelligence instance — the `ɵ`-prefixed
-runtime internals and REST/WebSocket contract that back Intelligence are still
-stabilizing and `organizationId` is reserved for future self-hosted deployments. If you
-need on-prem durable threads today, use SSE mode with a persistent runner
-(`SqliteAgentRunner` or a custom one) instead.
+## Contents
 
-Obtain `apiKey` and `organizationId` from the CopilotKit Intelligence dashboard.
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+- [See also](#see-also)
+
+
+CopilotKit Intelligence supports **cloud-hosted and self-hosted deployment modes**. Current official docs describe self-hosting on Kubernetes with the `copilot-intelligence` Helm chart; self-host access is plan/licensing-gated. Do not assume the managed cloud is the only supported target.
+
+For cloud-hosted Intelligence, obtain the current project credentials from CopilotKit. For self-hosted Intelligence, use the endpoints, identity, storage, and credentials defined by the deployed chart/current official self-hosting guide. Do not invent endpoint suffixes from old runtime internals.
 
 ### URL format
 
@@ -167,7 +170,7 @@ scoped to a user ID.
 
 Source: `packages/runtime/src/v2/runtime/core/runtime.ts:156-160`.
 
-### CRITICAL Adding /api or /socket suffixes, or pointing at an unsupported self-hosted server
+### CRITICAL Adding guessed URL suffixes or reusing cloud assumptions for self-hosting
 
 Wrong:
 
@@ -179,12 +182,8 @@ new CopilotKitIntelligence({
   organizationId,
 });
 
-new CopilotKitIntelligence({
-  apiUrl: "https://internal.myco.com/intelligence", // self-hosting is not yet supported
-  wsUrl: "wss://internal.myco.com/intelligence",
-  apiKey,
-  organizationId,
-});
+// Do not guess self-hosted URLs by copying the cloud shape. Use the endpoints
+// exposed by the current copilot-intelligence Helm deployment and official guide.
 ```
 
 Correct:
@@ -196,7 +195,7 @@ new CopilotKitIntelligence({
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORG_ID!,
 });
-// For on-prem durability without Intelligence: SSE mode + SqliteAgentRunner.
+// For self-hosted Intelligence, use the chart-provided endpoints/credentials.
 ```
 
 Two failure modes to avoid:
@@ -205,10 +204,7 @@ Two failure modes to avoid:
    the websocket layer derives `/runner` / `/client` suffixes from `wsUrl` internally.
    Passing `apiUrl: ".../api"` produces double-prefixed `/api/api/threads`; passing
    `wsUrl: ".../socket"` produces a broken `.../socket/runner` upgrade path.
-2. Self-hosting Intelligence is not yet supported. The `ɵ`-prefixed runtime internals
-   and REST/WebSocket contract are still stabilizing. `organizationId` is reserved for
-   future self-hosted instances. For on-prem durable threads today, use SSE mode +
-   `SqliteAgentRunner` (see `copilotkit/agent-runners`).
+2. Self-hosting is now supported through CopilotKit's licensed Kubernetes/Helm deployment path. Do not reuse cloud endpoints or old internal assumptions for a self-hosted cluster; follow the current self-hosting guide and deployed chart outputs exactly.
 
 Source: `packages/runtime/src/v2/runtime/intelligence-platform/client.ts:41-46, 68-69,
 259, 356-357, 437, 682-708`.

@@ -1,5 +1,13 @@
 # LangGraph Integration
 
+## Contents
+
+- [Python (Self-Hosted FastAPI)](#python-self-hosted-fastapi)
+- [Python (LangGraph Platform / Monorepo)](#python-langgraph-platform-monorepo)
+- [JavaScript / TypeScript](#javascript-typescript)
+- [Monorepo Structure (JS)](#monorepo-structure-js)
+
+
 CopilotKit supports LangGraph in three configurations: Python with self-hosted FastAPI, Python with LangGraph Platform, and JavaScript/TypeScript. All use the AG-UI protocol.
 
 ## Python (Self-Hosted FastAPI)

@@ -4,8 +4,8 @@ description: "Mastra framework for iPixai: docs lookup (embedded node_modules, m
 license: Apache-2.0
 metadata:
   author: Mastra
-  version: "2.1.0-ipix.1"
-  basedOn: mastra-ai/skills 2.1.0
+  version: "2.2.2-ipix.1"
+  basedOn: mastra-ai/skills 2.1.0 + current upstream/docs audit 2026-09-04
   repository: https://github.com/mastra-ai/skills
   # Upstream authoring fields. Not in the Agent Skills spec's top-level set, so
   # they live here — `metadata` is explicitly "arbitrary key-value mapping".
@@ -13,20 +13,13 @@ metadata:
   impact: HIGH
   impactDescription: Docs routing, agents/workflows, embedded vs remote APIs
   tags: mastra, agents, workflows, tools, memory, rag, typescript
-paths:
-  - "src/mastra/**"
-  - "docs/mastra/**"
-  - "**/*mastra*"
+  paths:
+    - "src/mastra/**"
+    - "docs/mastra/**"
+    - "**/*mastra*"
 ---
 
 # Mastra Framework Guide
-
-## When NOT to use
-
-- **Generic "build an agent"** with no Mastra imports → product docs, not framework internals here
-- **CopilotKit v2** (`useComponent`, slots, headless v2) → use the `copilotkit` skill
-
----
 
 ## ⚠️ Never trust training-data knowledge
 
@@ -64,6 +57,17 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Do **not** copy the old Mas
 | Agent vs workflow vs memory | [`references/core-concepts.md`](references/core-concepts.md) |
 | Agent / Workflow / Tool API | [`references/embedded-docs.md`](references/embedded-docs.md) |
 | Memory (threads, OM, recall) | [`references/memory.md`](references/memory.md) |
+| Agent-level skills / `createSkill()` / dynamic skills | [`references/agent-skills.md`](references/agent-skills.md) |
+| Lazy skill discovery / `SkillSearchProcessor` | [`references/skill-search.md`](references/skill-search.md) |
+| Large tool catalog / `ToolSearchProcessor` | [`references/tool-search.md`](references/tool-search.md) |
+| Harness / `AgentController` / durable interactive agent experiences | [`references/agent-controller.md`](references/agent-controller.md) — optional/advanced for iPix |
+| Code Mode / Dynamic Workflows / Channels / Pub/Sub | [`references/advanced-runtime.md`](references/advanced-runtime.md) |
+| Evals / regression gates / multi-turn / human feedback | [`references/evals-feedback.md`](references/evals-feedback.md) |
+| Subagents / supervisor delegation | [`references/agents-supervisor.md`](references/agents-supervisor.md) + current [`docs/subagents`](https://mastra.ai/docs/subagents) |
+| Auth / identity / FGA | [`links.md#auth--identity`](links.md#auth--identity) + [`references/supabase-auth.md`](references/supabase-auth.md) |
+| Deployment / Vercel / Workers / web frameworks | [`links.md#deployment`](links.md#deployment) |
+| Observability / traces / evals | [`links.md#observability--evals`](links.md#observability--evals) |
+| Aggregate agent-health investigation / Trace Intelligence | [`references/trace-intelligence.md`](references/trace-intelligence.md) |
 | Workflows / HITL / suspend-resume | [`references/workflows.md`](references/workflows.md) |
 | Streaming / AG-UI bridge | [`references/streaming.md`](references/streaming.md) |
 | Model id / provider string | [`references/model-selection.md`](references/model-selection.md) then `scripts/provider-registry.mjs` |
@@ -77,6 +81,20 @@ Conversion SSOT: `docs/mastra/10-mastra-convert.md`. Do **not** copy the old Mas
 **Full framework guide** (priority order, core concepts, TypeScript config, model format, dev workflow): [`references/full-guide.md`](references/full-guide.md)
 
 ---
+
+## Documentation/tool priority
+
+For normal iPix Mastra engineering:
+
+```text
+installed embedded docs
+→ installed source/types
+→ this Mastra skill + iPix overlay
+→ current remote docs / llms.txt
+→ Mastra docs MCP for targeted lookup when useful
+```
+
+Do not make the MCP docs server the default when installed version-accurate docs are available.
 
 ## Mastra docs MCP
 

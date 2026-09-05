@@ -1,5 +1,15 @@
 # CopilotKit v2 Breaking Changes
 
+## Contents
+
+- [Package Structure](#package-structure)
+- [Protocol Change: GraphQL to AG-UI](#protocol-change-graphql-to-ag-ui)
+- [Provider Changes](#provider-changes)
+- [Hook Renames and API Changes](#hook-renames-and-api-changes)
+- [Runtime Breaking Changes](#runtime-breaking-changes)
+- [Type System Changes](#type-system-changes)
+
+
 ## Package Structure
 
 ### Consolidated React packages

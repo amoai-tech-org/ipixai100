@@ -1,5 +1,20 @@
 # AG-UI Protocol Specification -- Event Type Reference
 
+## Contents
+
+- [Base Event Fields](#base-event-fields)
+- [Lifecycle Events](#lifecycle-events)
+- [Text Message Events](#text-message-events)
+- [Tool Call Events](#tool-call-events)
+- [State Management Events](#state-management-events)
+- [Activity Events](#activity-events)
+- [Reasoning Events](#reasoning-events)
+- [Custom / Extension Events](#custom-extension-events)
+- [Deprecated Events (Remove in 1.0.0)](#deprecated-events-remove-in-100)
+- [Transport Encoding](#transport-encoding)
+- [Type Definitions (RunAgentInput)](#type-definitions-runagentinput)
+
+
 Complete reference for all AG-UI event types, derived from `@ag-ui/core` Zod schemas.
 
 ## Base Event Fields

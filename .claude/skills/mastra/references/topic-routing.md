@@ -27,13 +27,19 @@ Use this file to jump from a **task or question** to the right **official URL ta
 | Studio UI, deploy Studio, Studio auth | [Studio](../links.md#studio) | — |
 | Editor (stored agents, prompts, tools) | [Editor](../links.md#editor-stored-agents-prompts-tools) | — |
 | Agent behavior, tools, output, supervisor, HITL-ish | [Agents](../links.md#agents) | [`embedded-docs.md`](embedded-docs.md) → Agent |
+| Agent-level skills / `createSkill()` / dynamic skills | [Agents](../links.md#agents) | [`agent-skills.md`](agent-skills.md) |
+| Many skills / lazy skill loading | [Build with AI & community](../links.md#build-with-ai-community) | [`skill-search.md`](skill-search.md) |
+| Harness / `AgentController` / durable interactive sessions | [Harness & Agent Controller](../links.md#harness-agent-controller) | [`agent-controller.md`](agent-controller.md) — optional/advanced for iPix |
+| Code Mode / Dynamic Workflows / Channels / Pub/Sub | [Agents](../links.md#agents) · [Workflows](../links.md#workflows) · [Server & client](../links.md#server-client) | [`advanced-runtime.md`](advanced-runtime.md) |
+| Evals / regression gates / multi-turn / feedback | [Observability & evals](../links.md#observability-evals) | [`evals-feedback.md`](evals-feedback.md) |
 | **CopilotKit + Mastra** | [Guides — build your UI](../links.md#guides-build-your-ui) | **copilotkit** skill — iPixai is in-process `getLocalAgents` (`src/app/api/copilotkit/[[...slug]]/route.ts`), not a separate Mastra `/chat` server |
-| A2A / ACP / supervisor (Phase 2 defer for mdeai) | [Agents](../links.md#agents) · [Supatabs Agents](../links.md#agents-1) | Document only — do not wire in Phase 1 concierge |
+| A2A / ACP / supervisor / subagents | [Agents](../links.md#agents) | [`agents-supervisor.md`](agents-supervisor.md) — not iPix Core by default |
 | DAG steps, suspend/resume, errors, HITL | [Workflows](../links.md#workflows) · [Reference — workflows](../links.md#reference--workflows) | [`references/workflows.md`](workflows.md) · [`embedded-docs.md`](embedded-docs.md) → Workflow |
 | Message history, storage, recall | [Memory](../links.md#memory) · [Reference — memory](../links.md#reference--memory) | [`references/memory.md`](memory.md) · [`embedded-docs.md`](embedded-docs.md) → Memory |
 | Define tools (`createTool`, etc.) | [Tools](../links.md#tools-docs-section) | [`embedded-docs.md`](embedded-docs.md) → Tools |
 | Chunking, vectors, retrieval | [RAG](../links.md#rag) | — |
 | HTTP server, client, routes, request context | [Server & client](../links.md#server-client) | [`supabase-auth.md`](supabase-auth.md) for Supabase auth |
+| Authentication, identity, FGA | [Auth & identity](../links.md#auth-identity) | [`supabase-auth.md`](supabase-auth.md); iPix tenant authority remains Supabase + RLS |
 | MCP, MCPClient, MCP apps, workspace skills | [MCP & workspaces](../links.md#mcp-workspaces) | [`workspace.md`](workspace.md), [`workspace-skills.md`](workspace-skills.md) |
 | Mastra docs MCP (`mastraDocs`, embedded search) | [`references/mcp-docs-lookup.md`](mcp-docs-lookup.md) | `mastraDocs`: `paths` + optional `queryKeywords` only. `projectPath` = this repo root **only** on tools that declare it |
 | SSE / streams, tool-call events, AG-UI | [Streaming](../links.md#streaming) · [Reference — streaming](../links.md#reference--streaming) | [`references/streaming.md`](streaming.md) |

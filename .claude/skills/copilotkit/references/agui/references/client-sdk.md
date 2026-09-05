@@ -1,5 +1,18 @@
 # @ag-ui/client SDK Reference
 
+## Contents
+
+- [Package Exports](#package-exports)
+- [AbstractAgent](#abstractagent)
+- [HttpAgent](#httpagent)
+- [AgentSubscriber](#agentsubscriber)
+- [Middleware](#middleware)
+- [Event Application (defaultApplyEvents)](#event-application-defaultapplyevents)
+- [Observable Patterns](#observable-patterns)
+- [HTTP Transport Internals](#http-transport-internals)
+- [Built-in Backward Compatibility](#built-in-backward-compatibility)
+
+
 API reference for the AG-UI client SDK (`@ag-ui/client`).
 
 ## Package Exports

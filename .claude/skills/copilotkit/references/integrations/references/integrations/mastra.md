@@ -9,22 +9,20 @@ Mastra is a TypeScript-native agent framework. The CopilotKit integration runs e
 
 ## Key Dependencies
 
-```json
-{
-  "@ag-ui/mastra": "beta",
-  "@mastra/core": "beta",
-  "@mastra/memory": "beta",
-  "@mastra/libsql": "beta",
-  "mastra": "beta",
-  "@copilotkit/react-core": "latest",
-  "@copilotkit/runtime": "latest"
-}
-```
+**Do not copy version labels from this example into iPix.** The upstream skill text has historically lagged the maintained example and may still mention beta packages.
 
-> **Note:** `@ag-ui/mastra@beta` currently declares a peer dependency on a
-> pre-release `@copilotkit/runtime`, which conflicts with the published
-> `@copilotkit/runtime@latest`. Install with `--legacy-peer-deps` (npm) or
-> the equivalent until the beta peer range is updated.
+For iPix, verify in this order before changing dependencies:
+
+1. `/home/sk/ipixai/package.json` + lockfile
+2. installed package source/types
+3. current maintained example: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
+4. live CopilotKit docs/MCP
+
+Current audited iPix family (2026-09-04): `@copilotkit/runtime 1.68.1`, `@copilotkit/react-core 1.68.1`, `@ag-ui/mastra 1.1.2`, `@mastra/core 1.63.2`, `@mastra/memory 1.28.1`. Re-check at task execution time.
+
+Current maintained CopilotKit Mastra example (verified 2026-09-04/05) uses `@copilotkit/runtime 1.70.0`, `@copilotkit/react-core 1.70.0`, `@ag-ui/mastra 1.1.2`. Its Mastra package versions are **example choices, not iPix upgrade authority**; some are older/alpha relative to iPix. Use the example for bridge shape and current CopilotKit family, then verify Mastra from iPix installed source/types and the Mastra skill/docs.
+
+**Never add `--legacy-peer-deps` just because an old bundled example says to.** First prove a real peer conflict against the installed/current package family.
 
 ## Agent Definition (src/mastra/agents/index.ts)
 
@@ -122,7 +120,6 @@ import { mastra } from "@/mastra";
 import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
-  // @ts-expect-error - typing issue in current beta
   agents: MastraAgent.getLocalAgents({ mastra }),
   runner: new InMemoryAgentRunner(),
 });

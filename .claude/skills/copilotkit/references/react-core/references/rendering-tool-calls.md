@@ -1,5 +1,13 @@
 # CopilotKit Rendering Tool Calls (React)
 
+## Contents
+
+- [UI-kit detection rule](#ui-kit-detection-rule)
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+
+
 This skill builds on `copilotkit/provider-setup` and
 `copilotkit/client-side-tools`.
 

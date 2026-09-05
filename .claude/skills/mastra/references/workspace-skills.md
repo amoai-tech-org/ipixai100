@@ -1,6 +1,6 @@
 ---
 title: Workspace SKILL.md and Agent Skills
-description: Load when authoring workspace SKILL.md trees or Agent Skills spec under my-mastra-app/workspace.
+description: Load when authoring Mastra workspace SKILL.md trees or choosing workspace skills versus agent-level skills.
 parent: mastra
 impact: MEDIUM
 impactDescription: SKILL folder layout and Mastra workspace wiring
@@ -8,9 +8,11 @@ tags: mastra, skills, workspace, agentskills
 ---
 
 > **Live docs:** [Workspace skills](https://mastra.ai/docs/workspace/skills) · [Creating a workspace (skills)](https://mastra.ai/docs/workspace/overview#creating-a-workspace)  
-> **mdeai `my-mastra-app`:** SKILL trees under [`workspace/skills/*/SKILL.md`](../../../../my-mastra-app/workspace/skills); Workspace config sets `skills: ['skills']` in [`src/mastra/workspaces.ts`](../../../../my-mastra-app/src/mastra/workspaces.ts). `SKILL.md` must begin at line 1 with YAML `name` and `description`; do not wrap the whole file in a markdown code fence (that breaks Mastra metadata parsing).
+> **iPix:** verify the current workspace path in the repository before wiring skills. `SKILL.md` must begin at line 1 with YAML `name` and `description`; do not wrap the whole file in a markdown code fence.
 
 # Workspace skills
+
+> **2026 iPix correction:** Mastra now also supports first-class **agent-level skills** via `Agent({ skills: [...] })`, including `createSkill()`, filesystem paths and dynamic request-scoped resolution. See [`agent-skills.md`](agent-skills.md). Use workspace skills when filesystem/workspace sharing, search, sandbox or cross-agent discovery is actually needed; use agent-level skills for self-contained agent capabilities.
 
 **Added in:** `@mastra/core@1.1.0`
 
@@ -44,10 +46,11 @@ Follow the official [skill specification](https://agentskills.io/specification) 
 ---
 name: code-review
 description: Reviews code for quality, style, and potential issues
-version: 1.0.0
-tags:
-  - development
-  - review
+metadata:
+  version: 1.0.0
+  tags:
+    - development
+    - review
 ---
 
 # Code Review

@@ -1,46 +1,102 @@
 ---
 name: copilotkit-self-update
-description: Use when the user wants to update, refresh, or reinstall the CopilotKit agent SKILLS (the SKILL.md files that teach this agent about CopilotKit). NOT for updating the CopilotKit codebase or project — this is specifically about refreshing the skills/knowledge this agent has loaded. Triggers on "update copilotkit skills", "update skills", "refresh skills", "skills are stale", "skills are outdated", "get latest skills", "my copilotkit knowledge is wrong", "copilotkit APIs changed", "skills seem old", "wrong API names", "reinstall skills", "skills not working right", "update your copilotkit knowledge".
-version: 1.0.0
+description: Use when the user wants to update, refresh, diff, or reinstall the CopilotKit agent skills/knowledge. Not for upgrading application dependencies.
+version: 1.1.0-ipix
 user_invocable: true
 argument_hint: ""
 ---
 
-# Update CopilotKit Skills
+# Update CopilotKit Skills — iPix safe sync
 
-Run this command to pull the latest CopilotKit skills from GitHub:
-
-```bash
-npx skills add copilotkit/CopilotKit --full-depth -y
-```
-
-This does a fresh clone every time — it always gets the latest version regardless of what's cached.
-
-This works across all tools — Claude Code, Codex, Cursor, Gemini CLI, and others. It detects which tools are installed and updates skills for each.
-
-## iPix consolidation (after upstream pull)
-
-Upstream installs individual skills under `.agents/skills/` (`copilotkit-setup`, `runtime`, `react-core`, …).
-iPix uses **one hub**: `.claude/skills/copilotkit/` with `references/` subfolders.
-
-After `npx skills add`, re-sync into the hub:
+Current official install command:
 
 ```bash
-# Topic guides (setup, develop, debug, …) — already under references/<topic>/
-# Sync package-level indexes + deep refs:
-cp .agents/skills/runtime/SKILL.md .claude/skills/copilotkit/references/runtime/runtime.md
-rsync -a .agents/skills/runtime/references/ .claude/skills/copilotkit/references/runtime/references/
-cp .agents/skills/react-core/SKILL.md .claude/skills/copilotkit/references/react-core/react-core.md
-rsync -a .agents/skills/react-core/references/ .claude/skills/copilotkit/references/react-core/references/
+npx skills add CopilotKit/CopilotKit/skills -y
 ```
 
-Remove any re-created symlinks in `.claude/skills/` that point at `.agents/skills/copilotkit-*` — only the `copilotkit` hub should remain.
+Use the interactive form without `-y` when you need to inspect/select individual skills.
 
-After the command completes, **start a new session** in your tool to pick up the changes.
+## iPix rule: never overwrite the consolidated hub
 
-## When to Suggest This
+iPix intentionally keeps one project-aware hub at `.claude/skills/copilotkit/`. Upstream ships separate skills. Refresh by **diff + selective sync**, preserving iPix architecture/security overrides.
 
-- User says the skills have wrong API names or outdated information
-- User reports that a CopilotKit API doesn't match what the skill says
-- User explicitly asks to update or refresh skills
-- A new CopilotKit version was released and skills may be stale
+```text
+fresh upstream inventory
+→ map every upstream skill into the hub
+→ diff every mapped file/reference
+→ sync framework facts and new references
+→ preserve iPix overrides
+→ verify installed source/types and maintained examples
+→ run skill routing checks
+```
+## Full upstream inventory to check
+
+Do not hardcode only `runtime` and `react-core`. On every refresh, enumerate `CopilotKit/CopilotKit/skills/` and compare **all** directories. Current families include:
+
+```text
+a2ui-renderer
+channels-setup
+copilotkit-agui
+copilotkit-channels
+copilotkit-contribute
+copilotkit-debug
+copilotkit-develop
+copilotkit-integrations
+copilotkit-self-update
+copilotkit-setup
+copilotkit-upgrade
+inspector-docs
+inspector-workbench
+intelligence-docs
+react-core
+runtime
+```
+
+New or removed upstream directories are a review event. Do not silently ignore them.
+
+## Consolidation map
+
+| Upstream | Local hub destination |
+|---|---|
+| `copilotkit-setup` | `references/setup/` |
+| `copilotkit-develop` | `references/develop/` |
+| `copilotkit-integrations` | `references/integrations/` |
+| `copilotkit-agui` | `references/agui/` |
+| `copilotkit-debug` | `references/debug/` |
+| `copilotkit-upgrade` | `references/upgrade/` |
+| `runtime` | `references/runtime/` |
+| `react-core` | `references/react-core/` |
+| `a2ui-renderer` | `references/a2ui-renderer.md` |
+| `channels-setup` + `copilotkit-channels` | `references/channels.md` (routing summary; keep both upstream roles distinct) |
+| `inspector-docs` + `inspector-workbench` | `references/inspector.md` (optional iPix routing; upstream skills are contributor-focused) |
+| `intelligence-docs` | `references/intelligence.md` (capability boundary; upstream skill is contributor-focused) |
+| `copilotkit-self-update` | `references/self-update.md` |
+| `copilotkit-contribute` | `references/contribute/` |
+
+Generative UI is not currently a standalone upstream skill directory. Keep `references/generative-ui.md` synchronized from the current CopilotKit Generative UI docs/showcase and installed hooks/types.
+
+## Dependency/content conflict rule
+
+When upstream skill text and the maintained app stack disagree, use:
+
+```text
+installed package source/types
+→ current official maintained example
+→ current CopilotKit docs/MCP
+→ upstream bundled skill text
+```
+
+For iPix specifically, never restore stale Mastra `beta` labels or `--legacy-peer-deps` guidance without proving a real current peer conflict.
+
+## Sync procedure
+
+1. Record upstream HEAD/date and the full `skills/` directory inventory.
+2. Record iPix installed CopilotKit/AG-UI/Mastra versions.
+3. Diff every upstream skill and its `references/` against the mapped local destination.
+4. Copy mechanical upstream additions/changes where they do not conflict with iPix overrides.
+5. Reapply/retain iPix rules: tenancy, HITL, source-of-truth order, current repo paths, and architecture boundaries.
+6. Re-check `examples/integrations/mastra` and current Mastra docs for integration/version drift.
+7. Update routing/evals when new skill families or trigger phrases appear.
+8. Search the whole hub for stale `beta`, `legacy-peer-deps`, deprecated API names, old paths, and forced transport flags.
+9. Run JSON/Markdown sanity checks and inspect `git diff` before finishing.
+10. Start a new agent session after the skill refresh so discovery reloads the updated files.

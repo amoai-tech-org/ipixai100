@@ -7,6 +7,40 @@ tags: mastra, docs, llms.txt, links
 
 # Mastra — doc & link index
 
+## Contents
+
+- [Shared with Supatabs (curated quick index)](#shared-with-supatabs-curated-quick-index)
+- [Canonical entry points](#canonical-entry-points)
+- [GitHub — curated top repos](#github-curated-top-repos)
+- [Web search (official guide)](#web-search-official-guide)
+- [Getting started](#getting-started)
+- [Studio](#studio)
+- [Editor (stored agents, prompts, tools)](#editor-stored-agents-prompts-tools)
+- [Agent Builder (managed stored agents — Phase 2+ for mdeai)](#agent-builder-managed-stored-agents-phase-2-for-mdeai)
+- [Agents](#agents)
+- [Harness & Agent Controller](#harness-agent-controller)
+- [Workflows](#workflows)
+- [Memory](#memory)
+- [Tools (docs + reference)](#tools-docs-reference)
+- [RAG](#rag)
+- [Server & client](#server-client)
+- [Auth & identity](#auth-identity)
+- [MCP & workspaces](#mcp-workspaces)
+- [Streaming](#streaming)
+- [Observability & evals](#observability-evals)
+- [Deployment](#deployment)
+- [Models](#models)
+- [Guides — app stacks](#guides-app-stacks)
+- [Examples v0 (Supatabs — live runnable)](#examples-v0-supatabs-live-runnable)
+- [Browser automation](#browser-automation)
+- [Mastra platform (managed)](#mastra-platform-managed)
+- [Build with AI & community](#build-with-ai-community)
+- [Reference — workflows](#reference-workflows)
+- [Reference — streaming](#reference-streaming)
+- [Reference — browser](#reference-browser)
+- [Reference — tools, auth](#reference-tools-auth)
+
+
 Single bookmark page for `.claude/skills/mastra`. **Task → section mapping:** [`references/topic-routing.md`](references/topic-routing.md). **Authoritative full tree:** [mastra.ai/llms.txt](https://mastra.ai/llms.txt) (regenerate this file when major nav sections change).
 
 **Version-accurate code:** with packages installed, prefer **embedded** docs under `node_modules/@mastra/*/dist/docs/` (see [references/embedded-docs.md](references/embedded-docs.md)).
@@ -181,6 +215,7 @@ Concept docs above; **API reference** below. Use **`mastraDocs`** paths in the r
 | Agents — networks | https://mastra.ai/docs/agents/networks |
 | Voice — overview | https://mastra.ai/docs/voice/overview |
 | Evals — with memory | https://mastra.ai/docs/evals/evals-with-memory |
+| Agent skills | https://mastra.ai/docs/skills |
 | Agent Builder — overview | https://mastra.ai/docs/agent-builder/overview |
 | Server — auth overview | https://mastra.ai/docs/server/auth/index |
 | Guide — CopilotKit | https://mastra.ai/guides/build-your-ui/copilotkit |
@@ -197,8 +232,6 @@ Concept docs above; **API reference** below. Use **`mastraDocs`** paths in the r
 | Guide — supervisor research coordinator | https://mastra.ai/guides/guide/research-coordinator |
 | Migration — network to supervisor | https://mastra.ai/guides/migrations/network-to-supervisor |
 | Migration — upgrade to v1 (overview) | https://mastra.ai/guides/migrations/upgrade-to-v1/overview |
-
-**mdeai rentals V2 mapping:** [`tasks/real-estate/V2-real-estate.md/prd-real-estateV2.md`](../../../tasks/real-estate/V2-real-estate.md/prd-real-estateV2.md) §4.6–4.8 · [`roadmap.md`](../../../tasks/real-estate/V2-real-estate.md/roadmap.md) §6.1.
 
 ---
 
@@ -320,10 +353,30 @@ See also **Guides — tutorials** below (same link, grouped with other hands-on 
 | Agent approval | https://mastra.ai/docs/agents/agent-approval |
 | Response caching | https://mastra.ai/docs/agents/response-caching |
 | Networks | https://mastra.ai/docs/agents/networks |
-| Channels | https://mastra.ai/docs/agents/channels |
-| A2A | https://mastra.ai/docs/agents/a2a |
-| ACP | https://mastra.ai/docs/agents/acp |
+| Channels (older path; use canonical row below) | https://mastra.ai/docs/agents/channels |
+| A2A (older path; use Connections canonical) | https://mastra.ai/docs/agents/a2a |
+| ACP (older path; use Connections canonical) | https://mastra.ai/docs/agents/acp |
 | Signals | https://mastra.ai/docs/agents/signals |
+| **Code Mode** | https://mastra.ai/docs/agents/code-mode |
+| **Subagents (current)** | https://mastra.ai/docs/subagents |
+| **Skills (current)** | https://mastra.ai/docs/skills |
+| **Channels (current canonical)** | https://mastra.ai/docs/channels |
+
+---
+
+## Harness & Agent Controller
+
+| Topic | URL |
+| --- | --- |
+| Harness overview | https://mastra.ai/docs/harness/overview |
+| Agent Controller | https://mastra.ai/docs/harness/agent-controller |
+| Durable agents | https://mastra.ai/docs/harness/durable-agents |
+| Background tasks | https://mastra.ai/docs/harness/background-tasks |
+| Goals | https://mastra.ai/docs/harness/goals |
+| Schedules | https://mastra.ai/docs/harness/schedules |
+| Signals | https://mastra.ai/docs/harness/signals |
+
+**iPix:** optional/advanced. Use only when the product needs a long-running, steerable interactive agent experience with sessions/modes/approvals/subagents. Do not put this on Planner Core by default.
 
 ---
 
@@ -335,6 +388,7 @@ See also **Guides — tutorials** below (same link, grouped with other hands-on 
 | Workflow state | https://mastra.ai/docs/workflows/workflow-state |
 | Control flow | https://mastra.ai/docs/workflows/control-flow |
 | Agents & tools in workflows | https://mastra.ai/docs/workflows/agents-and-tools |
+| **Dynamic workflows** | https://mastra.ai/docs/workflows/dynamic-workflows |
 | Snapshots | https://mastra.ai/docs/workflows/snapshots |
 | Suspend & resume | https://mastra.ai/docs/workflows/suspend-and-resume |
 | Human-in-the-loop | https://mastra.ai/docs/workflows/human-in-the-loop |
@@ -392,8 +446,24 @@ See also **Guides — tutorials** below (same link, grouped with other hands-on 
 | Mastra Client (concept) | https://mastra.ai/docs/server/mastra-client |
 | Request context | https://mastra.ai/docs/server/request-context |
 | Custom API routes | https://mastra.ai/docs/server/custom-api-routes |
-| Auth — Supabase | https://mastra.ai/docs/server/auth/supabase |
-| Auth — JWT | https://mastra.ai/docs/server/auth/jwt |
+| **Pub/Sub event system** | https://mastra.ai/docs/server/pubsub |
+| Auth — Supabase (legacy server path; verify redirect/current provider docs) | https://mastra.ai/docs/server/auth/supabase |
+| Auth — JWT (legacy server path; verify redirect/current auth docs) | https://mastra.ai/docs/server/auth/jwt |
+
+---
+
+## Auth & identity
+
+| Topic | URL |
+| --- | --- |
+| **Auth overview (current)** | https://mastra.ai/docs/auth/overview |
+| Fine-grained authorization (current canonical) | https://mastra.ai/docs/auth/fga |
+| JWT | https://mastra.ai/docs/auth/jwt |
+| Workers auth | https://mastra.ai/docs/auth/workers |
+| Authentication & identity guide | https://mastra.ai/docs/guides/authentication-identity |
+| Supabase integration | https://mastra.ai/integrations/auth/supabase |
+
+**iPix boundary:** Supabase Auth + server-derived organization membership remain the application identity/tenant authority. Mastra auth/FGA protects Mastra runtime resources; it does not replace Supabase RLS or iPix domain authorization.
 
 ---
 
@@ -401,9 +471,12 @@ See also **Guides — tutorials** below (same link, grouped with other hands-on 
 
 | Topic | URL |
 | --- | --- |
-| MCP overview | https://mastra.ai/docs/mcp/overview |
-| Using `MCPClient` with an agent | https://mastra.ai/docs/mcp/overview#using-mcpclient-with-an-agent |
-| MCP Apps | https://mastra.ai/docs/mcp/mcp-apps |
+| MCP (current canonical) | https://mastra.ai/docs/connections/mcp |
+| A2A (current canonical) | https://mastra.ai/docs/connections/a2a |
+| ACP (current canonical) | https://mastra.ai/docs/connections/acp |
+| SDK Agents | https://mastra.ai/docs/connections/sdk-agents |
+| MCP overview (older path; may redirect) | https://mastra.ai/docs/mcp/overview |
+| MCP Apps (older path; verify current docs before use) | https://mastra.ai/docs/mcp/mcp-apps |
 | Workspace overview | https://mastra.ai/docs/workspace/overview |
 | Workspace filesystem | https://mastra.ai/docs/workspace/filesystem |
 | Workspace sandbox | https://mastra.ai/docs/workspace/sandbox |
@@ -438,13 +511,19 @@ codex mcp list
 | Observability overview | https://mastra.ai/docs/observability/overview |
 | Logging | https://mastra.ai/docs/observability/logging |
 | Tracing overview | https://mastra.ai/docs/observability/tracing/overview |
+| **Human feedback** | https://mastra.ai/docs/observability/feedback |
+| Metrics | https://mastra.ai/docs/observability/metrics/overview |
 | Evals overview | https://mastra.ai/docs/evals/overview |
 | Built-in scorers | https://mastra.ai/docs/evals/built-in-scorers |
+| **Quick checks** | https://mastra.ai/docs/evals/quick-checks |
+| **Gates and verdicts** | https://mastra.ai/docs/evals/gates-and-verdicts |
+| **Multi-turn evals** | https://mastra.ai/docs/evals/multi-turn |
 | Custom scorers | https://mastra.ai/docs/evals/custom-scorers |
 | Running evals in CI | https://mastra.ai/docs/evals/running-in-ci |
+| **Vitest integration** | https://mastra.ai/docs/evals/vitest-integration |
 | Evals with memory | https://mastra.ai/docs/evals/evals-with-memory |
-| Datasets overview | https://mastra.ai/docs/evals/datasets/overview |
-| Running experiments | https://mastra.ai/docs/evals/datasets/running-experiments |
+| Datasets | https://mastra.ai/docs/evals/datasets |
+| Experiments | https://mastra.ai/docs/evals/experiments |
 
 ---
 
@@ -455,6 +534,9 @@ codex mcp list
 | Overview | https://mastra.ai/docs/deployment/overview |
 | Mastra Server | https://mastra.ai/docs/deployment/mastra-server |
 | Web framework (Vite, Next.js, …) | https://mastra.ai/docs/deployment/web-framework |
+| **Vercel deployer (current integration)** | https://mastra.ai/integrations/deploy/vercel |
+| **Cloudflare deployer** | https://mastra.ai/integrations/deploy/cloudflare |
+| **Workers (background processing; beta)** | https://mastra.ai/docs/deployment/workers |
 | Cloud providers | https://mastra.ai/docs/deployment/cloud-providers |
 | Monorepo | https://mastra.ai/docs/deployment/monorepo |
 | Workflow runners | https://mastra.ai/docs/deployment/workflow-runners |
@@ -467,7 +549,10 @@ codex mcp list
 | --- | --- |
 | Models overview | https://mastra.ai/models |
 | Providers index | https://mastra.ai/models/providers/index |
+| Environment variables | https://mastra.ai/models/environment-variables |
 | OpenAI | https://mastra.ai/models/providers/openai |
+| Google | https://mastra.ai/models/providers/google |
+| NVIDIA | https://mastra.ai/models/providers/nvidia |
 | Embeddings | https://mastra.ai/models/embeddings |
 
 ---
@@ -478,22 +563,36 @@ codex mcp list
 | --- | --- |
 | Quickstart | https://mastra.ai/guides/getting-started/quickstart |
 | Vite + React | https://mastra.ai/guides/getting-started/vite-react |
-| Next.js | https://mastra.ai/guides/getting-started/next-js |
+| Next.js starter (older guide family) | https://mastra.ai/guides/getting-started/next-js |
+| **Next.js integration (current)** | https://mastra.ai/integrations/frameworks/next-js |
 | Express | https://mastra.ai/guides/getting-started/express |
+
+### Current integrations useful to iPix
+
+| Area | URL |
+| --- | --- |
+| PostgreSQL | https://mastra.ai/integrations/databases/postgresql |
+| Firecrawl | https://mastra.ai/integrations/tools/firecrawl |
+| Vercel deployer | https://mastra.ai/integrations/deploy/vercel |
+| Cloudflare deployer | https://mastra.ai/integrations/deploy/cloudflare |
 
 ### Guides — build your UI
 
 | Topic | URL |
 | --- | --- |
-| CopilotKit | https://mastra.ai/guides/build-your-ui/copilotkit |
-| AI SDK UI | https://mastra.ai/guides/build-your-ui/ai-sdk-ui |
-| Assistant UI | https://mastra.ai/guides/build-your-ui/assistant-ui |
+| **CopilotKit (current integration)** | https://mastra.ai/integrations/agentic-ui/copilotkit |
+| CopilotKit older guide family | https://mastra.ai/guides/build-your-ui/copilotkit |
+| AI SDK UI (current integration family) | https://mastra.ai/integrations/agentic-ui/ai-sdk-ui |
+| Assistant UI (current integration family) | https://mastra.ai/integrations/agentic-ui/assistant-ui |
 
 ### Guides — concepts
 
 | Topic | URL |
 | --- | --- |
-| Multi-agent systems | https://mastra.ai/guides/concepts/multi-agent-systems |
+| **Multi-agent systems (current)** | https://mastra.ai/docs/guides/multi-agent-systems |
+| **Context engineering** | https://mastra.ai/docs/guides/context-engineering |
+| **Authentication & identity** | https://mastra.ai/docs/guides/authentication-identity |
+| **Streaming guide** | https://mastra.ai/docs/guides/streaming |
 
 ### Guides — agent frameworks
 
@@ -505,7 +604,8 @@ codex mcp list
 
 | Topic | URL |
 | --- | --- |
-| Vercel | https://mastra.ai/guides/deployment/vercel |
+| **Vercel deployer (current)** | https://mastra.ai/integrations/deploy/vercel |
+| Vercel older guide family | https://mastra.ai/guides/deployment/vercel |
 
 ### Guides — tutorials (hands-on)
 
@@ -783,7 +883,7 @@ Index: https://mastra.ai/reference/memory/
 | Migration | [`references/migration-guide.md`](references/migration-guide.md) |
 | Model strings helper | [`scripts/provider-registry.mjs`](scripts/provider-registry.mjs) |
 | Skill rules | [`SKILL.md`](SKILL.md) |
-| **Edit or fork this skill** (structure, frontmatter, triggers) | [`.agents/skills/skill-development/SKILL.md`](../../../.agents/skills/skill-development/SKILL.md) |
+| **Edit or improve this skill** (structure, frontmatter, triggers, evals) | [`../skill-creator/SKILL.md`](../skill-creator/SKILL.md) |
 
 ---
 
@@ -797,4 +897,4 @@ Index: https://mastra.ai/reference/memory/
 
 ---
 
-*Synced to [mastra.ai/llms.txt](https://mastra.ai/llms.txt) **2026-05-30** (Supatabs agents/memory/workflows/streaming + ACP + multi-user threads). Re-fetch when links 404. **MCP:** `searchMastraDocs` requires `projectPath` (e.g. `/home/sk/mdeai/mdeapp`). **Upstream:** [mastra-ai/mastra issues](https://github.com/mastra-ai/mastra/issues).*
+*Last audited against current Mastra docs/upstream skills on **2026-09-04**; this file is curated and is **not** a byte-for-byte llms.txt mirror. Canonical full index: [mastra.ai/llms.txt](https://mastra.ai/llms.txt) (Supatabs agents/memory/workflows/streaming + ACP + multi-user threads). Re-fetch when links 404. **MCP:** `searchMastraDocs` requires `projectPath` (e.g. `/home/sk/mdeai/mdeapp`). **Upstream:** [mastra-ai/mastra issues](https://github.com/mastra-ai/mastra/issues).*

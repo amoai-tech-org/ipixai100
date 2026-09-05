@@ -10,6 +10,15 @@ mdeapp: phase2-defer
 
 # Storing embeddings in a vector database
 
+## Contents
+
+- [Supported databases](#supported-databases)
+- [Using vector storage](#using-vector-storage)
+- [Adding metadata](#adding-metadata)
+- [Deleting vectors](#deleting-vectors)
+- [Best practices](#best-practices)
+
+
 > **🚩 mdeai scope (read first — verified 2026-06-05).** This page is **generic Mastra RAG/vector docs**, kept for reference. For mdeai specifically:
 > - **Do NOT adopt `@mastra/rag` chunk/embed/retrieve for product search.** Restaurants/events/rentals/venues are **structured rows**, not documents — they're served by **Supabase pgvector RPC + Gemini embeddings** today, which is correct. See `tasks/mastra/plan/2-mastra-surface-gap-analysis.md` §5.
 > - The **only** place a Mastra `PgVector` store earns its keep is **semantic *memory* recall** → **AGT-08 (SAN-603, Phase 3)**. Not MVP.

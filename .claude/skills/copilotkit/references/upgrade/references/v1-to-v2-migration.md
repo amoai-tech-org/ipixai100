@@ -1,5 +1,16 @@
 # CopilotKit v1 to v2 Migration Guide
 
+## Contents
+
+- [Package Migration](#package-migration)
+- [Provider Migration](#provider-migration)
+- [Hook Migrations](#hook-migrations)
+- [Runtime Migration](#runtime-migration)
+- [Chat Component Migration](#chat-component-migration)
+- [CopilotTextarea Migration](#copilottextarea-migration)
+- [Message Type Migration](#message-type-migration)
+
+
 ## Package Migration
 
 ### Step 1: Replace Dependencies

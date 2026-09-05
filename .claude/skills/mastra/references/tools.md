@@ -10,6 +10,21 @@ mdeapp: active
 
 # Tools
 
+## Contents
+
+- [When to use tools](#when-to-use-tools)
+- [Quickstart](#quickstart)
+- [Define schemas](#define-schemas)
+- [Multiple tools](#multiple-tools)
+- [Agents as tools](#agents-as-tools)
+- [Workflows as tools](#workflows-as-tools)
+- [Shape output for the model](#shape-output-for-the-model)
+- [Transform tool payloads for UI and transcripts](#transform-tool-payloads-for-ui-and-transcripts)
+- [Control tool selection](#control-tool-selection)
+- [Control `toolName` in stream responses](#control-toolname-in-stream-responses)
+- [Related](#related)
+
+
 Agents use tools to call APIs, query databases, or run custom functions from your codebase. Tools give agents capabilities beyond language generation by providing structured access to data and performing clearly defined operations. You can also load tools from remote [MCP servers](https://mastra.ai/docs/mcp/overview) to expand an agent's capabilities.
 
 ## When to use tools

@@ -10,6 +10,18 @@ mdeapp: defer-v2
 
 # Slots
 
+## Contents
+
+- [What is this?](#what-is-this)
+- [Tailwind Classes](#tailwind-classes)
+- [Props Override](#props-override)
+- [Custom Components](#custom-components)
+- [Nested Slots (Drill-Down)](#nested-slots-drill-down)
+- [Children Render Function](#children-render-function)
+- [Labels](#labels)
+- [Available Slots](#available-slots)
+
+
 > Customize any part of the chat UI by overriding individual sub-components via slots.
 
 ## What is this?

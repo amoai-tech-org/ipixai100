@@ -8,9 +8,21 @@ tags: mastra, workspace, sandbox, filesystem
 ---
 
 > **Live docs:** [Workspaces — Creating a workspace](https://mastra.ai/docs/workspace/overview#creating-a-workspace) · [Workspace overview](https://mastra.ai/docs/workspace/overview)  
-> **mdeai `my-mastra-app`:** [`src/mastra/workspaces.ts`](../../../../my-mastra-app/src/mastra/workspaces.ts) implements the official `filesystem` + `LocalSandbox` + `skills` pattern. The docs use `./workspace` (cwd-relative); this app resolves `join(packageRoot, 'workspace')` or `process.env.MDE_MASTRA_WORKSPACE` so Studio finds `workspace/skills` when Mastra’s process cwd is not the package root.
+> **iPix:** verify any workspace implementation in the current repository before copying examples. Do not import legacy `mdeai/my-mastra-app` paths into iPix.
 
 # Workspaces
+
+## Contents
+
+- [When to use workspaces](#when-to-use-workspaces)
+- [How it works](#how-it-works)
+- [Usage](#usage)
+- [Configuration patterns](#configuration-patterns)
+- [Tool configuration](#tool-configuration)
+- [LSP inspection](#lsp-inspection)
+- [Initialization](#initialization)
+- [Related](#related)
+
 
 **Added in:** `@mastra/core@1.1.0`
 

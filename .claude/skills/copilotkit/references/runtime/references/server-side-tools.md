@@ -1,5 +1,13 @@
 # CopilotKit Server-Side Tools
 
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+- [See also](#see-also)
+
+
 Server-side tools run in the runtime process. They are the right choice when the tool needs
 to touch server-only state: DB connections, API keys, filesystem, signed URLs.
 

@@ -251,7 +251,6 @@ createCopilotHonoHandler({
 ```tsx
 <CopilotKit
   runtimeUrl="/api/copilotkit"
-  useSingleEndpoint={false}
   credentials="include"
 >
 ```

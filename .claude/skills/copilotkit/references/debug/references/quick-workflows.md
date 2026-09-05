@@ -1,5 +1,15 @@
 # Quick Diagnostic Workflows
 
+## Contents
+
+- [Workflow: "Runtime Not Connecting"](#workflow-runtime-not-connecting)
+- [Workflow: "Agent Not Responding"](#workflow-agent-not-responding)
+- [Workflow: "Streaming Failures"](#workflow-streaming-failures)
+- [Workflow: "Frontend Tool Not Working"](#workflow-frontend-tool-not-working)
+- [Workflow: "Transcription Not Working"](#workflow-transcription-not-working)
+- [Escalation Path](#escalation-path)
+
+
 ## Workflow: "Runtime Not Connecting"
 
 The client shows a connection error, banner error, or the chat never loads.

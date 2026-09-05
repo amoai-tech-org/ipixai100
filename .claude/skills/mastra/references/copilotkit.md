@@ -10,6 +10,18 @@ mdeapp: not-default-use-integrations-ref
 
 # Using CopilotKit
 
+## Contents
+
+- [iPix warning](#ipix-warning)
+- [Integration guide](#integration-guide)
+- [Deployment](#deployment)
+
+
+## iPix warning
+
+This page documents a **separate Mastra server** pattern and is **not the default iPix architecture**. For iPix use the local CopilotKit skill plus the current in-process `MastraAgent.getLocalAgents({ mastra, resourceId })` runtime. Load this page only when a task explicitly evaluates a separate server.
+
+
 [CopilotKit](https://www.copilotkit.ai/) provides React components to quickly integrate customizable AI copilots into your application. Combined with Mastra, you can build sophisticated AI apps featuring bidirectional state synchronization and interactive UIs.
 
 Visit the [CopilotKit documentation](https://docs.copilotkit.ai/) to learn more about CopilotKit concepts, components, and advanced usage patterns.

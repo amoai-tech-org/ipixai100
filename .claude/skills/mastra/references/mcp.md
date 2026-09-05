@@ -10,6 +10,20 @@ mdeapp: verify-before-code
 
 # MCP overview
 
+## Contents
+
+- [Get started](#get-started)
+- [Configuring `MCPClient`](#configuring-mcpclient)
+- [Using `MCPClient` with an agent](#using-mcpclient-with-an-agent)
+- [Tool approval](#tool-approval)
+- [Configuring `MCPServer`](#configuring-mcpserver)
+- [Registering an `MCPServer`](#registering-an-mcpserver)
+- [Static and dynamic tools](#static-and-dynamic-tools)
+- [Connecting to an MCP registry](#connecting-to-an-mcp-registry)
+- [MCP Apps](#mcp-apps)
+- [Related](#related)
+
+
 Mastra supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), an open standard for connecting AI agents to external tools and resources. It serves as a universal plugin system, enabling agents to call tools regardless of language or hosting environment.
 
 Mastra can also be used to author MCP servers, exposing agents, tools, and other structured resources via the MCP interface. These can then be accessed by any system or agent that supports the protocol.

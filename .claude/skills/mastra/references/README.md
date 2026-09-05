@@ -29,6 +29,9 @@ Read **one** reference file per task (plus [`topic-routing.md`](topic-routing.md
 | [`mcp.md`](mcp.md) | MCPClient / MCPServer overview (vendor paste — verify) |
 | [`mcp-apps.md`](mcp-apps.md) | MCP Apps / Studio iframe UIs |
 | [`agents-supervisor.md`](agents-supervisor.md) | Supervisor + subagents — **not iPixai Core**; conversion-plan Phase 2+. Do not apply mdeapp defer rules |
+| [`agent-controller.md`](agent-controller.md) | Harness / `AgentController` for long-running, steerable interactive agent products — optional/advanced |
+| [`advanced-runtime.md`](advanced-runtime.md) | Code Mode, Dynamic Workflows, Channels, Pub/Sub — optional capabilities with iPix fit guidance |
+| [`evals-feedback.md`](evals-feedback.md) | Gates/verdicts, multi-turn evals, CI/Vitest integration, human feedback and regression verification |
 | [`multi-agent.md`](multi-agent.md) | Multi-agent concepts and patterns |
 | [`mdeai-concierge.md`](mdeai-concierge.md) | **Legacy** concierge notes — do not apply to iPixai |
 | [`copilotkit.md`](copilotkit.md) | Mastra **separate-server** + CopilotKit (not iPixai default) |
@@ -45,7 +48,11 @@ Read **one** reference file per task (plus [`topic-routing.md`](topic-routing.md
 | [`react.md`](react.md) | React / Next starters |
 | [`supabase-auth.md`](supabase-auth.md) | Supabase auth on Mastra server |
 | [`workspace.md`](workspace.md) | Mastra workspace / BrowserViewer |
-| [`workspace-skills.md`](workspace-skills.md) | Workspace `SKILL.md` trees |
+| [`agent-skills.md`](agent-skills.md) | First-class agent `skills`, `createSkill()`, filesystem/dynamic skill resolution |
+| [`skill-search.md`](skill-search.md) | `SkillSearchProcessor` / on-demand skill loading |
+| [`tool-search.md`](tool-search.md) | `ToolSearchProcessor` / on-demand tool loading |
+| [`workspace-skills.md`](workspace-skills.md) | Workspace `SKILL.md` trees and shared filesystem discovery |
+| [`trace-intelligence.md`](trace-intelligence.md) | Aggregate trace themes / agent-health investigation |
 | [`rag-mastra.md`](rag-mastra.md) | RAG overview (Phase 2 defer) |
 | [`rag-pgvector.md`](rag-pgvector.md) | PgVector embedding storage |
 

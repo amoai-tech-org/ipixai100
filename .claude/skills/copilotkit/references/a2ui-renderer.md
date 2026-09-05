@@ -14,7 +14,7 @@ description: >
 type: framework
 library: copilotkit
 framework: react
-library_version: "1.56.2"
+library_version: "1.70.1"
 requires:
   - copilotkit/react-core
   - copilotkit/runtime
@@ -223,6 +223,13 @@ Wrong:
 
 ```python
 # Pseudocode — inside your agent generator. Exact API names/kwargs vary by
+
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+
 # A2UI SDK version; consult your SDK's docs for real call shapes.
 async def agent_generator():
     # agent re-emits createSurface operation on every state delta

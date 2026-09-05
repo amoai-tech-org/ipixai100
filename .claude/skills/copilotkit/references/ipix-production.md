@@ -1,6 +1,6 @@
 # iPix production CopilotKit — plain-language ops guide
 
-**Linear:** [IPI-127 · AIOR-011](https://linear.app/amo100/issue/IPI-127)
+**Status:** current iPix production/runtime operations reference. Re-verify live deployment and env names before acting.
 
 ## What this is
 
@@ -11,7 +11,7 @@ The operator app at **www.ipix.co/app** uses CopilotKit for the right-hand AI ch
 
 ## Smoke test (30 seconds)
 
-1. Go to [https://www.ipix.co/login](https://www.ipix.co/login) → sign in with Google.
+1. Go to [https://www.ipix.co/login](https://www.ipix.co/login) → sign in with an authorized iPix operator account.
 2. Open [https://www.ipix.co/app/shoots](https://www.ipix.co/app/shoots) (any `/app/*` route works).
 3. Open DevTools → **Console** — expect **no** red errors mentioning `copilotkit` or `401`.
 4. DevTools → **Network** → filter `copilotkit` → `info` request should be **200**.
@@ -24,9 +24,9 @@ The operator app at **www.ipix.co/app** uses CopilotKit for the right-hand AI ch
 
 | Setting | Value |
 |---------|--------|
-| Project | `ipix-operator` (or root project if monorepo deploy uses `app/` as root) |
-| Root directory | `app` |
-| Runtime route | `app/src/app/api/copilotkit/[[...slug]]/route.ts` |
+| Project | Verify the currently aliased iPix production project in Vercel before changing settings |
+| Repository root | `/home/sk/ipixai` |
+| Runtime route | `src/app/api/copilotkit/[[...slug]]/route.ts` |
 
 ## Env vars (production)
 
@@ -34,8 +34,7 @@ The operator app at **www.ipix.co/app** uses CopilotKit for the right-hand AI ch
 |----------|----------|--------------|
 | `COPILOTKIT_LICENSE_TOKEN` | For threads | Unlocks CopilotKit Intelligence (thread history) |
 | `INTELLIGENCE_API_KEY` | If license set | Paired key — runtime throws if license without this |
-| `OPERATOR_AUTH_ENABLED` | Yes in prod | `true` → `/app/*` requires login |
-| `GEMINI_API_KEY` | Yes | Powers Mastra agents behind the runtime |
+| Model/provider credentials | As configured by current Planner/model task | Never infer the active provider from this runbook; verify current agent/model config |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Auth + edge function calls |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser Supabase client |
 
@@ -46,9 +45,10 @@ Sync from Infisical; never commit tokens. Local dev: `app/.env.local`.
 ```
 Sign in → session cookie set
   → visit /app/shoots
-  → (operator)/layout.tsx checks getUser()
-  → if authed: mount <CopilotKit> + sidebar
-  → if not: render page only (no /api/copilotkit/info spam)
+  → src/app/app/layout.tsx runs requireAppWorkspace()
+  → verified workspace/session allows the operator shell
+  → PlannerApp mounts CopilotKit only after copilotHandshake(authState) allows it
+  → signed-out/unverified state must not create unsigned /api/copilotkit/info noise
 ```
 
 ## Common errors
@@ -62,10 +62,12 @@ Sign in → session cookie set
 
 ## Code pointers
 
-- Runtime: `app/src/app/api/copilotkit/[[...slug]]/route.ts`
-- Provider gate: `app/src/app/(operator)/layout.tsx`
-- Auth middleware: `app/src/proxy.ts`
-- Example env: `app/.env.example`
+- Runtime: `src/app/api/copilotkit/[[...slug]]/route.ts`
+- Operator auth gate: `src/app/app/layout.tsx` → `requireAppWorkspace()`
+- CopilotKit mount/provider: `src/app/planner-app.tsx`
+- Mount decision: `src/lib/auth/copilot-mount.ts`
+- Verified operator/resource identity: `src/lib/auth/verified-operator.ts`
+- Example env: verify current root env documentation before changing variables
 
 ## Related issues
 

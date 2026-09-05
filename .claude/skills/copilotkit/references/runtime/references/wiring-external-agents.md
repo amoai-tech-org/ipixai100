@@ -1,5 +1,14 @@
 # CopilotKit — Wire External Agent Frameworks
 
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+- [References](#references)
+- [See also](#see-also)
+
+
 `CopilotRuntime` takes any `AbstractAgent` subclass. Every framework below ships a
 ready-made subclass you construct and hand to `agents: { ... }`.
 

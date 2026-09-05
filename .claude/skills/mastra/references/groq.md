@@ -1,6 +1,6 @@
 ---
 title: Groq via Mastra
-description: Load for Groq model strings, @ai-sdk/groq, GROQ-001…007 migration, resolveModel() tiers, or config/groq-models.json. Pair with groq-api skill for edge/OpenAI-compatible API. iPix production defaults → tasks/llm/groq-plan.md.
+description: Load for Groq model strings, @ai-sdk/groq, Mastra model-router usage, structured outputs, or Groq-specific model selection. Verify current iPix provider policy before adopting any historical tier examples.
 parent: mastra
 impact: MEDIUM
 impactDescription: Groq router strings, AI SDK provider, iPix tier map
@@ -60,8 +60,8 @@ for await (const chunk of stream) {
 | `groq/whisper-large-v3`                          | —       |       |           |       |       |       | —          | —           |
 | `groq/whisper-large-v3-turbo`                    | —       |       |           |       |       |       | —          | —           |
 
-Tools/Reasoning only populated for models in iPix's tier map below — see [`groq-inference`](../../groq-inference/SKILL.md) for the full catalog.
-¹ Supports tool calling but **not parallel tool calls** — don't use for multi-tool Mastra agents (see Production tier map below).
+Tools/Reasoning entries below are historical examples; verify current model capabilities with the provider registry and official Groq/Mastra docs before use.
+¹ Supports tool calling but **not parallel tool calls** in the historical example captured here; re-verify current capability before relying on it.
 
 ## Advanced configuration
 
@@ -129,9 +129,9 @@ For detailed provider-specific documentation, see the [AI SDK Groq provider docs
 
 ---
 
-## iPix best practices (GROQ-001…007)
+## iPix best practices
 
-**SSOT:** [`tasks/llm/groq-plan.md`](../../../../tasks/llm/groq-plan.md) · Linear [IPI-354](https://linear.app/amo100/issue/IPI-354) epic · [`config/groq-models.json`](../../../../config/groq-models.json) (Phase 1)
+**Current-state rule:** treat the tier map below as historical guidance only. Before changing iPix provider behavior, inspect the current repository configuration, installed provider packages, and current model registry; do not infer a live SSOT from this reference.
 
 | Rule | Do | Don't |
 |------|-----|--------|
@@ -171,12 +171,12 @@ const agent = new Agent({
 });
 ```
 
-### Related skills
+### Related references
 
-| Skill | When |
+| Reference | When |
 |-------|------|
-| [`groq-api`](../../groq-api/SKILL.md) | Edge OpenAI-compatible client, structured outputs, rate limits |
-| [`gemini`](../../gemini/SKILL.md) | DNA vision, embeddings, fallback paths |
-| [`copilotkit`](../../copilotkit/SKILL.md) | Agent IDs unchanged after model swap (GROQ-005) |
+| [`model-providers.md`](model-providers.md) | Provider/router selection and current model verification |
+| [`gemini.md`](gemini.md) | Google/Gemini model guidance |
+| [`copilotkit`](../../copilotkit/SKILL.md) | CopilotKit + Mastra wiring where agent IDs must remain stable |
 
 **Verify (Mastra path):** `cd app && npm run lint && npm run build && npm test` · agent IDs must stay synced with `route-agent-map.ts`.

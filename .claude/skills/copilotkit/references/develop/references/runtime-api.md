@@ -1,5 +1,20 @@
 # CopilotKit v2 Runtime API Reference
 
+## Contents
+
+- [Runtime Classes](#runtime-classes)
+- [Runtime Options](#runtime-options)
+- [Endpoint Factories](#endpoint-factories)
+- [HTTP Routes](#http-routes)
+- [Middleware](#middleware)
+- [Intelligence Platform](#intelligence-platform)
+- [Agent Runners](#agent-runners)
+- [Transcription Service](#transcription-service)
+- [CORS Configuration](#cors-configuration)
+- [Complete Example: Next.js API Route (using Hono)](#complete-example-nextjs-api-route-using-hono)
+- [Complete Example: Express](#complete-example-express)
+
+
 Package: `@copilotkit/runtime/v2` (`createCopilotExpressHandler` from `@copilotkit/runtime/v2/express`)
 
 ---

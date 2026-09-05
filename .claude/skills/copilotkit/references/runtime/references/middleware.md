@@ -1,5 +1,13 @@
 # CopilotKit Runtime Middleware
 
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+- [See also](#see-also)
+
+
 Two coexisting middleware surfaces:
 
 - **`hooks`** (preferred, newer) — pass to `createCopilotRuntimeHandler({ hooks })`.

@@ -1,5 +1,12 @@
 # CopilotKit Provider Setup (React)
 
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+
+
 Mount the `CopilotKit` provider (from `@copilotkit/react-core/v2`) once
 near the root of the React tree. Every CopilotKit hook (`useAgent`,
 `useFrontendTool`, `useRenderTool`, etc.) and every chat component

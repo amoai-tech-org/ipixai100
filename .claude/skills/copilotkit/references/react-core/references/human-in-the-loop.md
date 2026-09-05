@@ -1,5 +1,13 @@
 # CopilotKit Human-in-the-Loop (React)
 
+## Contents
+
+- [UI-kit detection rule](#ui-kit-detection-rule)
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+
+
 This skill builds on `copilotkit/provider-setup`, `copilotkit/client-side-tools`,
 and `copilotkit/rendering-tool-calls`.
 

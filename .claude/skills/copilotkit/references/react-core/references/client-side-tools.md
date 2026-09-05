@@ -1,5 +1,13 @@
 # CopilotKit Client-Side Tools (React)
 
+## Contents
+
+- [UI-kit detection rule](#ui-kit-detection-rule)
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+
+
 This skill builds on `copilotkit/provider-setup`. Tools registered via
 `useFrontendTool` execute in the browser and are exposed to the agent over
 AG-UI.

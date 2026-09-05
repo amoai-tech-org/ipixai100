@@ -1,5 +1,14 @@
 # CopilotKit BuiltInAgent
 
+## Contents
+
+- [Setup](#setup)
+- [Core Patterns](#core-patterns)
+- [Common Mistakes](#common-mistakes)
+- [References](#references)
+- [See also](#see-also)
+
+
 `BuiltInAgent` has two modes:
 
 - **Factory Mode** (preferred default) — you own the LLM call, BuiltInAgent owns the AG-UI

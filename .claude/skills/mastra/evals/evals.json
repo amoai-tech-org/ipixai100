@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "We're on Node 22 in `my-mastra-app/`. I upgraded `@mastra/core` and now TypeScript says `Property 'memory' does not exist on type 'AgentConfig'`. I don't want guesses — what’s the current API and where do I verify it in our install?",
+      "prompt": "We're on Node 22 in `/home/sk/ipixai`. I upgraded `@mastra/core` and now TypeScript says `Property 'memory' does not exist on type 'AgentConfig'`. I don't want guesses \u2014 what\u2019s the current API and where do I verify it in our install?",
       "expected_output": "Agent directs to embedded docs under `node_modules/@mastra/*/dist/docs/`, SOURCE_MAP or grep; mentions `references/common-errors.md` and version mismatch; does not invent a new AgentConfig shape from memory.",
       "files": [],
       "expectations": [
@@ -14,7 +14,7 @@
     },
     {
       "id": 2,
-      "prompt": "I need the official Mastra doc URL for human-in-the-loop workflows and the local skill file that maps 'intent → links.md section' so I can bookmark both.",
+      "prompt": "I need the official Mastra doc URL for human-in-the-loop workflows and the local skill file that maps 'intent \u2192 links.md section' so I can bookmark both.",
       "expected_output": "Correct `links.md` anchor or URL from the Workflows / HITL area; points to `references/topic-routing.md` (or `links.md` directly) for intent routing.",
       "files": [],
       "expectations": [
@@ -34,7 +34,7 @@
     },
     {
       "id": 4,
-      "prompt": "Codex agent has no `node_modules` in this sandbox — how should I pull current Mastra docs text for context, and what’s the llms-friendly URL pattern?",
+      "prompt": "Codex agent has no `node_modules` in this sandbox \u2014 how should I pull current Mastra docs text for context, and what\u2019s the llms-friendly URL pattern?",
       "expected_output": "Remote path: `references/remote-docs.md`, `https://mastra.ai/llms.txt`, append `.md` to doc URLs when fetching.",
       "files": [],
       "expectations": [
@@ -44,7 +44,7 @@
     },
     {
       "id": 5,
-      "prompt": "Wire `MCPClient` so my Mastra agent can call the Mastra docs MCP server. I’m lost between `@mastra/mcp` and the npx server package — what does the skill say?",
+      "prompt": "Wire `MCPClient` so my Mastra agent can call the Mastra docs MCP server. I\u2019m lost between `@mastra/mcp` and the npx server package \u2014 what does the skill say?",
       "expected_output": "Points to SKILL.md MCP section + official MCP overview URL; shows or cites MCPClient + `npx -y @mastra/mcp-docs-server@latest` pattern.",
       "files": [],
       "expectations": [
@@ -54,7 +54,7 @@
     },
     {
       "id": 6,
-      "prompt": "Studio isn’t up. I need to list agents on the local Mastra server and then fetch traces. What do I start in this iPixai repo, and which mastra api commands?",
+      "prompt": "Studio isn\u2019t up. I need to list agents on the local Mastra server and then fetch traces. What do I start in this iPixai repo, and which mastra api commands?",
       "expected_output": "Start npm run dev:agent on :4111 (not combined npm run dev). Check the local CLI with npx --no-install mastra --version and npx --no-install mastra api --help. If api exists: npx --no-install mastra api --url http://localhost:4111 agent list and a local trace list/get. If api is missing, fall back to swagger-ui or curl /api/system/api-schema. Points at references/mastra-api.md.",
       "files": [],
       "expectations": [
@@ -62,6 +62,39 @@
         "Checks the local CLI with `npx --no-install mastra --version` and `npx --no-install mastra api --help` before assuming `mastra api` exists",
         "If `mastra api` is available: uses `npx --no-install mastra api --url http://localhost:4111 agent list`",
         "If `mastra api` is available: uses a local trace command such as `npx --no-install mastra api --url http://localhost:4111 trace list` or `trace get`"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "For the iPix Production Planner, should reusable fashion-production instructions live in a workspace skill, an agent-level skill, or hard security code? Verify the current installed Mastra capability first.",
+      "expected_output": "Uses installed docs/types first; explains Agent({ skills }) / createSkill for self-contained guidance, workspace skills for filesystem/shared discovery, and keeps auth/RLS/HITL/deterministic rules in code.",
+      "files": [],
+      "expectations": [
+        "Mentions agent-level skills or createSkill",
+        "Distinguishes workspace skills from agent-level skills",
+        "Does not move authorization or approval gates into a skill"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Our future Mastra agent has 80 tools and 30 skills. Should we load everything every turn? What current Mastra processors should we evaluate, and should Planner Core use them now?",
+      "expected_output": "Mentions SkillSearchProcessor and ToolSearchProcessor, verifies installed API first, and says they are optimizations for measured large-catalog problems rather than Core Planner dependencies.",
+      "files": [],
+      "expectations": [
+        "Mentions SkillSearchProcessor",
+        "Mentions ToolSearchProcessor",
+        "States Core Planner with four tools should not adopt them without need"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "We need to understand recurring Planner failures across many production traces, not debug one request. Which Mastra capability/reference should we check?",
+      "expected_output": "Routes to Trace Intelligence for aggregate themes when available, notes platform/private-beta constraints, then drills into traces/logs/scores for evidence.",
+      "files": [],
+      "expectations": [
+        "Mentions Trace Intelligence",
+        "Notes aggregate themes/agent health",
+        "Does not treat it as iPix business truth"
       ]
     }
   ]

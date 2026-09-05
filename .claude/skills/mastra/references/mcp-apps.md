@@ -10,6 +10,19 @@ mdeapp: phase2
 
 # MCP Apps
 
+## Contents
+
+- [When to use MCP Apps](#when-to-use-mcp-apps)
+- [Quickstart](#quickstart)
+- [Connecting MCP Apps to agents](#connecting-mcp-apps-to-agents)
+- [How MCP Apps work](#how-mcp-apps-work)
+- [Tool result format](#tool-result-format)
+- [App API (guest-side)](#app-api-guest-side)
+- [Using external MCP servers with apps](#using-external-mcp-servers-with-apps)
+- [Sandbox security](#sandbox-security)
+- [Related](#related)
+
+
 The [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) allows MCP tools to serve interactive HTML UIs via `ui://` resources. When a tool has an associated app resource, Mastra Studio renders it in a sandboxed iframe alongside the tool form or inline in agent chat.
 
 ## When to use MCP Apps

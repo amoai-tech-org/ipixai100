@@ -1,5 +1,13 @@
 # CopilotKit v2 Public API Reference
 
+## Contents
+
+- [Hooks (`@copilotkit/react-core/v2`)](#hooks-copilotkitreact-corev2)
+- [Components (`@copilotkit/react-core/v2`)](#components-copilotkitreact-corev2)
+- [Types (`@copilotkit/react-core/v2`)](#types-copilotkitreact-corev2)
+- [Runtime (`@copilotkit/runtime/v2`)](#runtime-copilotkitruntimev2)
+
+
 Package imports: `@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`, `@copilotkit/core`.
 
 Note: `@copilotkit/react-core/v2` re-exports everything from `@ag-ui/client` (which itself re-exports `@ag-ui/core`), so applications typically only need `@copilotkit/react-core/v2` and `@copilotkit/runtime/v2`.

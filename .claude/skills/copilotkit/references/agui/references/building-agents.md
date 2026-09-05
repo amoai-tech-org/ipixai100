@@ -1,5 +1,21 @@
 # Building AG-UI Agent Backends
 
+## Contents
+
+- [Architecture](#architecture)
+- [Step 1: Extend AbstractAgent (TypeScript In-Process)](#step-1-extend-abstractagent-typescript-in-process)
+- [Step 2: Constructing Events](#step-2-constructing-events)
+- [Step 3: Expose as HTTP SSE Endpoint](#step-3-expose-as-http-sse-endpoint)
+- [Step 4: Handle Tool Calls](#step-4-handle-tool-calls)
+- [Step 5: Emit State Updates](#step-5-emit-state-updates)
+- [Step 6: Emit Activity Updates](#step-6-emit-activity-updates)
+- [Step 7: Report Steps (Optional)](#step-7-report-steps-optional)
+- [Complete Working Example](#complete-working-example)
+- [Connecting from the Client](#connecting-from-the-client)
+- [Error Handling](#error-handling)
+- [Event Ordering Rules](#event-ordering-rules)
+
+
 Step-by-step guide to building an agent backend that speaks the AG-UI protocol.
 
 ## Architecture

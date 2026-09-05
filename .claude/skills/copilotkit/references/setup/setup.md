@@ -9,6 +9,15 @@ version: 1.1.2
 
 # CopilotKit Setup
 
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Framework Detection](#framework-detection)
+- [Setup Workflow](#setup-workflow)
+- [Security notes](#security-notes)
+- [Quick Reference](#quick-reference)
+
+
 ## Prerequisites
 
 ### Live Documentation (MCP)
@@ -250,10 +259,9 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function Home() {
   return (
-    // useSingleEndpoint={false} matches the multi-route backend above.
-    // The v1-compat CopilotKit bridge defaults useSingleEndpoint to true,
-    // which would 404 against multi-route endpoints.
-    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+    // Let the v2 provider negotiate transport by default.
+    // Pin useSingleEndpoint only when you intentionally use single-route mode.
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <div style={{ height: "100vh" }}>
         <CopilotChat />
       </div>
@@ -303,7 +311,7 @@ Example with sidebar:
 ```tsx
 import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
 
-<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+<CopilotKit runtimeUrl="/api/copilotkit">
   <YourApp />
   <CopilotSidebar
     defaultOpen
