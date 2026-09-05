@@ -6,14 +6,20 @@
 -- stay unchanged (issue contract), so the invariant is enforced at the schema
 -- level: a partial unique index on materialized sessions.
 
--- Serialize concurrent materialization: an RPC that starts after this lock is
--- taken cannot insert a duplicate between the cleanup DELETE and the index scan.
-lock table public.onboarding_sessions in access exclusive mode;
+-- Serialize concurrent materialization: SHARE ROW EXCLUSIVE blocks writers
+-- (including the RPC's inserts) while allowing reads, so a concurrent RPC cannot
+-- insert a duplicate between the cleanup and the index scan.
+lock table public.onboarding_sessions in share row exclusive mode;
 
--- Clean up pre-existing duplicates deterministically (created_at desc, id desc
--- tie-breaker) so equal timestamps cannot leave a pair behind and block the
--- unique index. Keeps the newest materialized session per user.
-with ranked as (
+-- Reclassify pre-existing duplicate materialized sessions (keep the newest,
+-- deterministic created_at desc, id desc tie-breaker) instead of deleting them:
+-- the row keeps its organization_id/brand_id provenance for later tenancy
+-- repair, and the partial unique index only sees the one remaining materialized
+-- row. The orgs/brands themselves are intentionally left untouched — deleting
+-- them could cascade to dependent data (shoots, assets).
+update public.onboarding_sessions s
+set status = 'draft'
+from (
   select id,
          row_number() over (
            partition by user_id
@@ -21,12 +27,20 @@ with ranked as (
          ) as rn
   from public.onboarding_sessions
   where status = 'materialized'
-)
-delete from public.onboarding_sessions
-where id in (select id from ranked where rn > 1);
+) ranked
+where s.id = ranked.id
+  and ranked.rn > 1;
 
 -- A second materialization for the same user violates this index and rolls back
 -- the whole RPC transaction (org + brand inserts included) — fail closed.
 create unique index onboarding_sessions_one_materialized_per_user
   on public.onboarding_sessions (user_id)
   where status = 'materialized';
+
+-- A user must not be able to delete a materialized session and re-materialize
+-- under a fresh key (that would mint a second org + brand). Deletion is only
+-- allowed for draft sessions.
+drop policy if exists onboarding_sessions_delete_own on public.onboarding_sessions;
+create policy onboarding_sessions_delete_own on public.onboarding_sessions
+  for delete to authenticated
+  using (auth.uid() = user_id and status = 'draft');
