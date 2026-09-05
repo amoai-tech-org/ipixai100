@@ -29,7 +29,7 @@ export async function createClient() {
 
 export function createClientFromRequest(
   request: Request,
-  response?: Pick<NextResponse, "cookies">,
+  response?: Pick<NextResponse, "cookies" | "headers">,
 ) {
   const config = getPublicSupabaseConfig();
   if (!config) return null;
@@ -39,12 +39,18 @@ export function createClientFromRequest(
       getAll() {
         return parseCookieHeader(request.headers.get("cookie") ?? "");
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, headers) {
         // When a response is supplied (e.g. an auth callback), persist the
-        // session cookies on it. Read-only request auth passes no response.
+        // session cookies on it and propagate cache-protection headers
+        // (Cache-Control / Expires / Pragma) so a CDN never caches a
+        // response carrying another user's session. Read-only request auth
+        // passes no response.
         if (!response) return;
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options),
+        );
+        Object.entries(headers).forEach(([key, value]) =>
+          response.headers.set(key, value),
         );
       },
     },
