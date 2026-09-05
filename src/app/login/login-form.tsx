@@ -29,7 +29,7 @@ export function LoginForm() {
         return;
       }
       await supabase.auth.getClaims();
-      router.push("/");
+      router.push("/planner");
       router.refresh();
     } catch {
       setError("Sign in failed");

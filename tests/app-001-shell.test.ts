@@ -53,7 +53,13 @@ vi.mock("../src/components/ui/empty-state.module.css", () => ({
 }));
 
 vi.mock("../src/app/planner-app", () => ({
-  PlannerApp: () => createElement("div", { "data-testid": "planner-app" }, "Planner"),
+  PlannerApp: () =>
+    createElement(
+      "div",
+      { "data-testid": "planner-app" },
+      createElement("h1", null, "Planner"),
+      createElement("p", null, "Planner surface content"),
+    ),
 }));
 
 vi.mock("../src/lib/auth/copilot-hooks", () => ({
@@ -104,8 +110,11 @@ describe("APP-001 route split", () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     const ui = await PlannerPage();
     render(ui);
-    expect(screen.queryByTestId("operator-panel")).toBeNull();
+    // The Planner surface renders its own content (representative fixture)…
     expect(screen.getByTestId("planner-app")).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Planner" })).toBeDefined();
+    // …and the operator workspace shell is not wrapped around /planner.
+    expect(screen.queryByTestId("operator-panel")).toBeNull();
   });
 
   it("signed-out /planner redirects to login", async () => {
