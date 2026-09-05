@@ -41,9 +41,8 @@ describe("MarketingHeader (IPI-1053)", () => {
     const button = screen.getByRole("button", { name: /services/i });
     fireEvent.click(button);
     expect(button.getAttribute("aria-expanded")).toBe("true");
-    fireEvent.blur(button.parentElement as HTMLElement, {
-      relatedTarget: document.body,
-    });
+    button.focus();
+    fireEvent.blur(button, { relatedTarget: document.body });
     expect(button.getAttribute("aria-expanded")).toBe("false");
   });
 
