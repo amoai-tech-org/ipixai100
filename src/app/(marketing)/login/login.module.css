@@ -110,3 +110,44 @@
   font-size: 0.875rem;
   color: #b42318;
 }
+
+.divider {
+  margin: 1rem 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--mk-text-muted);
+}
+
+.google {
+  width: 100%;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius);
+  background: #fff;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--mk-text);
+  cursor: pointer;
+}
+
+.google:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.switch {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--mk-text-muted);
+}
+
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--mk-text);
+  text-decoration: underline;
+  cursor: pointer;
+}
