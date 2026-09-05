@@ -17,9 +17,9 @@ describe("IPI-1048 PLANNER-001: production planner replaces the weather demo", (
     expect(productionPlannerAgent.name).toBe("Production Planner");
   });
 
-  it("no weather tool is attached — no TOOL-001 tools yet either", async () => {
+  it("no weather tool is attached — IPI-1049 · TOOL-001 owns the actual tool set", async () => {
     const tools = await productionPlannerAgent.listTools();
-    expect(tools).toEqual({});
+    expect(Object.keys(tools)).not.toContain("get-weather");
   });
 
   it("instructions carry the fashion-production contract, not the generic demo prompt", async () => {
