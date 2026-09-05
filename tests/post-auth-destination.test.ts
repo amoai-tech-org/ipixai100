@@ -83,6 +83,16 @@ describe("postAuthDestinationFor", () => {
     expect(destination).toBe("/login");
   });
 
+  it("fails closed to /login when the membership lookup rejects", async () => {
+    const destination = await postAuthDestinationFor({
+      operator,
+      listOrgIds: async () => {
+        throw new Error("database unavailable");
+      },
+    });
+    expect(destination).toBe("/login");
+  });
+
   it("ignores malformed membership ids", async () => {
     const destination = await postAuthDestinationFor({
       operator,

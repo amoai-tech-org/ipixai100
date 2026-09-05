@@ -101,10 +101,23 @@ export function LoginForm({ next }: { next: string | null }) {
         </p>
         <div className={styles.card}>
           {confirmed ? (
-            <p className={styles.confirm} role="status">
-              Check your email to confirm your account. You can sign in once
-              your email is confirmed.
-            </p>
+            <>
+              <p className={styles.confirm} role="status">
+                Check your email to confirm your account. You can sign in once
+                your email is confirmed.
+              </p>
+              <button
+                type="button"
+                className={styles.link}
+                onClick={() => {
+                  setConfirmed(false);
+                  setMode("signin");
+                  setError(null);
+                }}
+              >
+                Back to sign in
+              </button>
+            </>
           ) : (
             <>
               <h1 className={styles.title}>
@@ -113,6 +126,7 @@ export function LoginForm({ next }: { next: string | null }) {
           <form
             onSubmit={(event) => {
               event.preventDefault();
+              if (!event.currentTarget.reportValidity()) return;
               void submit();
             }}
             className={styles.form}
@@ -151,9 +165,8 @@ export function LoginForm({ next }: { next: string | null }) {
               </p>
             ) : null}
             <button
-              type="button"
+              type="submit"
               className={styles.submit}
-              onClick={() => void submit()}
               disabled={submitting}
             >
               {submitting

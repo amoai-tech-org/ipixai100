@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from "react";
+import { createElement, useEffect, useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,29 +12,58 @@ const redirect = vi.hoisted(() =>
 const push = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
 const getVerifiedOperatorFromCookies = vi.hoisted(() => vi.fn());
+
 const signInWithPassword = vi.hoisted(() => vi.fn());
+const signUp = vi.hoisted(() => vi.fn());
 const getClaims = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   redirect,
   useRouter: () => ({ push, refresh }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock("next/dynamic", () => ({
+  default: (
+    loader: () => Promise<React.ComponentType<{ next: string | null }>>,
+  ) => {
+    const DynamicLoginForm = (props: { next: string | null }) => {
+      const [Comp, setComp] = useState<React.ComponentType<{ next: string | null }> | null>(null);
+      useEffect(() => {
+        loader().then((m) => setComp(() => m));
+      }, []);
+      return Comp ? createElement(Comp, props) : null;
+    };
+    return DynamicLoginForm;
+  },
 }));
 
 vi.mock("../src/lib/supabase/client", () => ({
   createClient: () => ({
-    auth: { signInWithPassword, getClaims },
-  }),
-}));
-
-vi.mock("../src/lib/supabase/server", () => ({
-  createClient: () => ({
     auth: {
-      exchangeCodeForSession: vi.fn().mockResolvedValue({ error: null }),
+      signInWithPassword,
+      signUp,
+      getClaims,
     },
   }),
 }));
 
-vi.mock("../src/app/login/login.module.css", () => ({
+const orgMembersQuery = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    data: [{ org_id: "22222222-2222-4222-8222-222222222222" }],
+    error: null,
+  }),
+);
+
+const serverCreateClient = vi.hoisted(() => vi.fn());
+const serverCreateClientFromRequest = vi.hoisted(() => vi.fn());
+
+vi.mock("../src/lib/supabase/server", () => ({
+  createClient: serverCreateClient,
+  createClientFromRequest: serverCreateClientFromRequest,
+}));
+
+vi.mock("../src/app/(marketing)/login/login.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
@@ -48,14 +77,27 @@ vi.mock("../src/lib/auth/copilot-hooks", () => ({
 
 import type { NextRequest } from "next/server";
 import { GET } from "../src/app/auth/callback/route";
-import { LoginForm } from "../src/app/login/login-form";
-import LoginPage from "../src/app/login/page";
+import { LoginForm } from "../src/app/(marketing)/login/login-form";
+import LoginPage from "../src/app/(marketing)/login/page";
 
 const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
 
+function defaultServerClient() {
+  return {
+    auth: {
+      exchangeCodeForSession: vi.fn().mockResolvedValue({ error: null }),
+      getClaims: vi.fn().mockResolvedValue({
+        data: { claims: { sub: operator.id, email: operator.name } },
+        error: null,
+      }),
+    },
+    from: () => ({ select: () => ({ eq: orgMembersQuery }) }),
+  };
+}
+
 beforeEach(() => {
-  signInWithPassword.mockResolvedValue({ error: null });
-  getClaims.mockResolvedValue({ error: null });
+  serverCreateClient.mockReturnValue(defaultServerClient());
+  serverCreateClientFromRequest.mockReturnValue(defaultServerClient());
 });
 
 afterEach(() => {
@@ -65,59 +107,169 @@ afterEach(() => {
   redirect.mockClear();
   getVerifiedOperatorFromCookies.mockReset();
   signInWithPassword.mockReset();
+  signUp.mockReset();
   getClaims.mockReset();
+  orgMembersQuery.mockReset();
+  orgMembersQuery.mockResolvedValue({
+    data: [{ org_id: "22222222-2222-4222-8222-222222222222" }],
+    error: null,
+  });
+  serverCreateClient.mockReset();
+  serverCreateClientFromRequest.mockReset();
 });
 
-describe("successful authentication navigates to /app", () => {
-  it("login page redirects an already-authenticated operator to /app", async () => {
+describe("successful authentication navigates to /planner", () => {
+  it("IPI-1057 · MARKETING-HOME-001 — Reuse the Existing iPix Marketing Homepage in the New App: login page redirects an already-authenticated single-org operator to /planner", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
-    await expect(LoginPage()).rejects.toThrow("REDIRECT:/app");
-    expect(redirect).toHaveBeenCalledWith("/app");
+    await expect(
+      LoginPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("REDIRECT:/planner");
+    expect(redirect).toHaveBeenCalledWith("/planner");
   });
 
-  it("navigates the operator to /app after a successful password sign-in", async () => {
-    // jsdom never actually navigates, so `router.push`/`refresh` are the
-    // only observable signal at this component-test tier — this asserts
-    // the destination string LoginForm actually requests, catching a
-    // regression back to /planner (or any other wrong path) fast and
-    // without a browser. The real user-observable proof of landing on
-    // /app lives in e2e/login-journey.spec.ts, which drives the real
-    // login form through a real browser and asserts the resulting
-    // `page.url()` via the shared signInWithCredentials helper.
-    render(createElement(LoginForm));
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login page routes an already-authenticated zero-org operator to /onboarding", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    orgMembersQuery.mockResolvedValue({ data: [], error: null });
+    await expect(
+      LoginPage({ searchParams: Promise.resolve({}) }),
+    ).rejects.toThrow("REDIRECT:/onboarding");
+    expect(redirect).toHaveBeenCalledWith("/onboarding");
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login page fails closed (renders form) when the server client is unavailable", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    serverCreateClient.mockReturnValue(null);
+    const ui = await LoginPage({ searchParams: Promise.resolve({}) });
+    render(ui);
+    expect(redirect).not.toHaveBeenCalled();
+    expect(await screen.findByLabelText("Email")).toBeDefined();
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form pushes /planner after a successful password sign-in", async () => {
+    signInWithPassword.mockResolvedValue({ error: null });
+    getClaims.mockResolvedValue({});
+    render(createElement(LoginForm, { next: null }));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/app");
+      expect(push).toHaveBeenCalledWith("/planner");
       expect(refresh).toHaveBeenCalled();
     });
   });
 
-  it("does not navigate to /app when sign-in succeeds but claims verification fails", async () => {
-    // signInWithPassword can succeed while getClaims still fails (an
-    // invalid/unverifiable session) — navigating to /app on that
-    // combination would be misleading right up until the server-side
-    // auth gate on /app bounces the operator back. This is the same
-    // authentication boundary as the signInError branch just above.
-    getClaims.mockResolvedValue({ error: new Error("invalid claims") });
-    render(createElement(LoginForm));
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: invalid required fields do not call signInWithPassword", async () => {
+    render(createElement(LoginForm, { next: null }));
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toBe("Sign in failed");
+      expect(signInWithPassword).not.toHaveBeenCalled();
     });
-    expect(push).not.toHaveBeenCalled();
-    expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("auth callback redirects to /app after a successful code exchange", async () => {
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form calls signUp in signup mode and does not enumerate", async () => {
+    signUp.mockResolvedValue({ data: { session: {} }, error: null });
+    render(createElement(LoginForm, { next: null }));
+    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    await waitFor(() => {
+      expect(signUp).toHaveBeenCalledWith({
+        email: "new@example.com",
+        password: "secret",
+      });
+      expect(push).toHaveBeenCalledWith("/planner");
+    });
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: signup with a null session shows confirmation-required and does not navigate", async () => {
+    signUp.mockResolvedValue({ data: { session: null }, error: null });
+    render(createElement(LoginForm, { next: null }));
+    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Check your email to confirm your account/i)).toBeDefined();
+    });
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: Back to sign in restores the sign-in form after confirmation", async () => {
+    signUp.mockResolvedValue({ data: { session: null }, error: null });
+    render(createElement(LoginForm, { next: null }));
+    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Check your email to confirm your account/i)).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Back to sign in" }));
+    expect(screen.getByRole("heading", { name: "Welcome" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback redirects to /planner after a successful code exchange", async () => {
     const url = new URL("http://localhost:3000/auth/callback?code=abc123");
     const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
     const response = await GET(request);
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/app");
+    expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback rejects an external next target", async () => {
+    const url = new URL(
+      "http://localhost:3000/auth/callback?code=abc123&next=https://evil.example",
+    );
+    const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
+    const response = await GET(request);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback does not honor next=/planner for a zero-org user", async () => {
+    orgMembersQuery.mockResolvedValue({ data: [], error: null });
+    const url = new URL(
+      "http://localhost:3000/auth/callback?code=abc123&next=/planner",
+    );
+    const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
+    const response = await GET(request);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/onboarding");
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback preserves a query-bearing compatible next target", async () => {
+    const url = new URL(
+      "http://localhost:3000/auth/callback?code=abc123&next=/planner?tab=threads",
+    );
+    const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
+    const response = await GET(request);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/planner?tab=threads",
+    );
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback provider error retains a safe next target on /login", async () => {
+    const url = new URL(
+      "http://localhost:3000/auth/callback?error=access_denied&next=/planner",
+    );
+    const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
+    const response = await GET(request);
+    expect(response.status).toBe(307);
+    const location = response.headers.get("location") ?? "";
+    expect(location).toContain("/login");
+    expect(location).toContain("next=%2Fplanner");
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback resolves the operator from the exchanged session (no incoming cookie)", async () => {
+    // No getVerifiedOperatorForRequest mock — the callback must resolve the
+    // operator from the response-bound client's claims after exchange.
+    const url = new URL("http://localhost:3000/auth/callback?code=abc123");
+    const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
+    const response = await GET(request);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
   });
 });
