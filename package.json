@@ -20,7 +20,8 @@
     "e2e:ui": "playwright test --ui",
     "e2e:headed": "playwright test --headed",
     "e2e:debug": "playwright test --debug",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "e2e:production": "E2E_PRODUCTION_SMOKE=1 playwright test --config=playwright.production.config.ts"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.58",
