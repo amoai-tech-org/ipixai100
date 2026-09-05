@@ -13,20 +13,18 @@ export async function signInWithCredentials(
   password: string,
 ): Promise<void> {
   await page.goto("/login");
-  // Wait for React hydration so the submit button's onClick is attached —
-  // a pre-hydration click on the type="button" control would be lost.
-  await page.waitForFunction(() => {
-    const btn = document.querySelector('button[type="button"]');
-    if (!btn) return false;
-    return Object.values(btn).some(
-      (v) => v && typeof v === "object" && "onClick" in v,
-    );
-  });
+  // The form is client-only (ssr: false), so it only appears after React
+  // mounts and the submit handler is attached. Waiting for the accessible
+  // "Sign in" button synchronizes with that mount without inspecting private
+  // React internals. In signin mode the toggle reads "Create an account", so
+  // this name is unambiguous.
+  const signIn = page.getByRole("button", { name: "Sign in" });
+  await signIn.waitFor({ state: "visible" });
   // The marketing footer exposes an aria-label="Email" mailto link, so target
   // the form field by role to avoid a strict-mode collision.
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await signIn.click();
 
   // The app signs in, verifies claims, then routes to /planner (IPI-1057
   // root cutover). Wait for that final route before persisting storageState
