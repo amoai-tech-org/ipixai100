@@ -1,7 +1,7 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
-import { createServerClient } from "@supabase/ssr";
 
 import { signInWithCredentials } from "./support/login";
+import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
 
 /**
  * usera@ipix.co and userb@ipix.co are dedicated QA users in separate,
@@ -15,17 +15,6 @@ const otherOrgBrandNames = [
   "QA Test Brand — IPI-404 parity check",
   "IPI-370 Smoke Co 1784673279581",
 ];
-
-function supabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are missing",
-    );
-  }
-  return { url, key };
-}
 
 /**
  * Org B has no saved storageState — it's only needed by this one test, so
@@ -51,31 +40,6 @@ async function signInOrgB(browser: Browser): Promise<{ page: Page; close: () => 
   const page = await context.newPage();
   await signInWithCredentials(page, email, password);
   return { page, close: () => context.close() };
-}
-
-async function supabaseForPage(page: Page) {
-  const { url, key } = supabaseConfig();
-  const cookies = await page.context().cookies();
-  return createServerClient(url, key, {
-    cookies: {
-      getAll: () => cookies.map(({ name, value }) => ({ name, value })),
-      // These are short read-only probes; src/proxy.ts owns session refresh.
-      setAll: () => {},
-    },
-  });
-}
-
-/**
- * Read-only (SELECT only, RLS-enforced): the org this session's own
- * membership row belongs to — the "known record" every signed-in operator
- * can read about themselves, whether or not their org has any brands yet.
- */
-async function getOwnOrgId(page: Page): Promise<string> {
-  const supabase = await supabaseForPage(page);
-  const { data: rows, error } = await supabase.from("org_members").select("org_id");
-  expect(error, `org_members read failed: ${error?.message ?? "unknown"}`).toBeNull();
-  expect(rows, "expected exactly one org membership row for this QA session").toHaveLength(1);
-  return rows![0].org_id;
 }
 
 /** Read-only negative check: RLS must return zero rows, not leak another

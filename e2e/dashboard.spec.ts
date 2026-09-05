@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
+
 // PR #52 (IPI-1066) merged — /app is the real Command Center now, not the
 // pre-merge placeholder. These assertions run for real.
 test.describe("dashboard (authenticated)", () => {
@@ -64,6 +66,23 @@ test.describe("dashboard (authenticated)", () => {
   // the hero subline") and recorded as a known e2e coverage gap.
 
   test("hero card does not render for the QA org's real 0-brand state", async ({ page }) => {
+    // Deterministic, not assumed: confirm this session resolves to exactly
+    // one real organization and that organization's brands really are 0
+    // right now (read-only, RLS-enforced) before asserting on it — a
+    // drifted QA account would otherwise fail with a confusing "No brands
+    // yet" heading-not-found instead of a clear brand-count mismatch.
+    const orgId = await getOwnOrgId(page);
+    const supabase = await supabaseForPage(page);
+    const { count, error } = await supabase
+      .from("brands")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId);
+    expect(error, `brands count read failed: ${error?.message ?? "unknown"}`).toBeNull();
+    expect(
+      count,
+      "expected the QA org to have 0 brands — this is the deterministic precondition for the hero-absence proof below",
+    ).toBe(0);
+
     // Real conditional-render proof, not mocked: heroBrand is undefined
     // when brandsResult.brands is empty, so <HeroCard> must not render at
     // all — same account/org as the "No brands yet" empty-state test.
