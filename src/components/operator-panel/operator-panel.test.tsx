@@ -147,6 +147,29 @@ describe("OperatorPanel", () => {
     ).toBeDefined();
   });
 
+  it("pluralizes each noun independently, not just when both counts match", () => {
+    // Proves brandCount and shootCount pick their own noun rather than
+    // sharing one — a bug that "1/1" (above) and "3/5" alone can't catch.
+    const { unmount } = render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={1} shootCount={2} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("intelligence-rail")).getByText("1 brand · 2 shoots in this workspace."),
+    ).toBeDefined();
+    unmount();
+
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("intelligence-rail")).getByText("2 brands · 1 shoot in this workspace."),
+    ).toBeDefined();
+  });
+
   it("toggles mobile navigation open and closed", () => {
     render(
       <OperatorPanel>

@@ -92,9 +92,12 @@ export default async function AppHomePage() {
       {/* Intelligence rail's derived workspace state — real, uncapped
           counts (trustedBrandIdsResult already has every trusted brand id,
           not just the display-capped BRAND_LIMIT list; shootCountResult is
-          a dedicated count query for the same reason). Only reported when
-          both actually succeeded — no fabricated count on a failed read. */}
-      {trustedBrandIdsResult.ok && shootCountResult.ok && (
+          a dedicated count query for the same reason). Gated on all four
+          reads, not just the two the counts come from: if brandsResult or
+          shootsResult failed, CommandCenter renders an ErrorState for that
+          section below — the rail showing a confident total right next to
+          it would be misleading, not just technically "not fabricated". */}
+      {brandsResult.ok && shootsResult.ok && trustedBrandIdsResult.ok && shootCountResult.ok && (
         <ReportWorkspaceStats
           brandCount={trustedBrandIdsResult.brandIds.length}
           shootCount={shootCountResult.count}

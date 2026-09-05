@@ -595,6 +595,21 @@ describe("countOrgShoots", () => {
     await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
   });
 
+  it("returns ok:false on a null count with no error, not just on an explicit error", async () => {
+    // Exercises the `count === null` guard on its own — a fixture that
+    // always sets both error and count: null (above) would still pass if
+    // that guard were ever removed and only the `error` check remained.
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: () => Promise.resolve({ data: null, error: null, count: null }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
+  });
+
   it("returns ok:false on a failure partway through a large list — never a partial count", async () => {
     const manyBrandIds = Array.from({ length: 1000 }, (_, i) => `brand-${i}`);
     let queryCount = 0;
