@@ -6,13 +6,24 @@
 -- stay unchanged (issue contract), so the invariant is enforced at the schema
 -- level: a partial unique index on materialized sessions.
 
--- Clean up pre-existing duplicates (keep the newest materialized session per user).
-delete from public.onboarding_sessions a
-using public.onboarding_sessions b
-where a.status = 'materialized'
-  and b.status = 'materialized'
-  and a.user_id = b.user_id
-  and a.created_at < b.created_at;
+-- Serialize concurrent materialization: an RPC that starts after this lock is
+-- taken cannot insert a duplicate between the cleanup DELETE and the index scan.
+lock table public.onboarding_sessions in access exclusive mode;
+
+-- Clean up pre-existing duplicates deterministically (created_at desc, id desc
+-- tie-breaker) so equal timestamps cannot leave a pair behind and block the
+-- unique index. Keeps the newest materialized session per user.
+with ranked as (
+  select id,
+         row_number() over (
+           partition by user_id
+           order by created_at desc, id desc
+         ) as rn
+  from public.onboarding_sessions
+  where status = 'materialized'
+)
+delete from public.onboarding_sessions
+where id in (select id from ranked where rn > 1);
 
 -- A second materialization for the same user violates this index and rolls back
 -- the whole RPC transaction (org + brand inserts included) — fail closed.
