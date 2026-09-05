@@ -28,7 +28,11 @@ export function LoginForm() {
         setError("Sign in failed");
         return;
       }
-      await supabase.auth.getClaims();
+      const { error: claimsError } = await supabase.auth.getClaims();
+      if (claimsError) {
+        setError("Sign in failed");
+        return;
+      }
       router.push("/app");
       router.refresh();
     } catch {

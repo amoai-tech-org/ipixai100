@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const redirect = vi.hoisted(() =>
   vi.fn((url: string) => {
@@ -12,6 +12,8 @@ const redirect = vi.hoisted(() =>
 const push = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
 const getVerifiedOperatorFromCookies = vi.hoisted(() => vi.fn());
+const signInWithPassword = vi.hoisted(() => vi.fn());
+const getClaims = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   redirect,
@@ -20,10 +22,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("../src/lib/supabase/client", () => ({
   createClient: () => ({
-    auth: {
-      signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
-      getClaims: vi.fn().mockResolvedValue({}),
-    },
+    auth: { signInWithPassword, getClaims },
   }),
 }));
 
@@ -54,12 +53,19 @@ import LoginPage from "../src/app/login/page";
 
 const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
 
+beforeEach(() => {
+  signInWithPassword.mockResolvedValue({ error: null });
+  getClaims.mockResolvedValue({ error: null });
+});
+
 afterEach(() => {
   cleanup();
   push.mockClear();
   refresh.mockClear();
   redirect.mockClear();
   getVerifiedOperatorFromCookies.mockReset();
+  signInWithPassword.mockReset();
+  getClaims.mockReset();
 });
 
 describe("successful authentication navigates to /app", () => {
@@ -86,6 +92,25 @@ describe("successful authentication navigates to /app", () => {
       expect(push).toHaveBeenCalledWith("/app");
       expect(refresh).toHaveBeenCalled();
     });
+  });
+
+  it("does not navigate to /app when sign-in succeeds but claims verification fails", async () => {
+    // signInWithPassword can succeed while getClaims still fails (an
+    // invalid/unverifiable session) — navigating to /app on that
+    // combination would be misleading right up until the server-side
+    // auth gate on /app bounces the operator back. This is the same
+    // authentication boundary as the signInError branch just above.
+    getClaims.mockResolvedValue({ error: new Error("invalid claims") });
+    render(createElement(LoginForm));
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toBe("Sign in failed");
+    });
+    expect(push).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("auth callback redirects to /app after a successful code exchange", async () => {
