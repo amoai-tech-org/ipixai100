@@ -254,14 +254,27 @@ describe("materializeOnboarding", () => {
   });
 
   it("fails closed when the RPC returns an incomplete payload", async () => {
-    const supabase = mockSupabase();
-    supabase.rpc.mockResolvedValue({
+    const missingBrandId = mockSupabase();
+    missingBrandId.rpc.mockResolvedValue({
       data: { organization_id: "33333333-3333-3333-3333-333333333333" },
       error: null,
     });
     await expect(
       materializeOnboarding(
-        supabase as never,
+        missingBrandId as never,
+        { brandName: "Maison Noir", websiteUrl: "" },
+        { idempotencyKey: asOnboardingIdempotencyKey("key-1") },
+      ),
+    ).rejects.toThrow("unexpected payload");
+
+    const missingOrgId = mockSupabase();
+    missingOrgId.rpc.mockResolvedValue({
+      data: { brand_id: "44444444-4444-4444-4444-444444444444" },
+      error: null,
+    });
+    await expect(
+      materializeOnboarding(
+        missingOrgId as never,
         { brandName: "Maison Noir", websiteUrl: "" },
         { idempotencyKey: asOnboardingIdempotencyKey("key-1") },
       ),
