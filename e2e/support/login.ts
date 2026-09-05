@@ -17,9 +17,10 @@ export async function signInWithCredentials(
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  // The app signs in, verifies claims, then router.push("/"). Wait for that
-  // final route before persisting storageState so auth cookies are settled.
-  await expect(page).toHaveURL((url) => url.pathname === "/");
+  // The app signs in, verifies claims, then router.push("/app"). Wait for
+  // that final route before persisting storageState so auth cookies are
+  // settled.
+  await expect(page).toHaveURL((url) => url.pathname === "/app");
 }
 
 export async function signInAsE2ETestOperator(page: Page): Promise<void> {

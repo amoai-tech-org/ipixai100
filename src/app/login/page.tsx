@@ -8,7 +8,7 @@ import { LoginForm } from "@/app/login/login-form";
 export default async function LoginPage() {
   const operator = await getVerifiedOperatorFromCookies();
   if (plannerSurfaceFor(operator) === "planner") {
-    redirect("/planner");
+    redirect("/app");
   }
   return <LoginForm />;
 }
