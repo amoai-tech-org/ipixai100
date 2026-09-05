@@ -306,6 +306,9 @@ export const WEBHOOK_OK_OUTCOMES = new Set([
   "noop_missing_request_id",
   // Permanent: replay cannot invent a brand that was never in the payload.
   "noop_missing_brand_id",
+  // Permanent: first-seen assets require schema_version=1 trusted context.
+  "noop_missing_schema_version",
+  "noop_missing_org_id",
   "batch_applied",
 ]);
 

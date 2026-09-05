@@ -286,6 +286,24 @@ begin
   end if;
 
   -- New provider asset — identity from signed upload context.
+  --
+  -- IPI-1111 · CLD-WEBHOOK-001: first-seen assets must carry schema_version=1
+  -- and a trusted full context (internal_asset_id + brand_id + org_id with
+  -- brand.org_id == org_id). Existing-asset paths (overwrite/rename/delete)
+  -- skip this to preserve idempotency / retroactive-webhook safety.
+  --
+  -- We are in the first-seen path (the `if found then ... end if;` block above
+  -- handles existing assets and returns). Do NOT rely on PL/pgSQL FOUND here:
+  -- the brand-existence query below would have overwritten it. The schema-version
+  -- guard runs first so a first-seen event missing the trusted V2 context
+  -- short-circuits deterministically ahead of any tenant-identity validation.
+  if v_schema_version != '1' then
+    return jsonb_build_object(
+      'outcome', 'noop_missing_schema_version',
+      'cloudinary_asset_id', v_provider_id
+    );
+  end if;
+
   if v_internal_asset_id is null then
     return jsonb_build_object(
       'outcome', 'noop_missing_asset_id',
@@ -308,36 +326,24 @@ begin
     );
   end if;
 
-  -- Brand must exist; when org_id present it must own the brand.
-  if v_org_id is not null then
-    if not exists (
-      select 1 from public.brands b
-      where b.id = v_brand_id and b.org_id = v_org_id
-    ) then
-      return jsonb_build_object(
-        'outcome', 'noop_unknown_brand',
-        'brand_id', v_brand_id,
-        'org_id', v_org_id
-      );
-    end if;
-  elsif not exists (select 1 from public.brands b where b.id = v_brand_id) then
+  if v_org_id is null then
     return jsonb_build_object(
-      'outcome', 'noop_unknown_brand',
-      'brand_id', v_brand_id
+      'outcome', 'noop_missing_org_id',
+      'cloudinary_asset_id', v_provider_id,
+      'asset_id', v_internal_asset_id
     );
   end if;
 
-  -- IPI-1111 · CLD-WEBHOOK-001: first-seen assets must carry schema_version=1
-  -- and a trusted full context (internal_asset_id + brand_id + org_id).
-  -- Existing-asset paths (overwrite/rename/delete) skip this to preserve
-  -- idempotency / retroactive-webhook safety.
-  if not found then
-    if v_schema_version != '1' then
-      return jsonb_build_object(
-        'outcome', 'noop_missing_schema_version',
-        'cloudinary_asset_id', v_provider_id
-      );
-    end if;
+  -- Brand must exist and belong to the supplied org.
+  if not exists (
+    select 1 from public.brands b
+    where b.id = v_brand_id and b.org_id = v_org_id
+  ) then
+    return jsonb_build_object(
+      'outcome', 'noop_unknown_brand',
+      'brand_id', v_brand_id,
+      'org_id', v_org_id
+    );
   end if;
 
   v_effective_resource := coalesce(v_resource_type, 'image');
@@ -432,6 +438,4 @@ end;
 $$;
 
 comment on function public.apply_cloudinary_asset_event(jsonb) is
--- IPI-1111: single-event Cloudinary webhook state machine (idempotency-first, version guard).
--- service_role only.
-service_role;
+'IPI-1111: single-event Cloudinary webhook state machine (idempotency-first, version guard). service_role only.';
