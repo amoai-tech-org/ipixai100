@@ -198,6 +198,7 @@ export function normalizeCloudinaryNotifications(
           orgId: null,
           brandId: null,
           v2ShootId: null,
+          schemaVersion: null,
         },
         raw: root,
       },
@@ -264,6 +265,7 @@ export type ApplyCloudinaryEventPayload = {
   brand_id: string | null;
   org_id: string | null;
   v2_shoot_id: string | null;
+  schema_version: string | null;
 };
 
 export function toRpcPayload(
@@ -287,6 +289,7 @@ export function toRpcPayload(
     brand_id: event.context.brandId,
     org_id: event.context.orgId,
     v2_shoot_id: event.context.v2ShootId,
+    schema_version: event.context.schemaVersion,
   };
 }
 

@@ -28,6 +28,7 @@ export type IpixUploadContext = {
   orgId: string | null;
   brandId: string | null;
   v2ShootId: string | null;
+  schemaVersion: string | null;
 };
 
 const UUID_RE =
@@ -99,10 +100,22 @@ export function readIpixUploadContext(
   // Prefer frozen `asset_id`; accept deprecated `ipix_asset_id` only as fallback.
   const assetId =
     pick(IPIX_UPLOAD_CONTEXT_KEYS.assetId) ?? pick("ipix_asset_id");
+  // Enforce V2 signed-context contract: schema_version must be "1".
+  // If schema_version is missing or incorrect, null out org/brand so the RPC
+  // returns noop_missing_brand_id (a terminal OK outcome, no retry needed)
+  // instead of creating a business asset without trusted context.
+  const schemaVersion = flat.schema_version;
+  const orgId = schemaVersion === "1"
+    ? pick(IPIX_UPLOAD_CONTEXT_KEYS.orgId)
+    : null;
+  const brandId = schemaVersion === "1"
+    ? pick(IPIX_UPLOAD_CONTEXT_KEYS.brandId)
+    : null;
   return {
     assetId,
-    orgId: pick(IPIX_UPLOAD_CONTEXT_KEYS.orgId),
-    brandId: pick(IPIX_UPLOAD_CONTEXT_KEYS.brandId),
+    orgId,
+    brandId,
     v2ShootId: pick(IPIX_UPLOAD_CONTEXT_KEYS.v2ShootId),
+    schemaVersion,
   };
 }

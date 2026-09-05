@@ -58,6 +58,7 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
           org_id: ORG,
           brand_id: BRAND,
           v2_shoot_id: SHOOT,
+          schema_version: "1",
         },
       },
     });
@@ -136,25 +137,26 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
     expect(payload.delivery_type).toBeNull();
   });
 
-  it("parses pipe-delimited context strings", async () => {
+  it("parses pipe-delimited context strings with schema_version=1", async () => {
     const { readIpixUploadContext } = await import(
       "../src/lib/cloudinary/upload-context"
     );
     const ctx = readIpixUploadContext(
-      `asset_id=${ASSET}|brand_id=${BRAND}|org_id=${ORG}`,
+      `asset_id=${ASSET}|brand_id=${BRAND}|org_id=${ORG}|schema_version=1`,
     );
     expect(ctx.assetId).toBe(ASSET);
     expect(ctx.brandId).toBe(BRAND);
+    expect(ctx.schemaVersion).toBe("1");
   });
 
-  it("keeps signed context.custom authoritative over metadata", async () => {
+  it("keeps signed context.custom authoritative over metadata with schema_version=1", async () => {
     const { readIpixUploadContext } = await import(
       "../src/lib/cloudinary/upload-context"
     );
     const foreignBrand = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
     const ctx = readIpixUploadContext(
       {
-        custom: { asset_id: ASSET, brand_id: BRAND, org_id: ORG },
+        custom: { asset_id: ASSET, brand_id: BRAND, org_id: ORG, schema_version: "1" },
         brand_id: foreignBrand,
       },
       { brand_id: foreignBrand, org_id: foreignBrand },
