@@ -54,7 +54,7 @@
 
 **Do not** put Build Type, Sales Channels, Growth Preference, marketing interstitials, AI analysis, or DNA payoff ahead of `/app` unless product proves they are essential.
 
-**RPC contract (live):** `materialize_onboarding_session(idempotency_key, brand_name, brand_url)` — SECURITY INVOKER, `auth.uid()`, RLS on `onboarding_sessions`. Reuse unchanged unless a proven defect exists. Do **not** build three client inserts.
+**RPC contract (live):** `materialize_onboarding_session(p_idempotency_key, p_brand_name, p_brand_url)` — SECURITY INVOKER, `auth.uid()`, RLS on `onboarding_sessions`. Reuse unchanged unless a proven defect exists. Do **not** build three client inserts.
 
 ---
 
@@ -129,7 +129,7 @@ Current `ipixai` has **no** `/onboarding` route — real gap. Backend foundation
 - Make the **10-step minimum tenancy journey** the explicit FIRST/default implementation (live Linear architecture is already right — local was too COPY-broad)
 - Replace broad COPY with **SELECTIVE COPY/ADAPT** table above
 - Strengthen DROP: AI analysis + DNA payoff + marketing slides + Cloudflare `ssr:false` workaround + unused assets
-- Explicit: RPC args = `idempotency_key` + `brand_name` + `brand_url`; extra Lumina questions are Phase 2+
+- Explicit: RPC args = `p_idempotency_key` + `p_brand_name` + `p_brand_url` (verified live via `pg_proc` on `nvdlhrodvevgwdsneplk`); extra Lumina questions are Phase 2+
 - Prefer `amoai-tech/luminaai` links; lean / cheapest-proof-first skills wording
 
 ## 8. Acceptance criteria (Done gate)
