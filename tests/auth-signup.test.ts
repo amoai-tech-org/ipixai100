@@ -153,6 +153,20 @@ describe("IPI-1157 · AUTH-UX-001 — /signup", () => {
     expect(screen.getByRole("link", { name: "Back to sign in" }).getAttribute("href")).toBe("/login");
   });
 
+  it("preserves a safe next target on the confirmation screen's Back to sign in link", async () => {
+    signUp.mockResolvedValue({ data: { session: null }, error: null });
+    render(createElement(SignupForm, { next: "/planner" }));
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Check your email to confirm your account/i)).toBeDefined();
+    });
+    expect(screen.getByRole("link", { name: "Back to sign in" }).getAttribute("href")).toBe(
+      "/login?next=%2Fplanner",
+    );
+  });
+
   it("duplicate-submit guard: a second immediate click produces exactly one signUp call", async () => {
     signUp.mockResolvedValue({ data: { session: {} }, error: null });
     render(createElement(SignupForm, { next: null }));
@@ -184,6 +198,13 @@ describe("IPI-1157 · AUTH-UX-001 — /signup", () => {
     await expect(SignupPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
       "REDIRECT:/onboarding",
     );
+  });
+
+  it("signup page redirects to /login on membership lookup failure (fail closed)", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(operator);
+    orgMembersQuery.mockResolvedValue({ data: null, error: new Error("db") });
+    await expect(SignupPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("REDIRECT:/login");
+    expect(redirect).toHaveBeenCalledWith("/login");
   });
 
   it("signup page fails closed (renders the form) when the server client is unavailable", async () => {

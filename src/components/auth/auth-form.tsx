@@ -121,7 +121,7 @@ export function AuthForm({ mode, next }: { mode: AuthFormMode; next: string | nu
                 Check your email to confirm your account. You can sign in once
                 your email is confirmed.
               </p>
-              <Link href="/login" className={styles.link}>
+              <Link href={otherRouteHref} className={styles.link}>
                 Back to sign in
               </Link>
             </>

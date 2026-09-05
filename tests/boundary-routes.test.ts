@@ -78,7 +78,8 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     const { container } = render(ui);
     const form = container.querySelector('form[action="/auth/sign-out"]');
     expect(form?.getAttribute("method")).toBe("post");
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
+    const signOutButton = screen.getByRole("button", { name: "Sign out" });
+    expect(signOutButton.closest("form")).toBe(form);
   });
 
   it("onboarding redirects a single-org operator to /app", async () => {
@@ -136,7 +137,8 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     const { container } = render(ui);
     const form = container.querySelector('form[action="/auth/sign-out"]');
     expect(form?.getAttribute("method")).toBe("post");
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
+    const signOutButton = screen.getByRole("button", { name: "Sign out" });
+    expect(signOutButton.closest("form")).toBe(form);
   });
 
   it("org-selection redirects a single-org operator to /app", async () => {
