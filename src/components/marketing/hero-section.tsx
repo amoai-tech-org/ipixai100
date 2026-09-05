@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { AnimatedSection } from "./animated-section";
 
-// Home hero (parity with Vite HeroSection.tsx): split copy/visual, two CTAs.
-// Visual is a neutral gradient placeholder until MEDIA-001 supplies approved
-// imagery — no invented provenance. CTAs target supported destinations.
+// Home hero: split copy/visual, two CTAs. Visual is a neutral gradient
+// placeholder until MEDIA-001 supplies approved imagery — no invented
+// provenance. CTAs target supported destinations.
 export function HeroSection() {
   return (
     <section className="relative flex min-h-screen items-center pt-20">

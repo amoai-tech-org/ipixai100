@@ -1,15 +1,5 @@
 import { AnimatedSection } from "./animated-section";
-
-// Numbered process (parity with Vite ProcessSection.tsx layout). Rewritten to
-// the V2 product journey — Brand → Plan → Book → Produce → Deliver — with only
-// shipped capabilities claimed.
-const steps = [
-  { num: "01", title: "Brand", desc: "Bring your brand context and identity into iPix so every plan starts on-brand." },
-  { num: "02", title: "Plan", desc: "Create a production-ready shoot plan with shot lists, deliverables, and timing." },
-  { num: "03", title: "Book", desc: "Hand off to talent, studio, and booking with clear dates, rates, and roles." },
-  { num: "04", title: "Produce", desc: "Manage the shoot and production from a single workspace." },
-  { num: "05", title: "Deliver", desc: "Approve and receive final assets, ready for every channel." },
-];
+import { JOURNEY_STEPS } from "./journey";
 
 export function ProcessSection() {
   return (
@@ -27,14 +17,14 @@ export function ProcessSection() {
         </AnimatedSection>
 
         <div className="grid grid-cols-1 border-t md:grid-cols-2 lg:grid-cols-5" style={{ borderColor: "var(--mk-border)" }}>
-          {steps.map((step) => (
+          {JOURNEY_STEPS.map((step, i) => (
             <div
-              key={step.num}
+              key={step.title}
               className="border-b p-8 last:border-r-0 lg:border-b-0 lg:border-r lg:p-10"
               style={{ borderColor: "var(--mk-border)" }}
             >
               <span className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color: "var(--mk-text-muted)" }}>
-                Step {step.num}
+                Step {String(i + 1).padStart(2, "0")}
               </span>
               <h3 className="mb-4 mt-6 text-2xl font-medium">{step.title}</h3>
               <p className="text-sm leading-relaxed" style={{ color: "var(--mk-text-muted)" }}>{step.desc}</p>

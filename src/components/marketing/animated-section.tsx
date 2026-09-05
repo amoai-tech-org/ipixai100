@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, type ElementType, type ReactNode } from "react";
 
-// Replaces framer-motion fade-up on the Vite pages: an IntersectionObserver toggles
-// `data-shown` once the element scrolls into view. CSS (.mk-reveal in marketing.css)
-// does the transition. No animation library.
+// Scroll-reveal helper: an IntersectionObserver toggles `data-shown` once the
+// element scrolls into view; CSS (.mk-reveal in marketing.css) does the
+// transition. Falls back to immediately-visible when the observer is
+// unavailable, and the `scripting: none` CSS rule keeps SSR markup visible.
 export function AnimatedSection({
   as: Tag = "div",
   className = "",
@@ -20,6 +21,10 @@ export function AnimatedSection({
   useEffect(() => {
     const el = ref.current;
     if (!el || shown) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setShown(true);
+      return;
+    }
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

@@ -19,11 +19,11 @@ export function normalizeSiteUrl(raw: string | undefined): string {
   if (!raw) return DEFAULT_SITE_URL;
   const candidate = /^https?:\/\//.test(raw) ? raw : `https://${raw}`;
   try {
-    const parsed = new URL(candidate).origin;
-    if (FORBIDDEN_CANONICAL_HOSTS.some((re) => re.test(parsed))) {
+    const parsed = new URL(candidate);
+    if (FORBIDDEN_CANONICAL_HOSTS.some((re) => re.test(parsed.hostname))) {
       return DEFAULT_SITE_URL;
     }
-    return parsed;
+    return parsed.origin;
   } catch {
     return DEFAULT_SITE_URL;
   }

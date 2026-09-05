@@ -1,8 +1,8 @@
 import { AnimatedSection } from "./animated-section";
 
-// Portfolio grid (parity with Vite PortfolioSection.tsx) — 6-tile span grid.
-// Tiles use neutral gradient placeholders until MEDIA-001 supplies approved,
-// provenance-verified imagery. No invented portfolio provenance.
+// Portfolio grid — 6-tile span grid. Tiles use neutral gradient placeholders
+// until MEDIA-001 supplies approved, provenance-verified imagery. No invented
+// portfolio provenance.
 const items = [
   { label: "Fashion", span: "row-span-2", tone: "var(--mk-primary)" },
   { label: "Watches", span: "", tone: "var(--mk-accent)" },
@@ -34,7 +34,7 @@ export function PortfolioSection() {
                 aria-hidden="true"
               />
               <div className="absolute inset-0 flex items-end bg-black/0 p-6 transition-colors duration-500 group-hover:bg-black/30">
-                <span className="translate-y-2 text-sm font-medium uppercase tracking-wide text-white opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+                <span className="text-sm font-medium uppercase tracking-wide text-white">
                   {item.label}
                 </span>
               </div>

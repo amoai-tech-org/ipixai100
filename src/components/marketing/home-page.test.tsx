@@ -24,12 +24,17 @@ describe("MarketingHomePage (IPI-1057)", () => {
       .getAllByRole("heading", { level: 2 })
       .map((h) => h.textContent?.replace(/\s+/g, " ").trim());
 
+    // Hero h1 must exist.
+    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+
     // Journey order: Hero (h1) → Services (h2) → Portfolio (h2) → Process (h2)
-    // → Clients (h2) → CTA (h2). Assert the section anchors exist in order.
+    // → Clients (h2) → CTA (h2). Assert the section elements appear in order.
     const sectionIds = ["services", "portfolio", "process", "about", "contact"];
-    for (const id of sectionIds) {
-      expect(document.getElementById(id)).toBeTruthy();
-    }
+    const domOrder = Array.from(document.body.querySelectorAll("section")).map(
+      (s) => s.id,
+    );
+    const seen = domOrder.filter((id) => sectionIds.includes(id));
+    expect(seen).toEqual(sectionIds);
     expect(headings.length).toBeGreaterThanOrEqual(5);
   });
 
@@ -49,6 +54,8 @@ describe("MarketingHomePage (IPI-1057)", () => {
     expect(getStarted.getAttribute("href")).toBe("/login");
     const howItWorks = screen.getByRole("link", { name: "How It Works" });
     expect(howItWorks.getAttribute("href")).toBe("#process");
+    const startPlanning = screen.getByRole("link", { name: "Start Planning" });
+    expect(startPlanning.getAttribute("href")).toBe("/login");
   });
 
   it("contains no legacy named clients or unsupported claims", () => {

@@ -1,15 +1,8 @@
 import { BookOpen, CalendarCheck, Camera, PackageCheck, Palette } from "lucide-react";
 import { AnimatedSection } from "./animated-section";
+import { JOURNEY_STEPS } from "./journey";
 
-// V2 capability framing — the product journey, not a legacy 8-card service
-// catalog. Brand → Plan → Book → Produce → Deliver. Only shipped capabilities.
-const capabilities = [
-  { icon: Palette, title: "Brand", desc: "Bring your brand context and identity into iPix so every plan is on-brand." },
-  { icon: BookOpen, title: "Plan", desc: "Create a production-ready shoot plan with shot lists and deliverables." },
-  { icon: CalendarCheck, title: "Book", desc: "Hand off to talent, studio, and booking with clear dates and rates." },
-  { icon: Camera, title: "Produce", desc: "Manage the shoot and production from a single workspace." },
-  { icon: PackageCheck, title: "Deliver", desc: "Approve and receive final assets, ready for every channel." },
-];
+const ICONS = [Palette, BookOpen, CalendarCheck, Camera, PackageCheck] as const;
 
 export function ServicesSection() {
   return (
@@ -23,17 +16,20 @@ export function ServicesSection() {
         </AnimatedSection>
 
         <div className="grid grid-cols-1 gap-px sm:grid-cols-2 lg:grid-cols-5" style={{ background: "var(--mk-border)" }}>
-          {capabilities.map((c) => (
-            <div
-              key={c.title}
-              className="group p-8 transition-colors lg:p-10"
-              style={{ background: "var(--mk-surface)" }}
-            >
-              <c.icon size={28} strokeWidth={1.2} className="mb-6" style={{ color: "var(--mk-text-muted)" }} />
-              <h3 className="mb-3 text-xl font-medium">{c.title}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--mk-text-muted)" }}>{c.desc}</p>
-            </div>
-          ))}
+          {JOURNEY_STEPS.map((step, i) => {
+            const Icon = ICONS[i];
+            return (
+              <div
+                key={step.title}
+                className="group p-8 transition-colors lg:p-10"
+                style={{ background: "var(--mk-surface)" }}
+              >
+                <Icon size={28} strokeWidth={1.2} className="mb-6" style={{ color: "var(--mk-text-muted)" }} />
+                <h3 className="mb-3 text-xl font-medium">{step.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--mk-text-muted)" }}>{step.desc}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
