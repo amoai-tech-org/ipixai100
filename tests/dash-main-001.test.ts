@@ -57,17 +57,19 @@ function fakeSupabase(
   return fake as unknown as SupabaseClient;
 }
 
-/** Mimics the paginated `brands` read `loadTrustedBrandIds` makes
- *  (`select("id").eq("org_id", …).order("id", …).range(from, to)`, called
- *  repeatedly until a page comes back shorter than the page size).
- *  `rangeCalls`, when passed, records every `[from, to]` pair so tests can
- *  assert page boundaries. `orderCalls`, when passed, records the `.order()`
- *  call(s) so a test can assert deterministic ordering is actually requested
- *  (without it, `.range()` pagination has no guaranteed row order between
- *  separate requests — a row could be skipped or repeated across pages). */
+/** Mimics the keyset-paginated `brands` read `loadTrustedBrandIds` makes
+ *  (`select("id").eq("org_id", …).order("id", …)[.gt("id", afterId)].limit(n)`,
+ *  called repeatedly — cursor re-anchored on the last id seen — until a page
+ *  comes back shorter than the page size). `pageCalls`, when passed, records
+ *  each page's cursor (`null` for the first page) so tests can assert the
+ *  cursor actually advances instead of asserting a fixed offset range — a
+ *  stale offset is exactly what makes `.range()` pagination unsafe against
+ *  concurrent inserts/deletes. `orderCalls`, when passed, records the
+ *  `.order()` call(s) so a test can assert deterministic ordering is
+ *  actually requested. */
 function fakeBrandIdsSupabase(
   rowsByOrg: Record<string, { id: string }[]>,
-  rangeCalls?: [number, number][],
+  pageCalls?: (string | null)[],
   orderCalls?: OrderCall[],
 ) {
   const fake = {
@@ -78,20 +80,27 @@ function fakeBrandIdsSupabase(
           return {
             eq(column: string, value: string) {
               expect(column).toBe("org_id");
-              return {
+              const rows = rowsByOrg[value] ?? [];
+              const builder = (afterId: string | null) => ({
                 order(column: string, opts: { ascending: boolean }) {
                   orderCalls?.push({ column, opts });
-                  return {
-                    range(from: number, to: number) {
-                      rangeCalls?.push([from, to]);
-                      return Promise.resolve({
-                        data: (rowsByOrg[value] ?? []).slice(from, to + 1),
-                        error: null,
-                      });
-                    },
-                  };
+                  return builder(afterId);
                 },
-              };
+                gt(column: string, gtValue: string) {
+                  expect(column).toBe("id");
+                  return builder(gtValue);
+                },
+                limit(n: number) {
+                  pageCalls?.push(afterId);
+                  const startIndex =
+                    afterId === null ? 0 : rows.findIndex((row) => row.id === afterId) + 1;
+                  return Promise.resolve({
+                    data: rows.slice(startIndex, startIndex + n),
+                    error: null,
+                  });
+                },
+              });
+              return builder(null);
             },
           };
         },
@@ -272,8 +281,8 @@ describe("loadTrustedBrandIds", () => {
     // 500 (page size) + 1 spans two pages — page 1 full, page 2 has exactly
     // the remainder. A single-`.limit()` read would drop this last id.
     const manyBrandIds = Array.from({ length: 501 }, (_, i) => ({ id: `brand-a${i + 1}` }));
-    const rangeCalls: [number, number][] = [];
-    const supabase = fakeBrandIdsSupabase({ [ORG_A]: manyBrandIds }, rangeCalls);
+    const pageCalls: (string | null)[] = [];
+    const supabase = fakeBrandIdsSupabase({ [ORG_A]: manyBrandIds }, pageCalls);
 
     const result = await loadTrustedBrandIds(supabase, ORG_A);
 
@@ -282,13 +291,13 @@ describe("loadTrustedBrandIds", () => {
       expect(result.brandIds).toHaveLength(501);
       expect(result.brandIds).toContain("brand-a501");
     }
-    expect(rangeCalls).toEqual([
-      [0, 499],
-      [500, 999],
-    ]);
+    // Cursor for page 2 is the last id page 1 actually returned — not a
+    // fixed offset, which is exactly what makes this safe against
+    // concurrent inserts/deletes shifting the scan.
+    expect(pageCalls).toEqual([null, "brand-a500"]);
   });
 
-  it("orders by id — .range() pagination has no guaranteed row order without it", async () => {
+  it("orders by id — keyset pagination needs a stable sort to page against", async () => {
     const orderCalls: OrderCall[] = [];
     const supabase = fakeBrandIdsSupabase(
       { [ORG_A]: [{ id: "brand-a1" }] },
@@ -301,37 +310,30 @@ describe("loadTrustedBrandIds", () => {
     expect(orderCalls).toEqual([{ column: "id", opts: { ascending: true } }]);
   });
 
-  it("dedupes brand ids that come back on more than one page", async () => {
-    // Real-world trigger for this: .range() pagination without a stable
-    // sort can return the same row on two different pages if row order
-    // shifts between requests (a bug in itself, fixed by the .order("id")
-    // above) — this proves the dedupe is a real safety net on top of that
-    // fix, not just decoration, by simulating exactly that failure mode.
+  it("dedupes brand ids if a page ever overlaps the previous one anyway", async () => {
+    // Keyset pagination (.gt("id", afterId)) is immune to the classic
+    // offset-shift-on-mutation bug .range() has, but this proves the Set
+    // dedupe is still a real safety net — not just decoration — if a
+    // response ever overlaps regardless of the cursor (a misbehaving
+    // backend, a retried request, etc.).
     let call = 0;
+    const builder = (): { order: () => unknown; gt: () => unknown; limit: (n: number) => unknown } => ({
+      order: () => builder(),
+      gt: () => builder(),
+      limit: (n: number) => {
+        call += 1;
+        if (call === 1) {
+          return Promise.resolve({
+            data: Array.from({ length: n }, (_, i) => ({ id: `brand-${i}` })),
+            error: null,
+          });
+        }
+        // Ignores the cursor and returns an id already seen on page 1.
+        return Promise.resolve({ data: [{ id: "brand-499" }], error: null });
+      },
+    });
     const supabase = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            order: () => ({
-              range: (from: number, to: number) => {
-                call += 1;
-                if (call === 1) {
-                  return Promise.resolve({
-                    data: Array.from({ length: to - from + 1 }, (_, i) => ({
-                      id: `brand-${from + i}`,
-                    })),
-                    error: null,
-                  });
-                }
-                // Second page overlaps the first by one id instead of
-                // continuing cleanly — the exact shape a non-deterministic
-                // sort could produce.
-                return Promise.resolve({ data: [{ id: "brand-499" }], error: null });
-              },
-            }),
-          }),
-        }),
-      }),
+      from: () => ({ select: () => ({ eq: () => builder() }) }),
     } as unknown as SupabaseClient;
 
     const result = await loadTrustedBrandIds(supabase, ORG_A);
@@ -346,20 +348,17 @@ describe("loadTrustedBrandIds", () => {
   it("refuses a partial scope instead of returning ok:true when the org exceeds the page-count ceiling", async () => {
     // Every page comes back completely full, forever — this must give up
     // and fail rather than loop indefinitely or hand back a truncated list.
-    const supabase = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            order: () => ({
-              range: (from: number, to: number) =>
-                Promise.resolve({
-                  data: Array.from({ length: to - from + 1 }, (_, i) => ({ id: `brand-${from + i}` })),
-                  error: null,
-                }),
-            }),
-          }),
+    const builder = (): { order: () => unknown; gt: () => unknown; limit: (n: number) => unknown } => ({
+      order: () => builder(),
+      gt: () => builder(),
+      limit: (n: number) =>
+        Promise.resolve({
+          data: Array.from({ length: n }, (_, i) => ({ id: `brand-${i}` })),
+          error: null,
         }),
-      }),
+    });
+    const supabase = {
+      from: () => ({ select: () => ({ eq: () => builder() }) }),
     } as unknown as SupabaseClient;
 
     await expect(loadTrustedBrandIds(supabase, ORG_A)).resolves.toEqual({ ok: false });
@@ -370,7 +369,7 @@ describe("loadTrustedBrandIds", () => {
       from: () => ({
         select: () => ({
           eq: () => ({
-            order: () => ({ range: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
+            order: () => ({ limit: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
           }),
         }),
       }),

@@ -41,7 +41,7 @@ function IntelligenceRailBody({ pathname }: { pathname: string }) {
     const brandNoun = stats.brandCount === 1 ? "brand" : "brands";
     const shootNoun = stats.shootCount === 1 ? "shoot" : "shoots";
     return (
-      <p className={styles.railBody} data-testid="intelligence-workspace-stats">
+      <p className={styles.railBody} aria-live="polite" data-testid="intelligence-workspace-stats">
         {stats.brandCount} {brandNoun} · {stats.shootCount} {shootNoun} in this workspace.
       </p>
     );

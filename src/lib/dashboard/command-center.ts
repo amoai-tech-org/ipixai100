@@ -111,30 +111,39 @@ export async function loadOrgBrands(
  * org's brand count exceeds what `TRUSTED_BRAND_ID_MAX_PAGES` pages can
  * hold; that ceiling exists only to bound the loop, not as a soft cap.
  *
- * Explicitly ordered by `id` — `.range(from, to)` without an ORDER BY has
- * no guaranteed row order between separate requests, so a row could shift
- * pages (or appear on two pages) between one page's fetch and the next.
- * The `Set` dedupe below is defense in depth on top of that, not a
- * substitute for it: an id repeated across batches would otherwise get
- * double-counted by countOrgShoots and double-fetched (then, after
- * loadOrgShoots's cross-batch sort, potentially duplicated) by
- * loadOrgShoots.
+ * Keyset (cursor) pagination, not offset-based `.range(from, to)`: even
+ * with a stable `.order("id")`, an offset shifts if a row is inserted or
+ * deleted between page fetches — a brand could be silently skipped, and
+ * the `Set` dedupe below can't restore a row that was never fetched.
+ * `.gt("id", afterId)` re-anchors each page on the last id actually seen,
+ * which is immune to that. The dedupe stays as defense in depth for an id
+ * that somehow comes back on two pages anyway (e.g. an unexpectedly
+ * overlapping response) — double-counted by countOrgShoots and
+ * double-fetched (then, after loadOrgShoots's cross-batch sort,
+ * potentially duplicated) by loadOrgShoots otherwise.
  */
 export async function loadTrustedBrandIds(
   supabase: SupabaseClient,
   orgId: string,
 ): Promise<{ ok: true; brandIds: string[] } | { ok: false }> {
   const brandIds: string[] = [];
+  let afterId: string | null = null;
   try {
     for (let page = 0; page < TRUSTED_BRAND_ID_MAX_PAGES; page++) {
-      const from = page * TRUSTED_BRAND_ID_PAGE_SIZE;
-      const to = from + TRUSTED_BRAND_ID_PAGE_SIZE - 1;
-      const { data, error } = await supabase
-        .from("brands")
-        .select("id")
-        .eq("org_id", orgId)
-        .order("id", { ascending: true })
-        .range(from, to);
+      const { data, error } = await (afterId === null
+        ? supabase
+            .from("brands")
+            .select("id")
+            .eq("org_id", orgId)
+            .order("id", { ascending: true })
+            .limit(TRUSTED_BRAND_ID_PAGE_SIZE)
+        : supabase
+            .from("brands")
+            .select("id")
+            .eq("org_id", orgId)
+            .order("id", { ascending: true })
+            .gt("id", afterId)
+            .limit(TRUSTED_BRAND_ID_PAGE_SIZE));
       if (error || !data) {
         console.error("dashboard.loadTrustedBrandIds: query failed", { orgId, page, error });
         return { ok: false };
@@ -144,6 +153,7 @@ export async function loadTrustedBrandIds(
       if (rows.length < TRUSTED_BRAND_ID_PAGE_SIZE) {
         return { ok: true, brandIds: [...new Set(brandIds)] };
       }
+      afterId = rows[rows.length - 1].id;
     }
     console.error("dashboard.loadTrustedBrandIds: exceeded max pages, refusing a partial scope", {
       orgId,
