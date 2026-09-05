@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { CommandCenter } from "@/components/dashboard/command-center";
+import { ReportWorkspaceStats } from "@/components/operator-panel/workspace-stats";
 import { ErrorState } from "@/components/ui/error-state";
 import { requireAppWorkspace } from "@/lib/auth/app-shell";
 import {
@@ -8,6 +9,7 @@ import {
   resolveRuntimeTenant,
 } from "@/lib/auth/runtime-org";
 import {
+  countOrgShoots,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
@@ -66,12 +68,29 @@ export default async function AppHomePage() {
     loadOrgBrands(supabase, tenant.orgId),
     loadTrustedBrandIds(supabase, tenant.orgId),
   ]);
-  const shootsResult = trustedBrandIdsResult.ok
-    ? await loadOrgShoots(supabase, trustedBrandIdsResult.brandIds)
-    : ({ ok: false } as const);
+  const [shootsResult, shootCountResult] = trustedBrandIdsResult.ok
+    ? await Promise.all([
+        loadOrgShoots(supabase, trustedBrandIdsResult.brandIds),
+        countOrgShoots(supabase, trustedBrandIdsResult.brandIds),
+      ])
+    : ([{ ok: false }, { ok: false }] as const);
 
   return (
     <div className="p-8">
+      {/* Intelligence rail's derived workspace state — real, uncapped
+          counts (trustedBrandIdsResult already has every trusted brand id,
+          not just the display-capped BRAND_LIMIT list; shootCountResult is
+          a dedicated count query for the same reason). Gated on all four
+          reads, not just the two the counts come from: if brandsResult or
+          shootsResult failed, CommandCenter renders an ErrorState for that
+          section below — the rail showing a confident total right next to
+          it would be misleading, not just technically "not fabricated". */}
+      {brandsResult.ok && shootsResult.ok && trustedBrandIdsResult.ok && shootCountResult.ok && (
+        <ReportWorkspaceStats
+          brandCount={trustedBrandIdsResult.brandIds.length}
+          shootCount={shootCountResult.count}
+        />
+      )}
       <CommandCenter brandsResult={brandsResult} shootsResult={shootsResult} />
     </div>
   );

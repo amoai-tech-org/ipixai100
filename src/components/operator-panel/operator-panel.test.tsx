@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 type MqListener = (event: MediaQueryListEvent) => void;
@@ -85,6 +85,7 @@ vi.mock("next/link", () => ({
 
 import { OperatorPanel } from "./operator-panel";
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
+import { ReportWorkspaceStats } from "./workspace-stats";
 
 afterEach(() => cleanup());
 
@@ -108,6 +109,65 @@ describe("OperatorPanel", () => {
     for (const item of OPERATOR_NAV) {
       expect(screen.getByRole("link", { name: item.label })).toBeDefined();
     }
+  });
+
+  it("rail shows the generic copy when no real workspace stats have been reported", () => {
+    render(
+      <OperatorPanel>
+        <p>Workspace body</p>
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("intelligence-rail")).getByText(
+        "Planner chat stays in its own screen. Open it without replacing this workspace.",
+      ),
+    ).toBeDefined();
+    expect(screen.queryByTestId("intelligence-workspace-stats")).toBeNull();
+  });
+
+  it("rail shows real derived brand/shoot counts once the dashboard page reports them", () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={3} shootCount={5} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("intelligence-rail")).getByText("3 brands · 5 shoots in this workspace."),
+    ).toBeDefined();
+  });
+
+  it("uses singular nouns for exactly one brand and one shoot", () => {
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={1} shootCount={1} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("intelligence-rail")).getByText("1 brand · 1 shoot in this workspace."),
+    ).toBeDefined();
+  });
+
+  it("pluralizes each noun independently, not just when both counts match", () => {
+    // Proves brandCount and shootCount pick their own noun rather than
+    // sharing one — a bug that "1/1" (above) and "3/5" alone can't catch.
+    const { unmount } = render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={1} shootCount={2} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("intelligence-rail")).getByText("1 brand · 2 shoots in this workspace."),
+    ).toBeDefined();
+    unmount();
+
+    render(
+      <OperatorPanel>
+        <ReportWorkspaceStats brandCount={2} shootCount={1} />
+      </OperatorPanel>,
+    );
+    expect(
+      within(screen.getByTestId("intelligence-rail")).getByText("2 brands · 1 shoot in this workspace."),
+    ).toBeDefined();
   });
 
   it("toggles mobile navigation open and closed", () => {

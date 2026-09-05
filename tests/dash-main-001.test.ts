@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildHeroGreeting,
+  countOrgShoots,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
@@ -56,13 +57,20 @@ function fakeSupabase(
   return fake as unknown as SupabaseClient;
 }
 
-/** Mimics the paginated, unordered `brands` read `loadTrustedBrandIds` makes
- *  (`select("id").eq("org_id", …).range(from, to)`, called repeatedly until
- *  a page comes back shorter than the page size). `rangeCalls`, when passed,
- *  records every `[from, to]` pair so tests can assert page boundaries. */
+/** Mimics the keyset-paginated `brands` read `loadTrustedBrandIds` makes
+ *  (`select("id").eq("org_id", …).order("id", …)[.gt("id", afterId)].limit(n)`,
+ *  called repeatedly — cursor re-anchored on the last id seen — until a page
+ *  comes back shorter than the page size). `pageCalls`, when passed, records
+ *  each page's cursor (`null` for the first page) so tests can assert the
+ *  cursor actually advances instead of asserting a fixed offset range — a
+ *  stale offset is exactly what makes `.range()` pagination unsafe against
+ *  concurrent inserts/deletes. `orderCalls`, when passed, records the
+ *  `.order()` call(s) so a test can assert deterministic ordering is
+ *  actually requested. */
 function fakeBrandIdsSupabase(
   rowsByOrg: Record<string, { id: string }[]>,
-  rangeCalls?: [number, number][],
+  pageCalls?: (string | null)[],
+  orderCalls?: OrderCall[],
 ) {
   const fake = {
     from(table: string) {
@@ -72,15 +80,27 @@ function fakeBrandIdsSupabase(
           return {
             eq(column: string, value: string) {
               expect(column).toBe("org_id");
-              return {
-                range(from: number, to: number) {
-                  rangeCalls?.push([from, to]);
+              const rows = rowsByOrg[value] ?? [];
+              const builder = (afterId: string | null) => ({
+                order(column: string, opts: { ascending: boolean }) {
+                  orderCalls?.push({ column, opts });
+                  return builder(afterId);
+                },
+                gt(column: string, gtValue: string) {
+                  expect(column).toBe("id");
+                  return builder(gtValue);
+                },
+                limit(n: number) {
+                  pageCalls?.push(afterId);
+                  const startIndex =
+                    afterId === null ? 0 : rows.findIndex((row) => row.id === afterId) + 1;
                   return Promise.resolve({
-                    data: (rowsByOrg[value] ?? []).slice(from, to + 1),
+                    data: rows.slice(startIndex, startIndex + n),
                     error: null,
                   });
                 },
-              };
+              });
+              return builder(null);
             },
           };
         },
@@ -107,10 +127,16 @@ function fakeShootsSupabase(
   orderCalls: OrderCall[] = [],
   selectCalls: string[] = [],
 ) {
-  const orderBuilder = (brandIds: string[]) => ({
+  // Applies the accumulated .order() criteria before truncating to n — a
+  // real DB sorts before LIMIT, and loadOrgShoots's batching fix depends
+  // on each batch actually being sorted (it merges each batch's own top
+  // SHOOT_LIMIT, so a fake that returns unsorted rows would make a
+  // cross-batch merge test meaningless).
+  const orderBuilder = (brandIds: string[], criteria: OrderCall[] = []) => ({
     order: (column: string, opts: { ascending: boolean }) => {
-      orderCalls.push({ column, opts });
-      return orderBuilder(brandIds);
+      const call = { column, opts };
+      orderCalls.push(call);
+      return orderBuilder(brandIds, [...criteria, call]);
     },
     limit(n: number) {
       // brand_id comes from the grouping key, same as the real
@@ -119,7 +145,17 @@ function fakeShootsSupabase(
       const rows = brandIds.flatMap((id) =>
         (rowsByBrandId[id] ?? []).map((row) => ({ ...row, brand_id: id })),
       );
-      return Promise.resolve({ data: rows.slice(0, n), error: null });
+      const sorted = [...rows].sort((a, b) => {
+        for (const { column, opts } of criteria) {
+          const av = (a as Record<string, unknown>)[column];
+          const bv = (b as Record<string, unknown>)[column];
+          if (av === bv) continue;
+          const cmp = (av as string) < (bv as string) ? -1 : 1;
+          return opts.ascending ? cmp : -cmp;
+        }
+        return 0;
+      });
+      return Promise.resolve({ data: sorted.slice(0, n), error: null });
     },
   });
   const fake = {
@@ -245,8 +281,8 @@ describe("loadTrustedBrandIds", () => {
     // 500 (page size) + 1 spans two pages — page 1 full, page 2 has exactly
     // the remainder. A single-`.limit()` read would drop this last id.
     const manyBrandIds = Array.from({ length: 501 }, (_, i) => ({ id: `brand-a${i + 1}` }));
-    const rangeCalls: [number, number][] = [];
-    const supabase = fakeBrandIdsSupabase({ [ORG_A]: manyBrandIds }, rangeCalls);
+    const pageCalls: (string | null)[] = [];
+    const supabase = fakeBrandIdsSupabase({ [ORG_A]: manyBrandIds }, pageCalls);
 
     const result = await loadTrustedBrandIds(supabase, ORG_A);
 
@@ -255,27 +291,74 @@ describe("loadTrustedBrandIds", () => {
       expect(result.brandIds).toHaveLength(501);
       expect(result.brandIds).toContain("brand-a501");
     }
-    expect(rangeCalls).toEqual([
-      [0, 499],
-      [500, 999],
-    ]);
+    // Cursor for page 2 is the last id page 1 actually returned — not a
+    // fixed offset, which is exactly what makes this safe against
+    // concurrent inserts/deletes shifting the scan.
+    expect(pageCalls).toEqual([null, "brand-a500"]);
+  });
+
+  it("orders by id — keyset pagination needs a stable sort to page against", async () => {
+    const orderCalls: OrderCall[] = [];
+    const supabase = fakeBrandIdsSupabase(
+      { [ORG_A]: [{ id: "brand-a1" }] },
+      undefined,
+      orderCalls,
+    );
+
+    await loadTrustedBrandIds(supabase, ORG_A);
+
+    expect(orderCalls).toEqual([{ column: "id", opts: { ascending: true } }]);
+  });
+
+  it("dedupes brand ids if a page ever overlaps the previous one anyway", async () => {
+    // Keyset pagination (.gt("id", afterId)) is immune to the classic
+    // offset-shift-on-mutation bug .range() has, but this proves the Set
+    // dedupe is still a real safety net — not just decoration — if a
+    // response ever overlaps regardless of the cursor (a misbehaving
+    // backend, a retried request, etc.).
+    let call = 0;
+    const builder = (): { order: () => unknown; gt: () => unknown; limit: (n: number) => unknown } => ({
+      order: () => builder(),
+      gt: () => builder(),
+      limit: (n: number) => {
+        call += 1;
+        if (call === 1) {
+          return Promise.resolve({
+            data: Array.from({ length: n }, (_, i) => ({ id: `brand-${i}` })),
+            error: null,
+          });
+        }
+        // Ignores the cursor and returns an id already seen on page 1.
+        return Promise.resolve({ data: [{ id: "brand-499" }], error: null });
+      },
+    });
+    const supabase = {
+      from: () => ({ select: () => ({ eq: () => builder() }) }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadTrustedBrandIds(supabase, ORG_A);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const occurrences = result.brandIds.filter((id) => id === "brand-499").length;
+      expect(occurrences).toBe(1);
+    }
   });
 
   it("refuses a partial scope instead of returning ok:true when the org exceeds the page-count ceiling", async () => {
     // Every page comes back completely full, forever — this must give up
     // and fail rather than loop indefinitely or hand back a truncated list.
-    const supabase = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            range: (from: number, to: number) =>
-              Promise.resolve({
-                data: Array.from({ length: to - from + 1 }, (_, i) => ({ id: `brand-${from + i}` })),
-                error: null,
-              }),
-          }),
+    const builder = (): { order: () => unknown; gt: () => unknown; limit: (n: number) => unknown } => ({
+      order: () => builder(),
+      gt: () => builder(),
+      limit: (n: number) =>
+        Promise.resolve({
+          data: Array.from({ length: n }, (_, i) => ({ id: `brand-${i}` })),
+          error: null,
         }),
-      }),
+    });
+    const supabase = {
+      from: () => ({ select: () => ({ eq: () => builder() }) }),
     } as unknown as SupabaseClient;
 
     await expect(loadTrustedBrandIds(supabase, ORG_A)).resolves.toEqual({ ok: false });
@@ -285,7 +368,9 @@ describe("loadTrustedBrandIds", () => {
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({ range: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
+          eq: () => ({
+            order: () => ({ limit: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
+          }),
         }),
       }),
     } as unknown as SupabaseClient;
@@ -359,12 +444,15 @@ describe("loadOrgShoots", () => {
     });
   });
 
-  it("does not select or map cover_url/updated_at — no proven secure-delivery path for cover_url yet", async () => {
+  it("does not select or map cover_url — no proven secure-delivery path for it yet", async () => {
     // Two boundaries, both asserted: the query itself must not ask for
-    // cover_url/updated_at (a leftover row column proves nothing about the
-    // real select() string), and even if it somehow came back, the mapped
+    // cover_url (a leftover row column proves nothing about the real
+    // select() string), and even if it somehow came back, the mapped
     // DashboardShoot must not surface it (see command-center.ts's doc
     // comment on loadOrgShoots — blocked on IPI-1112 · CLD-DELIVERY-001).
+    // updated_at IS selected now (needed to re-sort merged batches — see
+    // the "still selects/orders by updated_at" test below) but still
+    // never exposed on the mapped result, asserted here too.
     const selectCalls: string[] = [];
     const supabase = fakeShootsSupabase(
       {
@@ -385,7 +473,6 @@ describe("loadOrgShoots", () => {
 
     expect(selectCalls).toHaveLength(1);
     expect(selectCalls[0]).not.toMatch(/\bcover_url\b/);
-    expect(selectCalls[0]).not.toMatch(/\bupdated_at\b/);
     expect(result).toEqual({
       ok: true,
       shoots: [
@@ -488,10 +575,10 @@ describe("loadOrgShoots", () => {
     });
   });
 
-  it("still selects/orders by updated_at for sort, even though it's not in the mapped result", async () => {
-    // Confirms the smaller select() didn't silently drop the sort contract —
-    // see command-center.ts's comment: ORDER BY doesn't require the column
-    // in SELECT (verified against the live PostgREST endpoint too).
+  it("still orders by updated_at for sort, even though it's not in the mapped result", async () => {
+    // updated_at is selected now (needed to re-sort merged batches) but
+    // still ordered on server-side too, and never exposed on the mapped
+    // result regardless of where it's read from.
     const orderCalls: OrderCall[] = [];
     const supabase = fakeShootsSupabase(
       { [BRAND_A1]: [{ id: "shoot-a1", name: "Shoot Alpha", status: null }] },
@@ -502,6 +589,245 @@ describe("loadOrgShoots", () => {
     if (result.ok) {
       expect(result.shoots[0]).not.toHaveProperty("updatedAt");
     }
+  });
+
+  it("merges shoots across brand-id batches and returns the true top SHOOT_LIMIT by updated_at", async () => {
+    // Enough brand ids to force multiple underlying batches (same
+    // batching countOrgShoots uses, for the same URL-size reason), each
+    // contributing one shoot with a distinct, increasing updated_at — the
+    // most-recently-updated SHOOT_LIMIT shoots are deliberately the very
+    // last ones generated, spilling into whichever batch runs last. A bug
+    // that returned only the first batch's own top SHOOT_LIMIT (instead
+    // of merging every batch before re-slicing) would return the wrong,
+    // stale shoots entirely.
+    const brandIds = Array.from({ length: 1000 }, (_, i) => `brand-${String(i).padStart(4, "0")}`);
+    const rowsByBrandId: Record<string, ShootRow[]> = {};
+    brandIds.forEach((id, i) => {
+      rowsByBrandId[id] = [
+        {
+          id: `shoot-${String(i).padStart(4, "0")}`,
+          name: `Shoot ${i}`,
+          status: "active",
+          updated_at: new Date(2020, 0, 1 + i).toISOString(),
+        },
+      ];
+    });
+    const supabase = fakeShootsSupabase(rowsByBrandId);
+
+    const result = await loadOrgShoots(supabase, brandIds);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.shoots.map((s) => s.id)).toEqual([
+        "shoot-0999",
+        "shoot-0998",
+        "shoot-0997",
+        "shoot-0996",
+        "shoot-0995",
+        "shoot-0994",
+      ]);
+    }
+  });
+
+  it("returns ok:false on a failure partway through a large brand-id list — never a partial result", async () => {
+    const brandIds = Array.from({ length: 1000 }, (_, i) => `brand-${i}`);
+    let queryCount = 0;
+    const builderFor = (ids: string[]) => ({
+      order: () => builderFor(ids),
+      limit: () => {
+        queryCount += 1;
+        if (queryCount === 2) {
+          return Promise.resolve({ data: null, error: new Error("boom") });
+        }
+        return Promise.resolve({
+          data: ids.map((id) => ({
+            id,
+            name: id,
+            status: "active",
+            brand_id: id,
+            dna_score: null,
+            target_channels: null,
+            updated_at: new Date().toISOString(),
+          })),
+          error: null,
+        });
+      },
+    });
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: (_column: string, ids: string[]) => builderFor(ids),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(loadOrgShoots(supabase, brandIds)).resolves.toEqual({ ok: false });
+    expect(queryCount).toBeGreaterThan(1);
+  });
+
+  it("never returns a duplicate shoot when the brand-id list has a duplicate straddling a batch boundary", async () => {
+    // 250 distinct ids (batch size is 200) plus one repeat of the very
+    // first id, placed near the end — if the batching helper didn't
+    // dedupe before chunking, "brand-0" would land in both batch 1
+    // (ids 0-199) and batch 2 (ids 200-249, plus this repeat), and its
+    // one real shoot would be fetched — and returned — twice.
+    const brandIds = [...Array.from({ length: 250 }, (_, i) => `brand-${i}`), "brand-0"];
+    const rowsByBrandId: Record<string, ShootRow[]> = {
+      "brand-0": [{ id: "shoot-only", name: "Only Shoot", status: "active" }],
+    };
+    const supabase = fakeShootsSupabase(rowsByBrandId);
+
+    const result = await loadOrgShoots(supabase, brandIds);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.shoots.map((s) => s.id)).toEqual(["shoot-only"]);
+    }
+  });
+});
+
+/** Mimics the head-only shoot count read countOrgShoots makes against
+ *  shoot_portfolio_view, scoped by brand id. Asserts observable behavior:
+ *  which column the filter actually scopes on (brand_id is the real
+ *  tenant/org-isolation boundary here — filtering on the wrong column is a
+ *  real bug, not an implementation detail), which ids got queried (in
+ *  aggregate, across however many underlying calls that takes), and the
+ *  count each id contributes. Also asserts count:"exact" and head:true —
+ *  not internal-shape noise, but the two options that make this a real,
+ *  precise total rather than Postgres's approximate/estimated count or a
+ *  full row fetch; either drifting would be a real regression this test
+ *  should catch. Doesn't assert a specific batch count/size, so tuning
+ *  BRAND_ID_FILTER_BATCH_SIZE or BATCH_CONCURRENCY doesn't break this. */
+function fakeCountSupabase(countByBrandId: Record<string, number>, queriedIds: string[][] = []) {
+  const fake = {
+    from(table: string) {
+      expect(table).toBe("shoot_portfolio_view");
+      return {
+        select(columns: string, opts: { count: string; head: boolean }) {
+          expect(columns).toBe("id");
+          expect(opts).toEqual({ count: "exact", head: true });
+          return {
+            in(column: string, brandIds: string[]) {
+              expect(column).toBe("brand_id");
+              queriedIds.push(brandIds);
+              const count = brandIds.reduce((sum, id) => sum + (countByBrandId[id] ?? 0), 0);
+              return Promise.resolve({ data: null, error: null, count });
+            },
+          };
+        },
+      };
+    },
+  };
+  return fake as unknown as SupabaseClient;
+}
+
+describe("countOrgShoots", () => {
+  it("returns ok:true with count 0, no query, when there are no trusted brand ids", async () => {
+    let called = false;
+    const supabase = {
+      from: () => {
+        called = true;
+        throw new Error("should not be called for an empty brandIds list");
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [])).resolves.toEqual({ ok: true, count: 0 });
+    expect(called).toBe(false);
+  });
+
+  it("counts only the given trusted brand ids' shoots, never another brand's", async () => {
+    const queriedIds: string[][] = [];
+    const supabase = fakeCountSupabase({ [BRAND_A1]: 3, [BRAND_B1]: 5 }, queriedIds);
+
+    const result = await countOrgShoots(supabase, [BRAND_A1]);
+    expect(result).toEqual({ ok: true, count: 3 });
+    expect(queriedIds.flat()).toEqual([BRAND_A1]);
+  });
+
+  it("does not cap the count at SHOOT_LIMIT — this is the real total, unlike loadOrgShoots", async () => {
+    const supabase = fakeCountSupabase({ [BRAND_A1]: 42 });
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: true, count: 42 });
+  });
+
+  it("splits a large brand-id list into safely bounded queries and sums their counts", async () => {
+    // loadTrustedBrandIds is uncapped — real orgs can hand this thousands
+    // of ids. A single filter carrying all of them risks exceeding
+    // Supabase's request URL/header size limit. This proves the total
+    // stays correct AND that no single underlying query carries an
+    // unsafely large id list — without asserting the exact batch size
+    // chosen, so tuning that constant doesn't break this test.
+    const manyBrandIds = Array.from({ length: 1000 }, (_, i) => `brand-${i}`);
+    const countByBrandId = Object.fromEntries(manyBrandIds.map((id) => [id, 1]));
+    const queriedIds: string[][] = [];
+    const supabase = fakeCountSupabase(countByBrandId, queriedIds);
+
+    const result = await countOrgShoots(supabase, manyBrandIds);
+
+    expect(result).toEqual({ ok: true, count: 1000 });
+    expect(queriedIds.flat().sort()).toEqual([...manyBrandIds].sort());
+    for (const idsInOneQuery of queriedIds) {
+      expect(idsInOneQuery.length).toBeLessThanOrEqual(300);
+    }
+  });
+
+  it("returns ok:false on a Supabase error instead of throwing or faking a count", async () => {
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: () => Promise.resolve({ data: null, error: new Error("boom"), count: null }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
+  });
+
+  it("returns ok:false on a null count with no error, not just on an explicit error", async () => {
+    // Exercises the `count === null` guard on its own — a fixture that
+    // always sets both error and count: null (above) would still pass if
+    // that guard were ever removed and only the `error` check remained.
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: () => Promise.resolve({ data: null, error: null, count: null }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
+  });
+
+  it("returns ok:false on a failure partway through a large list — never a partial count", async () => {
+    const manyBrandIds = Array.from({ length: 1000 }, (_, i) => `brand-${i}`);
+    let queryCount = 0;
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: (_column: string, ids: string[]) => {
+            queryCount += 1;
+            if (queryCount === 2) {
+              return Promise.resolve({ data: null, error: new Error("boom"), count: null });
+            }
+            return Promise.resolve({ data: null, error: null, count: ids.length });
+          },
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, manyBrandIds)).resolves.toEqual({ ok: false });
+    // Proves this list really was split into more than one query — a
+    // single-query implementation could never reach queryCount === 2.
+    expect(queryCount).toBeGreaterThan(1);
+  });
+
+  it("returns ok:false instead of throwing when the client itself throws", async () => {
+    const supabase = {
+      from: () => {
+        throw new Error("network down");
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
   });
 });
 
