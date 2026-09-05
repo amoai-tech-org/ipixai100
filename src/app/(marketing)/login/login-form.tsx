@@ -24,7 +24,7 @@ export function LoginForm({ next }: { next: string | null }) {
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
-  const destination = next ?? "/planner";
+  const destination = next ?? "/app";
 
   async function submit() {
     if (submittedRef.current) return;

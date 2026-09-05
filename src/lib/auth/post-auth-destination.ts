@@ -4,7 +4,8 @@ import type { VerifiedOperator } from "./verified-operator";
 // Allowlisted internal post-auth destinations (IPI-837 · AUTH-OAUTH-001 — Preserve Safe Post-Login Redirect Through Google OAuth).
 // Anything outside this set is rejected by safeRedirect and never used as a
 // post-auth target. /onboarding and /org-selection are the AUTH-002 boundaries
-// owned by ONBOARD-001 / org-selection; /planner is the single-org baseline.
+// owned by ONBOARD-001 / org-selection; /app is the single-org default
+// workspace, and /planner stays a valid intentional deep link.
 const ALLOWED_INTERNAL_PATHS = new Set([
   "/planner",
   "/app",
@@ -34,7 +35,7 @@ export function safeRedirect(target: string | null | undefined): string | null {
  * One server-owned post-auth routing policy (IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup).
  * Resolves the trusted org membership (AUTH-002) to the exact destination:
  *   - zero memberships  -> /onboarding (IPI-1089 · ONBOARD-001 — Let a New iPix User Sign Up, Create Their First Brand, and Reach the Operator Workspace boundary)
- *   - one membership    -> /planner (post-IPI-1057 · MARKETING-HOME-001 — Reuse the Existing iPix Marketing Homepage in the New App baseline)
+ *   - one membership    -> /app (IPI-1058 · MARKETING-LOGIN-001 — the Command Center is the default workspace after login)
  *   - multiple          -> /org-selection
  *   - lookup failure    -> /login (fail closed — no access granted)
  * Client orgId / user_metadata are never consulted.
@@ -47,5 +48,5 @@ export async function postAuthDestinationFor(input: {
   if (tenant.status === "needs_onboarding") return "/onboarding";
   if (tenant.status === "needs_org_selection") return "/org-selection";
   if (tenant.status === "lookup_failed") return "/login";
-  return "/planner";
+  return "/app";
 }

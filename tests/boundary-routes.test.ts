@@ -65,12 +65,12 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     expect(screen.getByTestId("empty-state")).toBeDefined();
   });
 
-  it("onboarding redirects a single-org operator to /planner", async () => {
+  it("onboarding redirects a single-org operator to /app", async () => {
     serverCreateClient.mockReturnValue(
       clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
     );
-    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/planner");
-    expect(redirect).toHaveBeenCalledWith("/planner");
+    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/app");
+    expect(redirect).toHaveBeenCalledWith("/app");
   });
 
   it("onboarding redirects a multi-org operator to /org-selection", async () => {
@@ -109,12 +109,12 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     expect(screen.getByTestId("empty-state")).toBeDefined();
   });
 
-  it("org-selection redirects a single-org operator to /planner", async () => {
+  it("org-selection redirects a single-org operator to /app", async () => {
     serverCreateClient.mockReturnValue(
       clientWithOrgIds(["22222222-2222-4222-8222-222222222222"]),
     );
-    await expect(OrgSelectionPage()).rejects.toThrow("REDIRECT:/planner");
-    expect(redirect).toHaveBeenCalledWith("/planner");
+    await expect(OrgSelectionPage()).rejects.toThrow("REDIRECT:/app");
+    expect(redirect).toHaveBeenCalledWith("/app");
   });
 
   it("org-selection redirects a zero-org operator to /onboarding", async () => {

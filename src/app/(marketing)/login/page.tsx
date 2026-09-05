@@ -33,7 +33,7 @@ export default async function LoginPage({
       }
     }
     // supabase null (env missing) → render the form; unknown tenant state
-    // never grants access and never redirects into a /planner loop.
+    // never grants access and never redirects into a post-auth loop.
   }
   const { next } = await searchParams;
   // Repeated `next` keys arrive as an array — normalize to the first value

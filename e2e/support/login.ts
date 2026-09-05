@@ -26,12 +26,13 @@ export async function signInWithCredentials(
   await page.getByLabel("Password").fill(password);
   await signIn.click();
 
-  // The app signs in, verifies claims, then routes to /planner (IPI-1057
-  // root cutover). Wait for that final route before persisting storageState
-  // so auth cookies are settled. 15s — Supabase sign-in can be slow when the
-  // full suite runs many auth requests in sequence.
+  // The app signs in, verifies claims, then routes to /app (IPI-1058
+  // MARKETING-LOGIN-001 — the Command Center is the default workspace). Wait
+  // for that final route before persisting storageState so auth cookies are
+  // settled. 15s — Supabase sign-in can be slow when the full suite runs many
+  // auth requests in sequence.
   await expect(page).toHaveURL(
-    (url) => url.pathname === "/planner",
+    (url) => url.pathname === "/app",
     { timeout: 15_000 },
   );
 }

@@ -55,7 +55,7 @@ describe("postAuthDestinationFor", () => {
     expect(destination).toBe("/onboarding");
   });
 
-  it("routes one membership to /planner", async () => {
+  it("routes one membership to /app", async () => {
     const destination = await postAuthDestinationFor({
       operator,
       listOrgIds: async () => ({
@@ -63,7 +63,7 @@ describe("postAuthDestinationFor", () => {
         orgIds: ["22222222-2222-4222-8222-222222222222"],
       }),
     });
-    expect(destination).toBe("/planner");
+    expect(destination).toBe("/app");
   });
 
   it("routes multiple memberships to /org-selection", async () => {
@@ -106,6 +106,6 @@ describe("postAuthDestinationFor", () => {
         orgIds: ["not-a-uuid", "22222222-2222-4222-8222-222222222222"],
       }),
     });
-    expect(destination).toBe("/planner");
+    expect(destination).toBe("/app");
   });
 });

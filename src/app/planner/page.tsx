@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { getVerifiedOperatorFromCookies } from "@/lib/auth/copilot-hooks";
-import { postAuthDestinationFor } from "@/lib/auth/post-auth-destination";
-import { listMembershipOrgIdsFromServerClient } from "@/lib/auth/runtime-org";
+import {
+  listMembershipOrgIdsFromServerClient,
+  resolveRuntimeTenant,
+} from "@/lib/auth/runtime-org";
 import { plannerSurfaceFor } from "@/lib/auth/verified-operator";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,17 +15,24 @@ export default async function Page() {
   if (!operator || plannerSurfaceFor(operator) === "login") {
     redirect("/login");
   }
-  // One server-owned routing policy: single-org members land on /planner;
-  // zero-org → onboarding, multi-org → org selection, lookup failure → login.
+  // Planner route authorization is independent of the post-login destination
+  // policy (IPI-1058 · MARKETING-LOGIN-001): /app is the default workspace,
+  // but /planner stays a valid intentional deep link for a single-org member.
+  // Zero-org → onboarding, multi-org → org selection, lookup failure → login.
   const supabase = await createClient();
   if (supabase) {
-    const destination = await postAuthDestinationFor({
-      operator,
+    const tenant = await resolveRuntimeTenant({
       listOrgIds: () =>
         listMembershipOrgIdsFromServerClient(supabase, operator.id),
     });
-    if (destination !== "/planner") {
-      redirect(destination);
+    if (tenant.status === "needs_onboarding") {
+      redirect("/onboarding");
+    }
+    if (tenant.status === "needs_org_selection") {
+      redirect("/org-selection");
+    }
+    if (tenant.status === "lookup_failed") {
+      redirect("/login");
     }
   }
   return <PlannerApp />;

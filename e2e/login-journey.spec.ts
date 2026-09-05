@@ -15,9 +15,9 @@ test("critical journey: login succeeds", async ({ page }) => {
   await signInAsE2ETestOperator(page);
   // Explicit here (not just inside the shared helper) — this is the
   // public, user-observable proof that password sign-in lands the
-  // operator on /planner (IPI-1057 root cutover), not an internal
-  // implementation detail.
-  await expect(page).toHaveURL(/\/planner$/);
+  // operator on the /app Command Center (IPI-1058 · MARKETING-LOGIN-001),
+  // not an internal implementation detail.
+  await expect(page).toHaveURL(/\/app$/);
 });
 
 // PR #52 (IPI-1066) merged — /app is the real Command Center now.

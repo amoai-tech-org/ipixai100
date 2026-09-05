@@ -37,7 +37,9 @@ export async function GET(request: NextRequest) {
 
   // Create the response first so the Supabase client can persist the exchanged
   // session cookies on it (createClientFromRequest writes to the response).
-  const response = NextResponse.redirect(new URL("/planner", request.url));
+  // /app is the single-org default workspace; the resolved destination below
+  // overrides this location when a verified operator is present.
+  const response = NextResponse.redirect(new URL("/app", request.url));
   const supabase = createClientFromRequest(request, response);
   if (!supabase) {
     return redirectToLogin(
@@ -62,6 +64,8 @@ export async function GET(request: NextRequest) {
   // safe `next` target only when its path is compatible with the resolved
   // tenant state. The allowlist is a shape check, not a tenant check — a
   // zero-org user must not be dumped into /planner via ?next=/planner.
+  // /planner remains a valid intentional deep link for a single-org user even
+  // though /app is now the default destination.
   const operator = await getVerifiedOperatorFromClaims({
     getClaims: async () =>
       claimsFromSupabaseResult(await supabase.auth.getClaims()),
@@ -73,12 +77,16 @@ export async function GET(request: NextRequest) {
         listMembershipOrgIdsFromServerClient(supabase, operator.id),
     });
     const nextPath = next ? new URL(next, request.url).pathname : null;
-    const final = next && nextPath === destination ? next : destination;
+    const nextIsCompatible =
+      next !== null &&
+      (nextPath === destination ||
+        (destination === "/app" && nextPath === "/planner"));
+    const final = nextIsCompatible ? next : destination;
     response.headers.set("location", new URL(final, request.url).toString());
     return response;
   }
 
   // No verified session after exchange — fail closed to /login rather than
-  // returning the pre-built /planner response.
+  // returning the pre-built /app response.
   return redirectToLogin("auth", "session_required");
 }

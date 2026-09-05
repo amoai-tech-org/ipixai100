@@ -128,13 +128,13 @@ afterEach(() => {
   serverCreateClientFromRequest.mockReset();
 });
 
-describe("successful authentication navigates to /planner", () => {
-  it("IPI-1057 · MARKETING-HOME-001 — Reuse the Existing iPix Marketing Homepage in the New App: login page redirects an already-authenticated single-org operator to /planner", async () => {
+describe("successful authentication navigates to /app", () => {
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login page redirects an already-authenticated single-org operator to /app", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
     await expect(
       LoginPage({ searchParams: Promise.resolve({}) }),
-    ).rejects.toThrow("REDIRECT:/planner");
-    expect(redirect).toHaveBeenCalledWith("/planner");
+    ).rejects.toThrow("REDIRECT:/app");
+    expect(redirect).toHaveBeenCalledWith("/app");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login page routes an already-authenticated zero-org operator to /onboarding", async () => {
@@ -168,7 +168,7 @@ describe("successful authentication navigates to /planner", () => {
     expect(lastNextProp.value).toBe("/planner");
   });
 
-  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form pushes /planner after a successful password sign-in", async () => {
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form pushes /app after a successful password sign-in", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     getClaims.mockResolvedValue({});
     render(createElement(LoginForm, { next: null }));
@@ -176,7 +176,7 @@ describe("successful authentication navigates to /planner", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/planner");
+      expect(push).toHaveBeenCalledWith("/app");
       expect(refresh).toHaveBeenCalled();
     });
   });
@@ -201,7 +201,7 @@ describe("successful authentication navigates to /planner", () => {
         email: "new@example.com",
         password: "secret",
       });
-      expect(push).toHaveBeenCalledWith("/planner");
+      expect(push).toHaveBeenCalledWith("/app");
     });
   });
 
@@ -243,12 +243,12 @@ describe("successful authentication navigates to /planner", () => {
     });
   });
 
-  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback redirects to /planner after a successful code exchange", async () => {
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback redirects to /app after a successful code exchange", async () => {
     const url = new URL("http://localhost:3000/auth/callback?code=abc123");
     const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
     const response = await GET(request);
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
+    expect(response.headers.get("location")).toBe("http://localhost:3000/app");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback rejects an external next target", async () => {
@@ -258,7 +258,7 @@ describe("successful authentication navigates to /planner", () => {
     const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
     const response = await GET(request);
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
+    expect(response.headers.get("location")).toBe("http://localhost:3000/app");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback does not honor next=/planner for a zero-org user", async () => {
@@ -303,7 +303,7 @@ describe("successful authentication navigates to /planner", () => {
     const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
     const response = await GET(request);
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
+    expect(response.headers.get("location")).toBe("http://localhost:3000/app");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback with no verified session redirects to /login", async () => {
