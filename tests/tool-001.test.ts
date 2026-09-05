@@ -1,7 +1,40 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// Fixture-driven fake for the read-only Supabase reference reader
+// (src/lib/shoot/channel-specs.ts). `available: false` simulates
+// createClient() returning null (no request/session context — the reader's
+// documented best-effort fallback); `tables` supplies rows per table name
+// for the recommendation_rules -> platforms/image_type_defs -> image_specs
+// chain the reader queries.
+const supabaseMock = vi.hoisted(() => ({
+  available: true,
+  tables: {} as Record<string, unknown[]>,
+}));
+vi.mock("../src/lib/supabase/server", () => ({
+  createClient: async () => {
+    if (!supabaseMock.available) return null;
+    return {
+      from: (table: string) => {
+        const result = { data: supabaseMock.tables[table] ?? [], error: null };
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          in: () => chain,
+          then: (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve),
+        };
+        return chain;
+      },
+    };
+  },
+}));
+afterEach(() => {
+  supabaseMock.available = true;
+  supabaseMock.tables = {};
+});
 
 import { productionPlannerAgent } from "../src/mastra/agents";
+import { loadChannelSpecs } from "../src/lib/shoot/channel-specs";
 import {
   EstimateShootBudgetInputSchema,
   GenerateShotListDraftInputSchema,
@@ -95,7 +128,14 @@ describe("planDeliverables", () => {
     );
     expect(result.status).toBe("ok");
     expect(result.deliverables).toEqual([
-      { channel: "instagram_feed", format: "1:1 JPG", quantity: 10, source: "ipix_default_v1", assumed: true },
+      {
+        channel: "instagram_feed",
+        format: "1:1 JPG",
+        formatSource: "ipix_default_v1",
+        quantity: 10,
+        source: "ipix_default_v1",
+        assumed: true,
+      },
     ]);
     expect(result.totalAssets).toBe(10);
   });
@@ -146,6 +186,96 @@ describe("planDeliverables", () => {
     expect(
       PlanDeliverablesInputSchema.safeParse({ channels: ["shopify"], shootType: "packshott" }).success,
     ).toBe(false);
+  });
+
+  it("uses the live Supabase spec (real aspect ratio/format) for a channel it covers, with reference provenance", async () => {
+    supabaseMock.tables = {
+      recommendation_rules: [{ condition_value: "instagram_feed", platform_slugs: ["instagram"], image_type_slugs: ["feed_post"] }],
+      platforms: [{ id: "p-ig", slug: "instagram" }],
+      image_type_defs: [{ id: "t-feed", slug: "feed_post" }],
+      image_specs: [
+        { platform_id: "p-ig", image_type_id: "t-feed", aspect_ratio_label: "4:5", accepted_formats: ["JPG"], background_required: null },
+      ],
+    };
+    const result = await run<PlanDeliverablesOutput>(
+      planDeliverables.execute!({ channels: ["instagram_feed"] } as never, {} as never),
+    );
+    // Real reference data (4:5) — not the pre-fix hardcoded guess (1:1).
+    expect(result.deliverables[0].format).toBe("4:5 JPG");
+    expect(result.deliverables[0].formatSource).toBe("ipix_reference_v1");
+    expect(result.deliverables[0].source).toBe("ipix_default_v1"); // quantity provenance is unchanged
+  });
+
+  it("applies the packshot white-bg quantity boost from the live spec's real background_required, not string-matching", async () => {
+    supabaseMock.tables = {
+      recommendation_rules: [{ condition_value: "amazon", platform_slugs: ["amazon"], image_type_slugs: ["main_image"] }],
+      platforms: [{ id: "p-az", slug: "amazon" }],
+      image_type_defs: [{ id: "t-main", slug: "main_image" }],
+      image_specs: [
+        { platform_id: "p-az", image_type_id: "t-main", aspect_ratio_label: "1:1", accepted_formats: ["JPEG"], background_required: "pure_white" },
+      ],
+    };
+    const result = await run<PlanDeliverablesOutput>(
+      planDeliverables.execute!({ channels: ["amazon"], shootType: "packshot" } as never, {} as never),
+    );
+    const primary = result.deliverables[0];
+    expect(primary.format).toBe("1:1 JPEG white-bg");
+    expect(primary.formatSource).toBe("ipix_reference_v1");
+    expect(primary.quantity).toBe(10); // amazon default 8 + 2 packshot boost
+  });
+
+  it("falls back to the ipix_default format/provenance when Supabase has no session (createClient returns null)", async () => {
+    supabaseMock.available = false;
+    const result = await run<PlanDeliverablesOutput>(
+      planDeliverables.execute!({ channels: ["instagram_feed"] } as never, {} as never),
+    );
+    expect(result.deliverables[0].format).toBe("1:1 JPG");
+    expect(result.deliverables[0].formatSource).toBe("ipix_default_v1");
+  });
+
+  it("falls back to the ipix_default format for a channel Supabase doesn't cover (e.g. website)", async () => {
+    supabaseMock.tables = { recommendation_rules: [] }; // no channel_required row for "website"
+    const result = await run<PlanDeliverablesOutput>(
+      planDeliverables.execute!({ channels: ["website"] } as never, {} as never),
+    );
+    expect(result.deliverables[0].formatSource).toBe("ipix_default_v1");
+  });
+});
+
+describe("loadChannelSpecs (Supabase reference reader)", () => {
+  it("returns an empty map when there are no channels to look up", async () => {
+    const specs = await loadChannelSpecs([]);
+    expect(specs.size).toBe(0);
+  });
+
+  it("returns an empty map (not a throw) when createClient has no session", async () => {
+    supabaseMock.available = false;
+    const specs = await loadChannelSpecs(["instagram_feed"]);
+    expect(specs.size).toBe(0);
+  });
+
+  it("returns an empty map when the rule exists but no matching image_specs row exists", async () => {
+    supabaseMock.tables = {
+      recommendation_rules: [{ condition_value: "instagram_feed", platform_slugs: ["instagram"], image_type_slugs: ["feed_post"] }],
+      platforms: [{ id: "p-ig", slug: "instagram" }],
+      image_type_defs: [{ id: "t-feed", slug: "feed_post" }],
+      image_specs: [], // no spec row for this platform/image-type pair
+    };
+    const specs = await loadChannelSpecs(["instagram_feed"]);
+    expect(specs.size).toBe(0);
+  });
+
+  it("normalizes a full chain into a plain ChannelSpec keyed by channel", async () => {
+    supabaseMock.tables = {
+      recommendation_rules: [{ condition_value: "pinterest", platform_slugs: ["pinterest"], image_type_slugs: ["pin"] }],
+      platforms: [{ id: "p-pin", slug: "pinterest" }],
+      image_type_defs: [{ id: "t-pin", slug: "pin" }],
+      image_specs: [
+        { platform_id: "p-pin", image_type_id: "t-pin", aspect_ratio_label: "2:3", accepted_formats: ["JPG", "PNG"], background_required: null },
+      ],
+    };
+    const specs = await loadChannelSpecs(["pinterest"]);
+    expect(specs.get("pinterest")).toEqual({ aspectRatioLabel: "2:3", acceptedFormat: "JPG", backgroundRequired: null });
   });
 });
 
@@ -354,6 +484,106 @@ describe("estimateShootBudget", () => {
     ).toBe(false);
     expect(
       EstimateShootBudgetInputSchema.safeParse({ crewCount: 1, studioType: "owned", shotCount: -1 }).success,
+    ).toBe(false);
+  });
+});
+
+// Domain bounds + finite guards (CodeRabbit review, PR #76). Assertions here
+// are on Zod's parse result only — no oversized array is ever actually
+// constructed or passed to .execute(), so these tests can't themselves
+// allocate anything large.
+describe("domain bounds and finite guards", () => {
+  const oneReference = [
+    { id: "ref-1", angle: "front", description: "front-facing product shot", channelFit: ["instagram_feed"] },
+  ];
+
+  it("accepts a deliverable quantity at the max bound and rejects one over it", () => {
+    expect(
+      GenerateShotListDraftInputSchema.safeParse({
+        selectedDeliverables: [{ channel: "instagram_feed", quantity: 500 }],
+        trustedReferenceShotTypes: oneReference,
+      }).success,
+    ).toBe(true);
+    expect(
+      GenerateShotListDraftInputSchema.safeParse({
+        selectedDeliverables: [{ channel: "instagram_feed", quantity: 501 }],
+        trustedReferenceShotTypes: oneReference,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an oversized selectedDeliverables array without constructing it", () => {
+    // Array.from with a length is metadata-only until .map runs — the
+    // schema rejects the shape before any Playwright-sized array of shots
+    // could ever be built from it.
+    const tooMany = Array.from({ length: 201 }, (_, i) => ({ channel: "instagram_feed", quantity: 1, id: `d${i}` }));
+    expect(
+      GenerateShotListDraftInputSchema.safeParse({
+        selectedDeliverables: tooMany,
+        trustedReferenceShotTypes: oneReference,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an oversized trustedReferenceShotTypes array", () => {
+    const tooMany = Array.from({ length: 201 }, (_, i) => ({
+      id: `ref-${i}`,
+      angle: "front",
+      description: "x",
+      channelFit: ["instagram_feed"],
+    }));
+    expect(
+      GenerateShotListDraftInputSchema.safeParse({
+        selectedDeliverables: [{ channel: "instagram_feed", quantity: 1 }],
+        trustedReferenceShotTypes: tooMany,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts max-bounded budget values and keeps the total finite", async () => {
+    const result = await run<EstimateShootBudgetOutput>(
+      estimateShootBudget.execute!(
+        { crewCount: 200, studioType: "rental", shotCount: 5000, shootDays: 365, totalAssets: 20000, currency: "USD" } as never,
+        {} as never,
+      ),
+    );
+    expect(result.status).toBe("ok");
+    expect(Number.isFinite(result.total)).toBe(true);
+  });
+
+  it("rejects Infinity/NaN and over-max rates structurally instead of letting them reach the math", () => {
+    expect(
+      EstimateShootBudgetInputSchema.safeParse({
+        crewCount: 1,
+        studioType: "owned",
+        shotCount: 1,
+        rates: { crewDayRate: Infinity },
+      }).success,
+    ).toBe(false);
+    expect(
+      EstimateShootBudgetInputSchema.safeParse({
+        crewCount: 1,
+        studioType: "owned",
+        shotCount: 1,
+        rates: { crewDayRate: NaN },
+      }).success,
+    ).toBe(false);
+    expect(
+      EstimateShootBudgetInputSchema.safeParse({
+        crewCount: 1,
+        studioType: "owned",
+        shotCount: 1,
+        rates: { crewDayRate: 1_000_001 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects over-max crewCount/shootDays/shotCount/totalAssets", () => {
+    expect(EstimateShootBudgetInputSchema.safeParse({ crewCount: 201, studioType: "owned", shotCount: 1 }).success).toBe(false);
+    expect(EstimateShootBudgetInputSchema.safeParse({ crewCount: 1, studioType: "owned", shotCount: 1, shootDays: 366 }).success).toBe(false);
+    expect(EstimateShootBudgetInputSchema.safeParse({ crewCount: 1, studioType: "owned", shotCount: 5001 }).success).toBe(false);
+    expect(
+      EstimateShootBudgetInputSchema.safeParse({ crewCount: 1, studioType: "owned", shotCount: 1, totalAssets: 20001 }).success,
     ).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import {
   type SelectedDeliverable,
   type TrustedReferenceShotType,
 } from "@/lib/shoot/shot-list-from-references";
+import { loadChannelSpecs } from "@/lib/shoot/channel-specs";
 import { CurrencySchema, emptyResult, planningResultFields, type Assumption } from "./planning-types";
 
 /**
@@ -44,6 +45,9 @@ function dedupeChannels(channels: readonly string[]): string[] {
 }
 
 const DEFAULT_SOURCE = "ipix_default_v1";
+// Live Supabase platforms/image_specs/recommendation_rules reference data —
+// see src/lib/shoot/channel-specs.ts for the exact read path/evidence.
+const REFERENCE_SOURCE = "ipix_reference_v1";
 
 // Shared with planDeliverables.shootType so an unrecognized/misspelled value
 // fails Zod validation structurally instead of being silently ignored.
@@ -175,6 +179,14 @@ const CHANNEL_DELIVERABLE_DEFAULTS: Record<string, { format: string; quantity: n
 const DeliverableSchema = z.object({
   channel: z.string(),
   format: z.string(),
+  // formatSource: which provenance the `format` string itself came from —
+  // "ipix_reference_v1" (live Supabase platforms/image_specs data) for the
+  // one primary format line per channel Supabase covers, "ipix_default_v1"
+  // for every other line (multi-format channels' secondary lines, and any
+  // channel Supabase doesn't own, e.g. "website"). Independent of
+  // source/assumed below, which describe the *quantity* — the format and
+  // the quantity can have different provenance on the same line.
+  formatSource: z.string(),
   quantity: z.number().int().positive(),
   source: z.string(),
   assumed: z.literal(true),
@@ -211,20 +223,38 @@ export const planDeliverables = createTool({
     const isPackshot = shootType === "packshot" || shootType === "ecommerce_pdp";
     const isVideoHeavy = brandDna?.styleKeywords?.some((k) => /video|motion|reel/i.test(k)) ?? false;
 
+    // Authenticated, read-only reference lookup (channel -> canonical
+    // platform/image-type spec) — best-effort; an empty map here just means
+    // every channel falls back to its own hardcoded default below.
+    const channelSpecs = await loadChannelSpecs(channels);
+
     const deliverables = channels.flatMap((channel) => {
       const defaults = CHANNEL_DELIVERABLE_DEFAULTS[channel];
-      return defaults.map((d) => ({
-        channel,
-        format: d.format,
-        quantity:
-          isPackshot && d.format.includes("white-bg")
-            ? d.quantity + 2
-            : isVideoHeavy && d.format.includes("MP4")
-              ? d.quantity + 1
-              : d.quantity,
-        source: DEFAULT_SOURCE,
-        assumed: true as const,
-      }));
+      const spec = channelSpecs.get(channel);
+      return defaults.map((d, lineIndex) => {
+        // Supabase's image_specs covers one canonical image type per
+        // channel — only the first (primary) line of a multi-line channel
+        // (e.g. amazon's "lifestyle" second shot) has live reference data;
+        // every other line keeps the ipix_default format string.
+        const useReference = lineIndex === 0 && spec !== undefined;
+        const format = useReference
+          ? `${spec.aspectRatioLabel} ${spec.acceptedFormat}${spec.backgroundRequired === "pure_white" ? " white-bg" : ""}`
+          : d.format;
+        const isWhiteBg = useReference ? spec.backgroundRequired === "pure_white" : d.format.includes("white-bg");
+        return {
+          channel,
+          format,
+          formatSource: useReference ? REFERENCE_SOURCE : DEFAULT_SOURCE,
+          quantity:
+            isPackshot && isWhiteBg
+              ? d.quantity + 2
+              : isVideoHeavy && d.format.includes("MP4")
+                ? d.quantity + 1
+                : d.quantity,
+          source: DEFAULT_SOURCE,
+          assumed: true as const,
+        };
+      });
     });
 
     return {
@@ -239,18 +269,28 @@ export const planDeliverables = createTool({
 // 3. generateShotListDraft
 // ---------------------------------------------------------------------------
 
+// Bounds below are generous for a real commercial shoot, not tight product
+// limits — the point is rejecting pathological/malformed input (a typo'd
+// extra zero, a runaway loop) before it reaches array-building code, not
+// constraining legitimate production sizes.
+const MAX_DELIVERABLE_QUANTITY = 500;
+const MAX_SELECTED_DELIVERABLES = 200;
+const MAX_TRUSTED_REFERENCES = 200;
+const MAX_CHANNEL_FIT = 50;
+const MAX_PRODUCT_NAMES = 50;
+
 const SelectedDeliverableSchema = z.object({
   id: z.string().optional(),
   channel: z.string(),
   format: z.string().optional(),
-  quantity: z.number().int().positive(),
+  quantity: z.number().int().positive().max(MAX_DELIVERABLE_QUANTITY),
 });
 
 const TrustedReferenceShotTypeSchema = z.object({
   id: z.string(),
   angle: z.string(),
   description: z.string(),
-  channelFit: z.array(z.string()),
+  channelFit: z.array(z.string()).max(MAX_CHANNEL_FIT),
   background: z.string().nullable().optional(),
 });
 
@@ -267,13 +307,15 @@ const ShotSchema = z.object({
 export const GenerateShotListDraftInputSchema = z.object({
   selectedDeliverables: z
     .array(SelectedDeliverableSchema)
-    .min(1, "At least one selected deliverable is required before generating a shot list"),
+    .min(1, "At least one selected deliverable is required before generating a shot list")
+    .max(MAX_SELECTED_DELIVERABLES),
   trustedReferenceShotTypes: z
     .array(TrustedReferenceShotTypeSchema)
-    .min(1, "trustedReferenceShotTypes is required — the real trusted-reference provider is a separate upstream task; pass known reference rows explicitly until then"),
+    .min(1, "trustedReferenceShotTypes is required — the real trusted-reference provider is a separate upstream task; pass known reference rows explicitly until then")
+    .max(MAX_TRUSTED_REFERENCES),
   shootType: z.string().optional(),
   brandDnaSummary: z.string().optional(),
-  productNames: z.array(z.string()).optional(),
+  productNames: z.array(z.string()).max(MAX_PRODUCT_NAMES).optional(),
 });
 export const GenerateShotListDraftOutputSchema = z.object({
   ...planningResultFields,
@@ -341,23 +383,34 @@ const DEFAULT_SHOOT_DAYS = 1;
 const DEFAULT_CURRENCY: z.infer<typeof CurrencySchema> = "USD";
 const DEFAULT_ASSETS_PER_SHOT = 3;
 
+// Generous production-scale ceilings, not tight limits — `.nonnegative()`
+// alone still accepts Infinity (Infinity >= 0), which would silently
+// propagate into every downstream total; `.finite()` (implies not-NaN too)
+// plus a bounded `.max()` closes that off structurally.
+const MAX_DAY_RATE = 1_000_000;
+const MAX_POST_PER_ASSET = 100_000;
+const MAX_CREW_COUNT = 200;
+const MAX_SHOOT_DAYS = 365;
+const MAX_SHOT_COUNT = 5_000;
+const MAX_TOTAL_ASSETS = 20_000;
+
 const RatesSchema = z.object({
-  crewDayRate: z.number().nonnegative().optional(),
-  studioDayRate: z.number().nonnegative().optional(),
-  equipmentDayRate: z.number().nonnegative().optional(),
-  postPerAsset: z.number().nonnegative().optional(),
+  crewDayRate: z.number().finite().nonnegative().max(MAX_DAY_RATE).optional(),
+  studioDayRate: z.number().finite().nonnegative().max(MAX_DAY_RATE).optional(),
+  equipmentDayRate: z.number().finite().nonnegative().max(MAX_DAY_RATE).optional(),
+  postPerAsset: z.number().finite().nonnegative().max(MAX_POST_PER_ASSET).optional(),
 });
 
 export const EstimateShootBudgetInputSchema = z.object({
-  crewCount: z.number().int().min(1).optional(),
+  crewCount: z.number().int().min(1).max(MAX_CREW_COUNT).optional(),
   studioType: z.enum(["rental", "owned", "location", "outdoor"]).optional(),
-  shotCount: z.number().int().min(1).optional(),
+  shotCount: z.number().int().min(1).max(MAX_SHOT_COUNT).optional(),
   // No .default() on shootDays/currency: a schema default is applied before
   // execute() runs, so execute could never tell "operator supplied 1" from
   // "operator supplied nothing" — and every silently-defaulted value here
   // materially changes the total, so it needs its own Assumption entry too.
-  shootDays: z.number().int().min(1).optional(),
-  totalAssets: z.number().int().min(1).optional(),
+  shootDays: z.number().int().min(1).max(MAX_SHOOT_DAYS).optional(),
+  totalAssets: z.number().int().min(1).max(MAX_TOTAL_ASSETS).optional(),
   currency: CurrencySchema.optional(),
   rates: RatesSchema.optional(),
 });
@@ -445,6 +498,13 @@ export const estimateShootBudget = createTool({
     const equipment = Math.round((crewCount as number) * (effectiveEquipmentDayRate ?? DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW) * effectiveShootDays);
     const post = assets * (effectivePostPerAsset ?? DEFAULT_POST_PER_ASSET);
     const total = crew + studio + equipment + post;
+
+    // Defense-in-depth: every input above is now bounded/finite by schema,
+    // so this should be unreachable — but a corrupted money total must fail
+    // loudly, never silently clamp or return NaN/Infinity to the operator.
+    if (![crew, studio, equipment, post, total].every(Number.isFinite)) {
+      throw new Error("estimateShootBudget produced a non-finite total — refusing to return a corrupted estimate");
+    }
 
     return {
       ...emptyResult("ok"),
