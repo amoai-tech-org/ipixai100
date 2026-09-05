@@ -108,10 +108,16 @@ function fakeShootsSupabase(
   orderCalls: OrderCall[] = [],
   selectCalls: string[] = [],
 ) {
-  const orderBuilder = (brandIds: string[]) => ({
+  // Applies the accumulated .order() criteria before truncating to n — a
+  // real DB sorts before LIMIT, and loadOrgShoots's batching fix depends
+  // on each batch actually being sorted (it merges each batch's own top
+  // SHOOT_LIMIT, so a fake that returns unsorted rows would make a
+  // cross-batch merge test meaningless).
+  const orderBuilder = (brandIds: string[], criteria: OrderCall[] = []) => ({
     order: (column: string, opts: { ascending: boolean }) => {
-      orderCalls.push({ column, opts });
-      return orderBuilder(brandIds);
+      const call = { column, opts };
+      orderCalls.push(call);
+      return orderBuilder(brandIds, [...criteria, call]);
     },
     limit(n: number) {
       // brand_id comes from the grouping key, same as the real
@@ -120,7 +126,17 @@ function fakeShootsSupabase(
       const rows = brandIds.flatMap((id) =>
         (rowsByBrandId[id] ?? []).map((row) => ({ ...row, brand_id: id })),
       );
-      return Promise.resolve({ data: rows.slice(0, n), error: null });
+      const sorted = [...rows].sort((a, b) => {
+        for (const { column, opts } of criteria) {
+          const av = (a as Record<string, unknown>)[column];
+          const bv = (b as Record<string, unknown>)[column];
+          if (av === bv) continue;
+          const cmp = (av as string) < (bv as string) ? -1 : 1;
+          return opts.ascending ? cmp : -cmp;
+        }
+        return 0;
+      });
+      return Promise.resolve({ data: sorted.slice(0, n), error: null });
     },
   });
   const fake = {
@@ -360,12 +376,15 @@ describe("loadOrgShoots", () => {
     });
   });
 
-  it("does not select or map cover_url/updated_at — no proven secure-delivery path for cover_url yet", async () => {
+  it("does not select or map cover_url — no proven secure-delivery path for it yet", async () => {
     // Two boundaries, both asserted: the query itself must not ask for
-    // cover_url/updated_at (a leftover row column proves nothing about the
-    // real select() string), and even if it somehow came back, the mapped
+    // cover_url (a leftover row column proves nothing about the real
+    // select() string), and even if it somehow came back, the mapped
     // DashboardShoot must not surface it (see command-center.ts's doc
     // comment on loadOrgShoots — blocked on IPI-1112 · CLD-DELIVERY-001).
+    // updated_at IS selected now (needed to re-sort merged batches — see
+    // the "still selects/orders by updated_at" test below) but still
+    // never exposed on the mapped result, asserted here too.
     const selectCalls: string[] = [];
     const supabase = fakeShootsSupabase(
       {
@@ -386,7 +405,6 @@ describe("loadOrgShoots", () => {
 
     expect(selectCalls).toHaveLength(1);
     expect(selectCalls[0]).not.toMatch(/\bcover_url\b/);
-    expect(selectCalls[0]).not.toMatch(/\bupdated_at\b/);
     expect(result).toEqual({
       ok: true,
       shoots: [
@@ -489,10 +507,10 @@ describe("loadOrgShoots", () => {
     });
   });
 
-  it("still selects/orders by updated_at for sort, even though it's not in the mapped result", async () => {
-    // Confirms the smaller select() didn't silently drop the sort contract —
-    // see command-center.ts's comment: ORDER BY doesn't require the column
-    // in SELECT (verified against the live PostgREST endpoint too).
+  it("still orders by updated_at for sort, even though it's not in the mapped result", async () => {
+    // updated_at is selected now (needed to re-sort merged batches) but
+    // still ordered on server-side too, and never exposed on the mapped
+    // result regardless of where it's read from.
     const orderCalls: OrderCall[] = [];
     const supabase = fakeShootsSupabase(
       { [BRAND_A1]: [{ id: "shoot-a1", name: "Shoot Alpha", status: null }] },
@@ -504,16 +522,91 @@ describe("loadOrgShoots", () => {
       expect(result.shoots[0]).not.toHaveProperty("updatedAt");
     }
   });
+
+  it("merges shoots across brand-id batches and returns the true top SHOOT_LIMIT by updated_at", async () => {
+    // Enough brand ids to force multiple underlying batches (same
+    // batching countOrgShoots uses, for the same URL-size reason), each
+    // contributing one shoot with a distinct, increasing updated_at — the
+    // most-recently-updated SHOOT_LIMIT shoots are deliberately the very
+    // last ones generated, spilling into whichever batch runs last. A bug
+    // that returned only the first batch's own top SHOOT_LIMIT (instead
+    // of merging every batch before re-slicing) would return the wrong,
+    // stale shoots entirely.
+    const brandIds = Array.from({ length: 1000 }, (_, i) => `brand-${String(i).padStart(4, "0")}`);
+    const rowsByBrandId: Record<string, ShootRow[]> = {};
+    brandIds.forEach((id, i) => {
+      rowsByBrandId[id] = [
+        {
+          id: `shoot-${String(i).padStart(4, "0")}`,
+          name: `Shoot ${i}`,
+          status: "active",
+          updated_at: new Date(2020, 0, 1 + i).toISOString(),
+        },
+      ];
+    });
+    const supabase = fakeShootsSupabase(rowsByBrandId);
+
+    const result = await loadOrgShoots(supabase, brandIds);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.shoots.map((s) => s.id)).toEqual([
+        "shoot-0999",
+        "shoot-0998",
+        "shoot-0997",
+        "shoot-0996",
+        "shoot-0995",
+        "shoot-0994",
+      ]);
+    }
+  });
+
+  it("returns ok:false on a failure partway through a large brand-id list — never a partial result", async () => {
+    const brandIds = Array.from({ length: 1000 }, (_, i) => `brand-${i}`);
+    let queryCount = 0;
+    const builderFor = (ids: string[]) => ({
+      order: () => builderFor(ids),
+      limit: () => {
+        queryCount += 1;
+        if (queryCount === 2) {
+          return Promise.resolve({ data: null, error: new Error("boom") });
+        }
+        return Promise.resolve({
+          data: ids.map((id) => ({
+            id,
+            name: id,
+            status: "active",
+            brand_id: id,
+            dna_score: null,
+            target_channels: null,
+            updated_at: new Date().toISOString(),
+          })),
+          error: null,
+        });
+      },
+    });
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: (_column: string, ids: string[]) => builderFor(ids),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(loadOrgShoots(supabase, brandIds)).resolves.toEqual({ ok: false });
+    expect(queryCount).toBeGreaterThan(1);
+  });
 });
 
 /** Mimics the head-only shoot count read countOrgShoots makes against
- *  shoot_portfolio_view, scoped by brand id. Asserts only observable
- *  behavior — which ids actually got queried (in aggregate, across
- *  however many underlying calls that takes) and the count each id
- *  contributes — never the exact select()/opts()/column-name shape, so a
- *  refactor of the query internals (e.g. a different select string, more
- *  or fewer batches) doesn't break these tests unless real behavior
- *  actually changes. */
+ *  shoot_portfolio_view, scoped by brand id. Asserts observable behavior
+ *  only: which column the filter actually scopes on (brand_id is the real
+ *  tenant/org-isolation boundary here — filtering on the wrong column is a
+ *  real bug, not an implementation detail), which ids got queried (in
+ *  aggregate, across however many underlying calls that takes), and the
+ *  count each id contributes. Never asserts the select()/opts() shape, so
+ *  a refactor of the query internals (a different select string, more or
+ *  fewer batches) doesn't break these tests unless real behavior changes. */
 function fakeCountSupabase(countByBrandId: Record<string, number>, queriedIds: string[][] = []) {
   const fake = {
     from(table: string) {
@@ -521,7 +614,8 @@ function fakeCountSupabase(countByBrandId: Record<string, number>, queriedIds: s
       return {
         select() {
           return {
-            in(_column: string, brandIds: string[]) {
+            in(column: string, brandIds: string[]) {
+              expect(column).toBe("brand_id");
               queriedIds.push(brandIds);
               const count = brandIds.reduce((sum, id) => sum + (countByBrandId[id] ?? 0), 0);
               return Promise.resolve({ data: null, error: null, count });

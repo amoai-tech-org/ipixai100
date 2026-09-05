@@ -146,6 +146,15 @@ export async function loadTrustedBrandIds(
   }
 }
 
+// loadTrustedBrandIds is uncapped (up to TRUSTED_BRAND_ID_MAX_PAGES *
+// TRUSTED_BRAND_ID_PAGE_SIZE = 25,000 ids for one org) — a single
+// `.in("brand_id", brandIds)` filter with all of them risks exceeding
+// Supabase's request URL/header size limit (~16KB). 200 UUIDs is ~7.4KB
+// URL-encoded, comfortably under that with headroom for the rest of the
+// request. Shared by loadOrgShoots and countOrgShoots, the two brand_id-
+// filtered reads that can receive this uncapped list.
+const BRAND_ID_FILTER_BATCH_SIZE = 200;
+
 /**
  * DASH-MAIN-001: recent-shoots read for the Command Center.
  *
@@ -161,6 +170,20 @@ export async function loadTrustedBrandIds(
  * empty result without a query — an `.in()` with an empty array is either
  * a wasted round-trip or a backend-specific edge case, not the same thing
  * as "org has brands but no shoots".
+ *
+ * `brandIds` is batched the same way as countOrgShoots (see
+ * BRAND_ID_FILTER_BATCH_SIZE) — each batch is independently ordered and
+ * limited to SHOOT_LIMIT server-side (the true top SHOOT_LIMIT across all
+ * trusted brands is always contained in the union of each batch's own top
+ * SHOOT_LIMIT, sorted the same way), then the merged rows are re-sorted by
+ * the same updated_at/id contract and re-sliced to SHOOT_LIMIT. A single
+ * batch failing returns ok:false for the whole call — never a partial
+ * result silently passed off as complete. Behavior for the common case
+ * (brandIds.length <= BRAND_ID_FILTER_BATCH_SIZE, one batch) is unchanged.
+ *
+ * `updated_at` is now selected (needed to re-sort merged batches) but
+ * still never exposed on the returned DashboardShoot — same as
+ * `cover_url` below, it's an internal-only column.
  *
  * Deliberately NOT selecting `cover_url`: the view resolves it from
  * `shoot.shoots.mood_board_urls[1]`, a plain URL with no bridge to this
@@ -181,33 +204,42 @@ export async function loadOrgShoots(
   if (brandIds.length === 0) {
     return { ok: true, shoots: [] };
   }
+  type Row = {
+    id: string;
+    name: string | null;
+    status: string | null;
+    brand_id: string;
+    dna_score: number | null;
+    target_channels: string[] | null;
+    updated_at: string;
+  };
   try {
-    const { data, error } = await supabase
-      .from("shoot_portfolio_view")
-      .select("id,name,status,brand_id,dna_score,target_channels")
-      .in("brand_id", brandIds)
-      // Same deterministic-order contract as loadOrgBrands: most-recently-
-      // updated first, id as a stable tie-breaker. `updated_at` orders the
-      // result without needing to be in the select list (PostgREST/SQL
-      // ORDER BY isn't limited to selected columns) — it isn't rendered.
-      .order("updated_at", { ascending: false })
-      .order("id", { ascending: true })
-      .limit(SHOOT_LIMIT);
-    if (error || !data) {
-      console.error("dashboard.loadOrgShoots: query failed", { error });
-      return { ok: false };
+    let rows: Row[] = [];
+    for (let i = 0; i < brandIds.length; i += BRAND_ID_FILTER_BATCH_SIZE) {
+      const brandIdBatch = brandIds.slice(i, i + BRAND_ID_FILTER_BATCH_SIZE);
+      const { data, error } = await supabase
+        .from("shoot_portfolio_view")
+        .select("id,name,status,brand_id,dna_score,target_channels,updated_at")
+        .in("brand_id", brandIdBatch)
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: true })
+        .limit(SHOOT_LIMIT);
+      if (error || !data) {
+        console.error("dashboard.loadOrgShoots: batch query failed", { error });
+        return { ok: false };
+      }
+      rows = rows.concat(data as Row[]);
     }
-    const rows = data as {
-      id: string;
-      name: string | null;
-      status: string | null;
-      brand_id: string;
-      dna_score: number | null;
-      target_channels: string[] | null;
-    }[];
+    // Same deterministic-order contract as loadOrgBrands, re-applied across
+    // the merged batches: most-recently-updated first, id as a stable
+    // tie-breaker.
+    rows.sort((a, b) => {
+      if (a.updated_at !== b.updated_at) return a.updated_at < b.updated_at ? 1 : -1;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
     return {
       ok: true,
-      shoots: rows.map((row) => ({
+      shoots: rows.slice(0, SHOOT_LIMIT).map((row) => ({
         id: row.id,
         name: row.name ?? "Untitled shoot",
         status: row.status,
@@ -221,14 +253,6 @@ export async function loadOrgShoots(
     return { ok: false };
   }
 }
-
-// loadTrustedBrandIds is uncapped (up to TRUSTED_BRAND_ID_MAX_PAGES *
-// TRUSTED_BRAND_ID_PAGE_SIZE = 25,000 ids for one org) — a single
-// `.in("brand_id", brandIds)` filter with all of them risks exceeding
-// Supabase's request URL/header size limit (~16KB). 200 UUIDs is ~7.4KB
-// URL-encoded, comfortably under that with headroom for the rest of the
-// request, so counts are summed across batches of this size instead.
-const BRAND_ID_FILTER_BATCH_SIZE = 200;
 
 /**
  * DASH-MAIN-002: exact org-wide shoot total for the Intelligence rail's
