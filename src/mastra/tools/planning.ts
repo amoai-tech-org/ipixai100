@@ -455,7 +455,7 @@ export const estimateShootBudget = createTool({
       post,
       total,
       currency: effectiveCurrency,
-      disclaimer: `Estimate only, based on ${assumptions.length > 0 ? "supplied and ipix_default" : "supplied"} rate assumptions — not a confirmed production cost. Rates vary by market.`,
+      disclaimer: `Estimate only, based on ${assumptions.length > 0 ? "supplied and ipix_default" : "supplied"} assumptions — not a confirmed production cost. Rates and durations vary by market.`,
     };
   },
 });
