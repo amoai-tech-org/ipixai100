@@ -111,6 +111,12 @@
   color: #b42318;
 }
 
+.confirm {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--mk-text);
+}
+
 .divider {
   margin: 1rem 0;
   text-align: center;

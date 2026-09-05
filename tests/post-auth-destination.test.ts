@@ -6,8 +6,8 @@ import {
 
 const operator = { id: "11111111-1111-4111-8111-111111111111", name: "qa@example.com" };
 
-describe("safeRedirect (IPI-1058)", () => {
-  it("accepts allowlisted internal destinations", () => {
+describe("safeRedirect", () => {
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: accepts allowlisted internal destinations", () => {
     expect(safeRedirect("/planner")).toBe("/planner");
     expect(safeRedirect("/app")).toBe("/app");
     expect(safeRedirect("/onboarding")).toBe("/onboarding");
@@ -41,8 +41,8 @@ describe("safeRedirect (IPI-1058)", () => {
   });
 });
 
-describe("postAuthDestinationFor (IPI-1058)", () => {
-  it("routes zero memberships to /onboarding", async () => {
+describe("postAuthDestinationFor", () => {
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: routes zero memberships to /onboarding", async () => {
     const destination = await postAuthDestinationFor({
       operator,
       listOrgIds: async () => ({ ok: true, orgIds: [] }),

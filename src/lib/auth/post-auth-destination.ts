@@ -1,7 +1,7 @@
 import { resolveRuntimeTenant } from "./runtime-org";
 import type { VerifiedOperator } from "./verified-operator";
 
-// Allowlisted internal post-auth destinations (IPI-837 safe-redirect pattern).
+// Allowlisted internal post-auth destinations (IPI-837 · AUTH-OAUTH-001 — Preserve Safe Post-Login Redirect Through Google OAuth).
 // Anything outside this set is rejected by safeRedirect and never used as a
 // post-auth target. /onboarding and /org-selection are the AUTH-002 boundaries
 // owned by ONBOARD-001 / org-selection; /planner is the single-org baseline.
@@ -31,10 +31,10 @@ export function safeRedirect(target: string | null | undefined): string | null {
 }
 
 /**
- * One server-owned post-auth routing policy (IPI-1058). Resolves the trusted
- * org membership (AUTH-002) to the exact destination:
- *   - zero memberships  -> /onboarding (ONBOARD-001 boundary)
- *   - one membership    -> /planner (post-IPI-1057 baseline)
+ * One server-owned post-auth routing policy (IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup).
+ * Resolves the trusted org membership (AUTH-002) to the exact destination:
+ *   - zero memberships  -> /onboarding (IPI-1089 · ONBOARD-001 — Let a New iPix User Sign Up, Create Their First Brand, and Reach the Operator Workspace boundary)
+ *   - one membership    -> /planner (post-IPI-1057 · MARKETING-HOME-001 — Reuse the Existing iPix Marketing Homepage in the New App baseline)
  *   - multiple          -> /org-selection
  *   - lookup failure    -> /login (fail closed — no access granted)
  * Client orgId / user_metadata are never consulted.

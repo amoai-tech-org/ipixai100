@@ -22,6 +22,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
@@ -37,12 +38,19 @@ export function LoginForm() {
     try {
       const supabase = createClient();
       if (mode === "signup") {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
         });
         if (signUpError) {
           setError("Sign up failed");
+          return;
+        }
+        // Email confirmation is enabled on hosted Supabase: signUp succeeds
+        // with a null session. Show a confirmation-required state instead of
+        // navigating to an authenticated route.
+        if (!data.session) {
+          setConfirmed(true);
           return;
         }
       } else {
@@ -72,9 +80,13 @@ export function LoginForm() {
     setError(null);
     try {
       const supabase = createClient();
+      const callback = new URL(`${window.location.origin}/auth/callback`);
+      if (next) {
+        callback.searchParams.set("next", next);
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: { redirectTo: callback.toString() },
       });
       if (error) setError("Sign in failed");
     } catch {
@@ -92,9 +104,16 @@ export function LoginForm() {
           {mode === "signin" ? "Operator sign in" : "Create your account"}
         </p>
         <div className={styles.card}>
-          <h1 className={styles.title}>
-            {mode === "signin" ? "Welcome" : "Sign up"}
-          </h1>
+          {confirmed ? (
+            <p className={styles.confirm} role="status">
+              Check your email to confirm your account. You can sign in once
+              your email is confirmed.
+            </p>
+          ) : (
+            <>
+              <h1 className={styles.title}>
+                {mode === "signin" ? "Welcome" : "Sign up"}
+              </h1>
           <form onSubmit={onSubmit} className={styles.form}>
             <div className={styles.field}>
               <label htmlFor="email">Email</label>
@@ -183,6 +202,8 @@ export function LoginForm() {
               </>
             )}
           </p>
+            </>
+          )}
         </div>
       </div>
     </div>
