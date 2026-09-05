@@ -599,20 +599,25 @@ describe("loadOrgShoots", () => {
 });
 
 /** Mimics the head-only shoot count read countOrgShoots makes against
- *  shoot_portfolio_view, scoped by brand id. Asserts observable behavior
- *  only: which column the filter actually scopes on (brand_id is the real
+ *  shoot_portfolio_view, scoped by brand id. Asserts observable behavior:
+ *  which column the filter actually scopes on (brand_id is the real
  *  tenant/org-isolation boundary here — filtering on the wrong column is a
  *  real bug, not an implementation detail), which ids got queried (in
  *  aggregate, across however many underlying calls that takes), and the
- *  count each id contributes. Never asserts the select()/opts() shape, so
- *  a refactor of the query internals (a different select string, more or
- *  fewer batches) doesn't break these tests unless real behavior changes. */
+ *  count each id contributes. Also asserts count:"exact" and head:true —
+ *  not internal-shape noise, but the two options that make this a real,
+ *  precise total rather than Postgres's approximate/estimated count or a
+ *  full row fetch; either drifting would be a real regression this test
+ *  should catch. Doesn't assert a specific batch count/size, so tuning
+ *  BRAND_ID_FILTER_BATCH_SIZE or BATCH_CONCURRENCY doesn't break this. */
 function fakeCountSupabase(countByBrandId: Record<string, number>, queriedIds: string[][] = []) {
   const fake = {
     from(table: string) {
       expect(table).toBe("shoot_portfolio_view");
       return {
-        select() {
+        select(columns: string, opts: { count: string; head: boolean }) {
+          expect(columns).toBe("id");
+          expect(opts).toEqual({ count: "exact", head: true });
           return {
             in(column: string, brandIds: string[]) {
               expect(column).toBe("brand_id");

@@ -154,6 +154,42 @@ export async function loadTrustedBrandIds(
 // request. Shared by loadOrgShoots and countOrgShoots, the two brand_id-
 // filtered reads that can receive this uncapped list.
 const BRAND_ID_FILTER_BATCH_SIZE = 200;
+// A worst-case org (25,000 ids) is 125 batches — issuing those one at a
+// time in series would be 125 sequential round trips. A small fixed
+// concurrency keeps that bounded without a new dependency (p-queue is
+// only a transitive install here, not a declared one) or unbounded
+// fan-out that could overwhelm the connection pool.
+const BATCH_CONCURRENCY = 5;
+
+/**
+ * Runs `run` once per BRAND_ID_FILTER_BATCH_SIZE-sized chunk of `ids`, up
+ * to BATCH_CONCURRENCY chunks in flight at a time, and returns every
+ * chunk's value in original order. Any chunk failing (network throw or an
+ * explicit ok:false from `run`) fails the whole call — never a partial
+ * result silently combined with the chunks that did succeed. Already-
+ * dispatched chunks in the same concurrency group still run to completion
+ * (they're plain reads with no side effect to cancel); no further groups
+ * are started once a failure is seen.
+ */
+async function runBrandIdBatches<T>(
+  ids: string[],
+  run: (batch: string[]) => Promise<{ ok: true; value: T } | { ok: false }>,
+): Promise<{ ok: true; values: T[] } | { ok: false }> {
+  const batches: string[][] = [];
+  for (let i = 0; i < ids.length; i += BRAND_ID_FILTER_BATCH_SIZE) {
+    batches.push(ids.slice(i, i + BRAND_ID_FILTER_BATCH_SIZE));
+  }
+  const values: T[] = [];
+  for (let i = 0; i < batches.length; i += BATCH_CONCURRENCY) {
+    const group = batches.slice(i, i + BATCH_CONCURRENCY);
+    const results = await Promise.all(group.map(run));
+    for (const result of results) {
+      if (!result.ok) return { ok: false };
+      values.push(result.value);
+    }
+  }
+  return { ok: true, values };
+}
 
 /**
  * DASH-MAIN-001: recent-shoots read for the Command Center.
@@ -214,9 +250,7 @@ export async function loadOrgShoots(
     updated_at: string;
   };
   try {
-    let rows: Row[] = [];
-    for (let i = 0; i < brandIds.length; i += BRAND_ID_FILTER_BATCH_SIZE) {
-      const brandIdBatch = brandIds.slice(i, i + BRAND_ID_FILTER_BATCH_SIZE);
+    const batchResult = await runBrandIdBatches<Row[]>(brandIds, async (brandIdBatch) => {
       const { data, error } = await supabase
         .from("shoot_portfolio_view")
         .select("id,name,status,brand_id,dna_score,target_channels,updated_at")
@@ -228,8 +262,10 @@ export async function loadOrgShoots(
         console.error("dashboard.loadOrgShoots: batch query failed", { error });
         return { ok: false };
       }
-      rows = rows.concat(data as Row[]);
-    }
+      return { ok: true, value: data as Row[] };
+    });
+    if (!batchResult.ok) return { ok: false };
+    const rows = batchResult.values.flat();
     // Same deterministic-order contract as loadOrgBrands, re-applied across
     // the merged batches: most-recently-updated first, id as a stable
     // tie-breaker.
@@ -273,9 +309,7 @@ export async function countOrgShoots(
     return { ok: true, count: 0 };
   }
   try {
-    let total = 0;
-    for (let i = 0; i < brandIds.length; i += BRAND_ID_FILTER_BATCH_SIZE) {
-      const brandIdBatch = brandIds.slice(i, i + BRAND_ID_FILTER_BATCH_SIZE);
+    const batchResult = await runBrandIdBatches<number>(brandIds, async (brandIdBatch) => {
       const { count, error } = await supabase
         .from("shoot_portfolio_view")
         .select("id", { count: "exact", head: true })
@@ -284,9 +318,10 @@ export async function countOrgShoots(
         console.error("dashboard.countOrgShoots: batch query failed", { error });
         return { ok: false };
       }
-      total += count;
-    }
-    return { ok: true, count: total };
+      return { ok: true, value: count };
+    });
+    if (!batchResult.ok) return { ok: false };
+    return { ok: true, count: batchResult.values.reduce((sum, c) => sum + c, 0) };
   } catch (err) {
     console.error("dashboard.countOrgShoots: threw", { err });
     return { ok: false };
