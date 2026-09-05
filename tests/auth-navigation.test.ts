@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const redirect = vi.hoisted(() =>
@@ -74,9 +74,10 @@ describe("successful authentication navigates to /planner (IPI-1057)", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByRole("button", { name: "Please wait…" });
-    expect(push).toHaveBeenCalledWith("/planner");
-    expect(refresh).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/planner");
+      expect(refresh).toHaveBeenCalled();
+    });
   });
 
   it("auth callback redirects to /planner after a successful code exchange", async () => {
