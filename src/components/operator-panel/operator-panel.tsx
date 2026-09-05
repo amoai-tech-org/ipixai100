@@ -36,7 +36,7 @@ function OpenPlannerLink({
 }) {
   return (
     <Link
-      href="/"
+      href="/planner"
       target="_blank"
       rel="noreferrer"
       className={className}
