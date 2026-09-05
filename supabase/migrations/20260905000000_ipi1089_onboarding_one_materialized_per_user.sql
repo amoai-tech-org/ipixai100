@@ -12,13 +12,19 @@
 lock table public.onboarding_sessions in share row exclusive mode;
 
 -- Reclassify pre-existing duplicate materialized sessions (keep the newest,
--- deterministic created_at desc, id desc tie-breaker) instead of deleting them:
--- the row keeps its organization_id/brand_id provenance for later tenancy
--- repair, and the partial unique index only sees the one remaining materialized
--- row. The orgs/brands themselves are intentionally left untouched — deleting
--- them could cascade to dependent data (shoots, assets).
+-- deterministic created_at desc, id desc tie-breaker) to an archival
+-- 'superseded' status instead of deleting them: the row keeps its
+-- organization_id/brand_id provenance for later tenancy repair, and the partial
+-- unique index only sees the one remaining materialized row. The orgs/brands
+-- themselves are intentionally left untouched — deleting them could cascade to
+-- dependent data (shoots, assets).
+alter table public.onboarding_sessions
+  drop constraint onboarding_sessions_status_check,
+  add constraint onboarding_sessions_status_check
+    check (status in ('draft', 'materialized', 'superseded'));
+
 update public.onboarding_sessions s
-set status = 'draft'
+set status = 'superseded'
 from (
   select id,
          row_number() over (

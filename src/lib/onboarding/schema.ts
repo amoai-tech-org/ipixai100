@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Session row status — must stay split from brands.intake_status. */
-export const onboardingSessionStatusSchema = z.enum(["draft", "materialized"]);
+export const onboardingSessionStatusSchema = z.enum(["draft", "materialized", "superseded"]);
 
 export type OnboardingSessionStatus = z.infer<typeof onboardingSessionStatusSchema>;
 
