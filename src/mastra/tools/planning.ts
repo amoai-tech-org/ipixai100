@@ -5,7 +5,7 @@ import {
   type SelectedDeliverable,
   type TrustedReferenceShotType,
 } from "@/lib/shoot/shot-list-from-references";
-import { emptyResult, planningResultFields, type Assumption } from "./planning-types";
+import { CurrencySchema, emptyResult, planningResultFields, type Assumption } from "./planning-types";
 
 /**
  * IPI-1049 · TOOL-001 — four compute-only Planner tools, adapted from Lumina
@@ -38,7 +38,17 @@ const CHANNELS = [
 ] as const;
 const ChannelSchema = z.enum(CHANNELS);
 
+/** De-dupes a validated channel array — a repeated channel is one target, not two. */
+function dedupeChannels(channels: readonly string[]): string[] {
+  return [...new Set(channels)];
+}
+
 const DEFAULT_SOURCE = "ipix_default_v1";
+
+// Shared with planDeliverables.shootType so an unrecognized/misspelled value
+// fails Zod validation structurally instead of being silently ignored.
+const SHOOT_TYPES = ["ecommerce_pdp", "editorial", "ugc_style", "lookbook", "campaign", "packshot"] as const;
+const ShootTypeSchema = z.enum(SHOOT_TYPES);
 
 // ---------------------------------------------------------------------------
 // 1. recommendShootType
@@ -89,7 +99,8 @@ export const recommendShootType = createTool({
   inputSchema: RecommendShootTypeInputSchema,
   outputSchema: RecommendShootTypeOutputSchema,
   execute: async (input) => {
-    const { channels, brief = "", productCategory = "", brandDnaSummary = "" } = input;
+    const { brief = "", productCategory = "", brandDnaSummary = "" } = input;
+    const channels = dedupeChannels(input.channels);
     const contextText = `${brief} ${productCategory} ${brandDnaSummary}`.toLowerCase();
 
     const scores: Record<string, number> = {};
@@ -171,7 +182,7 @@ const DeliverableSchema = z.object({
 
 export const PlanDeliverablesInputSchema = z.object({
   channels: z.array(ChannelSchema).min(1),
-  shootType: z.string().optional(),
+  shootType: ShootTypeSchema.optional(),
   brandDna: z
     .object({
       productCategory: z.string().optional(),
@@ -195,7 +206,8 @@ export const planDeliverables = createTool({
   inputSchema: PlanDeliverablesInputSchema,
   outputSchema: PlanDeliverablesOutputSchema,
   execute: async (input) => {
-    const { channels, brandDna, shootType } = input;
+    const { brandDna, shootType } = input;
+    const channels = dedupeChannels(input.channels);
     const isPackshot = shootType === "packshot" || shootType === "ecommerce_pdp";
     const isVideoHeavy = brandDna?.styleKeywords?.some((k) => /video|motion|reel/i.test(k)) ?? false;
 
@@ -288,9 +300,23 @@ export const generateShotListDraft = createTool({
       productNames,
     );
 
+    // An uncovered deliverable means no trusted reference fits that channel —
+    // that's missing business input (a reference gap), not a successful
+    // draft; report needs_input with the partial shots still attached rather
+    // than status: "ok" hiding the gap inside warnings.
+    if (uncoveredDeliverableWarnings.length > 0) {
+      return {
+        ...emptyResult("needs_input", [
+          ...uncoveredDeliverableWarnings,
+          "Provide a compatible trustedReferenceShotTypes entry for the channel(s) above, or drop them from selectedDeliverables.",
+        ]),
+        shots,
+        totalShots: shots.length,
+      };
+    }
+
     return {
       ...emptyResult("ok"),
-      warnings: uncoveredDeliverableWarnings,
       shots,
       totalShots: shots.length,
     };
@@ -311,6 +337,9 @@ const DEFAULT_STUDIO_DAY_RATE: Record<string, number> = {
 const DEFAULT_CREW_DAY_RATE = 650;
 const DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW = 180;
 const DEFAULT_POST_PER_ASSET = 45;
+const DEFAULT_SHOOT_DAYS = 1;
+const DEFAULT_CURRENCY: z.infer<typeof CurrencySchema> = "USD";
+const DEFAULT_ASSETS_PER_SHOT = 3;
 
 const RatesSchema = z.object({
   crewDayRate: z.number().nonnegative().optional(),
@@ -323,9 +352,13 @@ export const EstimateShootBudgetInputSchema = z.object({
   crewCount: z.number().int().min(1).optional(),
   studioType: z.enum(["rental", "owned", "location", "outdoor"]).optional(),
   shotCount: z.number().int().min(1).optional(),
-  shootDays: z.number().int().min(1).default(1),
+  // No .default() on shootDays/currency: a schema default is applied before
+  // execute() runs, so execute could never tell "operator supplied 1" from
+  // "operator supplied nothing" — and every silently-defaulted value here
+  // materially changes the total, so it needs its own Assumption entry too.
+  shootDays: z.number().int().min(1).optional(),
   totalAssets: z.number().int().min(1).optional(),
-  currency: z.string().default("USD"),
+  currency: CurrencySchema.optional(),
   rates: RatesSchema.optional(),
 });
 export const EstimateShootBudgetOutputSchema = z.object({
@@ -360,40 +393,57 @@ export const estimateShootBudget = createTool({
       return emptyResult("needs_input", missingInputs);
     }
 
+    // Every value below that wasn't explicitly supplied gets its own
+    // Assumption entry — shootDays/currency/the totalAssets heuristic
+    // materially change the total exactly like a defaulted rate does, so
+    // they get the same provenance treatment (Correction 3/4).
     const assumptions: Assumption[] = [];
-    const crewDayRate = rates?.crewDayRate;
-    if (crewDayRate === undefined) {
-      assumptions.push({ key: "crewDayRate", value: DEFAULT_CREW_DAY_RATE, currency, source: DEFAULT_SOURCE, assumed: true });
+    const effectiveCurrency = currency ?? DEFAULT_CURRENCY;
+    if (currency === undefined) {
+      assumptions.push({ key: "currency", value: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
     }
-    const studioDayRate = rates?.studioDayRate;
-    if (studioDayRate === undefined) {
+    const effectiveShootDays = shootDays ?? DEFAULT_SHOOT_DAYS;
+    if (shootDays === undefined) {
+      assumptions.push({ key: "shootDays", value: effectiveShootDays, source: DEFAULT_SOURCE, assumed: true });
+    }
+
+    const effectiveCrewDayRate = rates?.crewDayRate;
+    if (effectiveCrewDayRate === undefined) {
+      assumptions.push({ key: "crewDayRate", value: DEFAULT_CREW_DAY_RATE, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
+    }
+    const effectiveStudioDayRate = rates?.studioDayRate;
+    if (effectiveStudioDayRate === undefined) {
       assumptions.push({
         key: "studioDayRate",
         value: DEFAULT_STUDIO_DAY_RATE[studioType as string] ?? DEFAULT_STUDIO_DAY_RATE.location,
-        currency,
+        currency: effectiveCurrency,
         source: DEFAULT_SOURCE,
         assumed: true,
       });
     }
-    const equipmentDayRate = rates?.equipmentDayRate;
-    if (equipmentDayRate === undefined) {
-      assumptions.push({ key: "equipmentDayRate", value: DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW, currency, source: DEFAULT_SOURCE, assumed: true });
+    const effectiveEquipmentDayRate = rates?.equipmentDayRate;
+    if (effectiveEquipmentDayRate === undefined) {
+      assumptions.push({ key: "equipmentDayRate", value: DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
     }
-    const postPerAsset = rates?.postPerAsset;
-    if (postPerAsset === undefined) {
-      assumptions.push({ key: "postPerAsset", value: DEFAULT_POST_PER_ASSET, currency, source: DEFAULT_SOURCE, assumed: true });
+    const effectivePostPerAsset = rates?.postPerAsset;
+    if (effectivePostPerAsset === undefined) {
+      assumptions.push({ key: "postPerAsset", value: DEFAULT_POST_PER_ASSET, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
+    }
+    let assets = totalAssets;
+    if (assets === undefined) {
+      assets = (shotCount as number) * DEFAULT_ASSETS_PER_SHOT;
+      assumptions.push({
+        key: "totalAssets",
+        value: assets,
+        source: DEFAULT_SOURCE,
+        assumed: true,
+      });
     }
 
-    const effectiveCrewDayRate = crewDayRate ?? DEFAULT_CREW_DAY_RATE;
-    const effectiveStudioDayRate = studioDayRate ?? DEFAULT_STUDIO_DAY_RATE[studioType as string] ?? DEFAULT_STUDIO_DAY_RATE.location;
-    const effectiveEquipmentDayRate = equipmentDayRate ?? DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW;
-    const effectivePostPerAsset = postPerAsset ?? DEFAULT_POST_PER_ASSET;
-
-    const crew = (crewCount as number) * effectiveCrewDayRate * shootDays;
-    const studio = effectiveStudioDayRate * shootDays;
-    const equipment = Math.round((crewCount as number) * effectiveEquipmentDayRate * shootDays);
-    const assets = totalAssets ?? (shotCount as number) * 3;
-    const post = assets * effectivePostPerAsset;
+    const crew = (crewCount as number) * (effectiveCrewDayRate ?? DEFAULT_CREW_DAY_RATE) * effectiveShootDays;
+    const studio = (effectiveStudioDayRate ?? DEFAULT_STUDIO_DAY_RATE[studioType as string] ?? DEFAULT_STUDIO_DAY_RATE.location) * effectiveShootDays;
+    const equipment = Math.round((crewCount as number) * (effectiveEquipmentDayRate ?? DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW) * effectiveShootDays);
+    const post = assets * (effectivePostPerAsset ?? DEFAULT_POST_PER_ASSET);
     const total = crew + studio + equipment + post;
 
     return {
@@ -404,7 +454,7 @@ export const estimateShootBudget = createTool({
       equipment,
       post,
       total,
-      currency,
+      currency: effectiveCurrency,
       disclaimer: `Estimate only, based on ${assumptions.length > 0 ? "supplied and ipix_default" : "supplied"} rate assumptions — not a confirmed production cost. Rates vary by market.`,
     };
   },

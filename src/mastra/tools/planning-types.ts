@@ -17,10 +17,18 @@ import { z } from "zod";
 export const PlanningStatusSchema = z.enum(["ok", "needs_input"]);
 export type PlanningStatus = z.infer<typeof PlanningStatusSchema>;
 
+// ipix_default_v1 — a starter list, not an authoritative ISO 4217 source.
+// Shared between estimateShootBudget's input/output and Assumption entries
+// so a currency string can't drift between "what was requested" and "what a
+// defaulted rate says it's denominated in".
+export const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD"] as const;
+export const CurrencySchema = z.enum(CURRENCIES);
+export type Currency = z.infer<typeof CurrencySchema>;
+
 export const AssumptionSchema = z.object({
   key: z.string(),
   value: z.union([z.number(), z.string()]),
-  currency: z.string().optional(),
+  currency: CurrencySchema.optional(),
   source: z.string(),
   assumed: z.literal(true),
 });

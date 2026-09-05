@@ -77,6 +77,15 @@ describe("recommendShootType", () => {
   it("rejects an unknown channel enum value structurally", () => {
     expect(RecommendShootTypeInputSchema.safeParse({ channels: ["carrier_pigeon"] }).success).toBe(false);
   });
+
+  it("de-duplicates a repeated channel instead of inflating its affinity score", async () => {
+    // youtube alone scores 1 for "campaign" (unique winner, see the first
+    // test above); duplicating it must not turn that into a false score of 2.
+    const result = await run<RecommendShootTypeOutput>(
+      recommendShootType.execute!({ channels: ["youtube", "youtube"] } as never, {} as never),
+    );
+    expect(result.confidence).toBe("medium"); // stays a score-1 match, not score-2 "high"
+  });
 });
 
 describe("planDeliverables", () => {
@@ -111,17 +120,32 @@ describe("planDeliverables", () => {
     expect(result.deliverables[0].quantity).toBe(6); // 5 + 1
   });
 
-  it("is deterministic and arithmetically correct (totalAssets = sum of quantities)", async () => {
+  it("is deterministic and arithmetically correct against an independently-derived total", async () => {
     const input = { channels: ["amazon", "youtube"] } as never;
     const a = await run<PlanDeliverablesOutput>(planDeliverables.execute!(input, {} as never));
     const b = await run<PlanDeliverablesOutput>(planDeliverables.execute!(input, {} as never));
     expect(a).toEqual(b);
-    const sum = a.deliverables.reduce((s, d) => s + d.quantity, 0);
-    expect(a.totalAssets).toBe(sum);
+    // amazon defaults 8 + 4, youtube default 2 — a literal from the spec's
+    // own CHANNEL_DELIVERABLE_DEFAULTS, not recomputed from the result.
+    expect(a.totalAssets).toBe(14);
+  });
+
+  it("de-duplicates a repeated channel instead of doubling its deliverables", async () => {
+    const result = await run<PlanDeliverablesOutput>(
+      planDeliverables.execute!({ channels: ["shopify", "shopify"] } as never, {} as never),
+    );
+    expect(result.deliverables).toHaveLength(2); // shopify's own 2 formats, not 4
+    expect(result.totalAssets).toBe(10); // 6 + 4, not 20
   });
 
   it("rejects an empty channel list structurally", () => {
     expect(PlanDeliverablesInputSchema.safeParse({ channels: [] }).success).toBe(false);
+  });
+
+  it("rejects a misspelled/unrecognized shootType structurally instead of silently ignoring it", () => {
+    expect(
+      PlanDeliverablesInputSchema.safeParse({ channels: ["shopify"], shootType: "packshott" }).success,
+    ).toBe(false);
   });
 });
 
@@ -147,19 +171,24 @@ describe("generateShotListDraft", () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it("warns about deliverables with no matching trusted reference instead of dropping them silently", async () => {
+  it("returns needs_input (not ok) for a deliverable with no matching trusted reference, keeping partial shots", async () => {
     const result = await run<GenerateShotListDraftOutput>(
       generateShotListDraft.execute!(
         {
-          selectedDeliverables: [{ channel: "tiktok", quantity: 2 }],
-          trustedReferenceShotTypes: oneReference, // only fits instagram_feed
+          selectedDeliverables: [
+            { channel: "instagram_feed", quantity: 3 },
+            { channel: "tiktok", quantity: 2 }, // only fits instagram_feed in oneReference
+          ],
+          trustedReferenceShotTypes: oneReference,
         } as never,
         {} as never,
       ),
     );
-    expect(result.shots).toEqual([]);
-    expect(result.warnings.length).toBe(1);
-    expect(result.warnings[0]).toMatch(/tiktok/);
+    expect(result.status).toBe("needs_input");
+    expect(result.missingInputs.some((m) => m.includes("tiktok"))).toBe(true);
+    // the covered deliverable's shots are still returned, not discarded
+    expect(result.shots.length).toBe(1);
+    expect(result.totalShots).toBe(1);
   });
 
   it("is deterministic for the same validated input", async () => {
@@ -189,6 +218,45 @@ describe("generateShotListDraft", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("does not let a duplicate/colliding id hide an uncovered deliverable (coverage tracked by position, not id)", async () => {
+    const result = await run<GenerateShotListDraftOutput>(
+      generateShotListDraft.execute!(
+        {
+          // Same explicit id on a covered and an uncovered deliverable —
+          // covering the first must not mark the second as covered too.
+          selectedDeliverables: [
+            { id: "dup", channel: "instagram_feed", quantity: 3 },
+            { id: "dup", channel: "tiktok", quantity: 2 },
+          ],
+          trustedReferenceShotTypes: oneReference, // only fits instagram_feed
+        } as never,
+        {} as never,
+      ),
+    );
+    expect(result.status).toBe("needs_input");
+    expect(result.missingInputs.some((m) => m.includes("tiktok"))).toBe(true);
+  });
+
+  it("distributes multiple product names across deliverables instead of using only the first", async () => {
+    const twoDeliverables = [
+      { channel: "instagram_feed", quantity: 3 },
+      { channel: "instagram_feed", quantity: 3 },
+    ];
+    const result = await run<GenerateShotListDraftOutput>(
+      generateShotListDraft.execute!(
+        {
+          selectedDeliverables: twoDeliverables,
+          trustedReferenceShotTypes: oneReference,
+          productNames: ["Product A", "Product B"],
+        } as never,
+        {} as never,
+      ),
+    );
+    const notes = result.shots.map((s) => s.notes);
+    expect(notes).toContain("Product: Product A");
+    expect(notes).toContain("Product: Product B");
+  });
 });
 
 describe("estimateShootBudget", () => {
@@ -210,18 +278,37 @@ describe("estimateShootBudget", () => {
       ),
     );
     expect(result.status).toBe("ok");
-    expect(result.crew).toBe(2 * 650 * 1);
-    expect(result.studio).toBe(800 * 1);
-    expect(result.equipment).toBe(2 * 180 * 1);
-    expect(result.post).toBe(10 * 3 * 45); // no totalAssets given -> assets = shotCount * 3
-    expect(result.total).toBe(result.crew! + result.studio! + result.equipment! + result.post!);
-    expect(result.assumptions).toHaveLength(4);
+    // Independent literals (spec-derived), not recomputed from the result —
+    // crew: 2 crew * $650/day * 1 day; studio: location default $800 * 1 day;
+    // equipment: 2 crew * $180/day * 1 day; post: (10 shots * 3 assets) * $45.
+    expect(result.crew).toBe(1300);
+    expect(result.studio).toBe(800);
+    expect(result.equipment).toBe(360);
+    expect(result.post).toBe(1350);
+    expect(result.total).toBe(3810);
+    // currency and shootDays were both explicit here, so only the 4 rates
+    // plus the derived totalAssets are assumptions (6 fields checked, 2 explicit).
+    expect(result.assumptions).toHaveLength(5);
     expect(result.assumptions.every((a) => a.source === "ipix_default_v1" && a.assumed === true)).toBe(true);
     expect(result.disclaimer).toMatch(/estimate/i);
     expect(result.disclaimer).not.toMatch(/confirmed production cost is/i);
   });
 
-  it("uses explicit operator-supplied rates instead of defaults, with no assumption entries for them", async () => {
+  it("assumes shootDays, currency, and the totalAssets heuristic with provenance when they aren't supplied", async () => {
+    const result = await run<EstimateShootBudgetOutput>(
+      estimateShootBudget.execute!({ crewCount: 1, studioType: "owned", shotCount: 4 } as never, {} as never),
+    );
+    const assumedKeys = result.assumptions.map((a) => a.key).sort();
+    expect(assumedKeys).toEqual(
+      ["crewDayRate", "currency", "equipmentDayRate", "postPerAsset", "shootDays", "studioDayRate", "totalAssets"].sort(),
+    );
+    expect(result.currency).toBe("USD");
+    // shootDays defaulted to 1, totalAssets defaulted to shotCount * 3 = 12
+    expect(result.crew).toBe(1 * 650 * 1);
+    expect(result.post).toBe(12 * 45);
+  });
+
+  it("uses explicit operator-supplied rates/shootDays/currency/totalAssets instead of defaults, with no assumption entries at all", async () => {
     const result = await run<EstimateShootBudgetOutput>(
       estimateShootBudget.execute!(
         {
@@ -229,16 +316,18 @@ describe("estimateShootBudget", () => {
           studioType: "owned",
           shotCount: 5,
           shootDays: 1,
-          currency: "USD",
+          currency: "EUR",
+          totalAssets: 15,
           rates: { crewDayRate: 500, studioDayRate: 0, equipmentDayRate: 100, postPerAsset: 20 },
         } as never,
         {} as never,
       ),
     );
     expect(result.assumptions).toEqual([]);
+    expect(result.currency).toBe("EUR");
     expect(result.crew).toBe(500);
     expect(result.equipment).toBe(100);
-    expect(result.post).toBe(5 * 3 * 20);
+    expect(result.post).toBe(15 * 20);
   });
 
   it("never produces NaN, Infinity, or a negative total for valid input", async () => {

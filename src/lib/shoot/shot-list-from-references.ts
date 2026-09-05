@@ -81,12 +81,29 @@ export function buildShotListFromReferences(
   const allowedReferenceIds = new Set(trustedReferenceShotTypes.map((r) => r.id));
   let shotCounter = 0;
   const shots: BuiltShot[] = [];
+  // Coverage is tracked by array position, not by `id` — a caller-supplied
+  // (or fallback-generated) id can collide across deliverables, which would
+  // otherwise make one deliverable's shots incorrectly cover another's.
+  const uncoveredDeliverableWarnings: string[] = [];
 
   for (let di = 0; di < selectedDeliverables.length; di++) {
     const deliverable = selectedDeliverables[di];
     const deliverableId = deliverable.id ?? `deliverable-${di}`;
     const shotCount = Math.max(1, Math.ceil(deliverable.quantity / 3));
     const refs = pickReferencesForDeliverable(deliverable.channel, trustedReferenceShotTypes, shotCount);
+
+    if (refs.length === 0) {
+      uncoveredDeliverableWarnings.push(
+        `Deliverable ${deliverable.channel}/${deliverable.format ?? ""} has no shots — no trusted reference matches this channel`,
+      );
+      continue;
+    }
+
+    // Cycle product names across deliverables in order rather than always
+    // using productNames[0] — with one name every shot still gets it, with
+    // several each deliverable's shots get their own instead of discarding
+    // every name after the first.
+    const productName = productNames.length > 0 ? productNames[di % productNames.length] : undefined;
 
     for (const ref of refs) {
       if (!allowedReferenceIds.has(ref.id)) {
@@ -99,15 +116,10 @@ export function buildShotListFromReferences(
         lighting: lightingFromBackground(ref.background),
         deliverableIds: [deliverableId],
         referenceId: ref.id,
-        notes: productNames[0] ? `Product: ${productNames[0]}` : undefined,
+        notes: productName ? `Product: ${productName}` : undefined,
       });
     }
   }
-
-  const coveredIds = new Set(shots.flatMap((s) => s.deliverableIds));
-  const uncoveredDeliverableWarnings = selectedDeliverables
-    .filter((d, i) => !coveredIds.has(d.id ?? `deliverable-${i}`))
-    .map((d) => `Deliverable ${d.channel}/${d.format ?? ""} has no shots — no trusted reference matches this channel`);
 
   return { shots, uncoveredDeliverableWarnings };
 }
