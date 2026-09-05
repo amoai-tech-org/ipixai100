@@ -17,6 +17,13 @@ describe("MarketingHeader (IPI-1053)", () => {
     expect(screen.getByRole("link", { name: "Get a Quote" })).toBeTruthy();
   });
 
+  it("IPI-1157 · AUTH-UX-001 — shows Sign in and Sign up as distinct choices, with Get a Quote as the primary CTA", () => {
+    render(<MarketingHeader />);
+    expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe("/login");
+    expect(screen.getByRole("link", { name: "Sign up" }).getAttribute("href")).toBe("/signup");
+    expect(screen.getByRole("link", { name: "Get a Quote" }).getAttribute("href")).toBe("/#contact");
+  });
+
   it("exposes aria-expanded + aria-controls on the Services control", () => {
     render(<MarketingHeader />);
     const button = screen.getByRole("button", { name: /services/i });
@@ -62,6 +69,14 @@ describe("MarketingHeader (IPI-1053)", () => {
     expect(within(mobileNav).getByRole("link", { name: "Process" })).toBeTruthy();
   });
 
+  it("IPI-1157 · AUTH-UX-001 — mobile sheet offers both Sign in and Sign up", () => {
+    render(<MarketingHeader />);
+    fireEvent.click(screen.getByRole("button", { name: "Toggle menu" }));
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile" });
+    expect(within(mobileNav).getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe("/login");
+    expect(within(mobileNav).getByRole("link", { name: "Sign up" }).getAttribute("href")).toBe("/signup");
+  });
+
   it("closes the mobile sheet after navigating via a link", () => {
     render(<MarketingHeader />);
     const toggle = screen.getByRole("button", { name: "Toggle menu" });
@@ -88,5 +103,12 @@ describe("MarketingFooter (IPI-1053)", () => {
     render(<MarketingFooter />);
     expect(screen.queryByText(/Lumina Studio/i)).toBeNull();
     expect(screen.queryByText(/fashionos\.co/i)).toBeNull();
+  });
+
+  it("IPI-1157 · AUTH-UX-001 — Account section exposes Sign in and Sign up exactly once each", () => {
+    render(<MarketingFooter />);
+    expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href")).toBe("/login");
+    expect(screen.getByRole("link", { name: "Sign up" }).getAttribute("href")).toBe("/signup");
+    expect(screen.queryByRole("link", { name: "Create account" })).toBeNull();
   });
 });

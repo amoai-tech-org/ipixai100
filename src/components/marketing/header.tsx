@@ -75,7 +75,7 @@ export function MarketingHeader() {
           <Link href="/#portfolio" className="text-sm">Work</Link>
           <Link href="/#process" className="text-sm">Process</Link>
           <Link href="/login" className="text-sm">Sign in</Link>
-          <Link href="/signup" className="text-sm">Get started</Link>
+          <Link href="/signup" className="text-sm font-medium">Sign up</Link>
           <Link
             href="/#contact"
             className="rounded-md px-4 py-2 text-sm font-medium text-white"
@@ -114,7 +114,7 @@ export function MarketingHeader() {
             <Link href="/#portfolio" className="py-2 text-sm" onClick={() => setMobileOpen(false)}>Work</Link>
             <Link href="/#process" className="py-2 text-sm" onClick={() => setMobileOpen(false)}>Process</Link>
             <Link href="/login" className="py-2 text-sm" onClick={() => setMobileOpen(false)}>Sign in</Link>
-            <Link href="/signup" className="py-2 text-sm" onClick={() => setMobileOpen(false)}>Get started</Link>
+            <Link href="/signup" className="py-2 text-sm font-medium" onClick={() => setMobileOpen(false)}>Sign up</Link>
             <Link
               href="/#contact"
               className="mt-2 rounded-md px-4 py-2 text-center text-sm font-medium text-white"
