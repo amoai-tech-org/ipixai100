@@ -8,12 +8,17 @@ import styles from "./command-center.module.css";
  * route — not Lumina's three unconditional chips.
  *
  * "Generate deliverables" and "Review approvals" have no distinct real
- * capability/route in this app yet (no generation route exists; IPI-1084
- * owns the real approval source and hasn't shipped) — both stay hidden
- * rather than pointing at a stub or a fabricated capability. "Plan a
- * shoot" is real: `/app/plans` is the current, owning planning canvas
- * (see IPI-1149's Planner-relationship section), so that's what it links
- * to — not Lumina's old `/app/shoots/new`, which doesn't exist here.
+ * capability/route in this app yet — no generation route exists, and the
+ * real approval source hasn't shipped:
+ * IPI-1084 · APPROVAL-001 — Let Operators Review, Edit, Approve, or Reject
+ * AI Plans Before Anything Is Saved
+ * Both stay hidden rather than pointing at a stub or a fabricated
+ * capability. "Plan a shoot" is real: `/app/plans` is the current, owning
+ * planning canvas, per
+ * IPI-1149 · DASH-MAIN-002 — Restore the Portfolio-First Command Center
+ * Experience in iPix V2
+ * so that's what it links to — not Lumina's old `/app/shoots/new`, which
+ * doesn't exist here.
  */
 export function QuickActionChips() {
   return (

@@ -100,6 +100,7 @@ describe("OperatorPanel", () => {
     expect(screen.getByTestId("intelligence-rail")).toBeDefined();
     // Persistent CopilotKit chat dock — center workspace, not the rail.
     expect(screen.getByTestId("operator-chat-dock")).toBeDefined();
+    expect(screen.getByTestId("copilot-chat-stub")).toBeDefined();
     const plannerLinks = screen.getAllByRole("link", { name: "Open Planner" });
     expect(plannerLinks.length).toBeGreaterThan(0);
     expect(plannerLinks.every((link) => link.getAttribute("href") === "/")).toBe(true);

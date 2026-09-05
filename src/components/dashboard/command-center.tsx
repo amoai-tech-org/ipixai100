@@ -84,13 +84,7 @@ function HeroCard({
   brand: DashboardBrand;
   recentShootName: string | undefined;
 }) {
-  // pendingApprovalCount is always 0: no real approval source exists until
-  // IPI-1084 ships (see buildHeroGreeting's doc comment in command-center.ts).
-  const greeting = buildHeroGreeting({
-    brandName: brand.name,
-    pendingApprovalCount: 0,
-    recentShootName,
-  });
+  const greeting = buildHeroGreeting({ brandName: brand.name, recentShootName });
   return (
     <div className={styles.heroCard} data-testid="command-center-hero">
       {/* No stock photo standing in for a real brand cover — brands don't
@@ -117,7 +111,12 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
   // true: whether this request's own reads succeeded — never "ready" while
   // an ErrorState is rendering right below it.
   const hasLoadError = !brandsResult.ok || !shootsResult.ok;
-  const recentShootName = shootsResult.ok ? shootsResult.shoots[0]?.name : undefined;
+  // Shoots load org-wide, not scoped to heroBrand — shoots[0] alone could
+  // name a different brand's most recent shoot under this brand's hero
+  // copy. Match on brandId so the hero never implies a false association.
+  const recentShootName = shootsResult.ok
+    ? shootsResult.shoots.find((shoot) => shoot.brandId === heroBrand?.id)?.name
+    : undefined;
 
   return (
     <div className={styles.root} data-testid="command-center">

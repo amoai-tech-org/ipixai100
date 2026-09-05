@@ -110,7 +110,12 @@
    simple docked panel, not full-height chat. */
 .chatDock {
   flex-shrink: 0;
-  height: 320px;
+  /* min() instead of a bare 320px: on a short viewport (mobile, landscape)
+     a fixed 320px dock can eat most of the shell now that .shell is
+     height:100dvh-bounded — scale it down against the viewport instead of
+     a separate mobile breakpoint. 40dvh stays above 320px on any normal
+     desktop height, so this is a no-op there. */
+  height: min(320px, 40dvh);
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-card);
   overflow: hidden;

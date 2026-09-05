@@ -113,7 +113,12 @@ function fakeShootsSupabase(
       return orderBuilder(brandIds);
     },
     limit(n: number) {
-      const rows = brandIds.flatMap((id) => rowsByBrandId[id] ?? []);
+      // brand_id comes from the grouping key, same as the real
+      // `.in("brand_id", brandIds)` read — individual ShootRow fixtures
+      // don't need to repeat it.
+      const rows = brandIds.flatMap((id) =>
+        (rowsByBrandId[id] ?? []).map((row) => ({ ...row, brand_id: id })),
+      );
       return Promise.resolve({ data: rows.slice(0, n), error: null });
     },
   });
@@ -315,7 +320,9 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress", ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Shoot Alpha", status: "in_progress", brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
     if (result.ok) {
       expect(result.shoots.map((s) => s.id)).not.toContain("shoot-b1");
@@ -343,6 +350,7 @@ describe("loadOrgShoots", () => {
           id: "shoot-a1",
           name: "Shoot Alpha",
           status: "active",
+          brandId: BRAND_A1,
           dnaScore: 91,
           // First target channel only — the meta line shows one channel, not a list.
           channel: "IG",
@@ -380,7 +388,9 @@ describe("loadOrgShoots", () => {
     expect(selectCalls[0]).not.toMatch(/\bupdated_at\b/);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "active", ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Shoot Alpha", status: "active", brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
     if (result.ok) {
       expect(result.shoots[0]).not.toHaveProperty("coverUrl");
@@ -396,7 +406,9 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "planning", ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Shoot Alpha", status: "planning", brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
   });
 
@@ -470,7 +482,9 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Untitled shoot", status: null, ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Untitled shoot", status: null, brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
   });
 
@@ -493,40 +507,20 @@ describe("loadOrgShoots", () => {
 
 describe("buildHeroGreeting", () => {
   it("headlines with the real brand name", () => {
-    const { headline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 0 });
+    const { headline } = buildHeroGreeting({ brandName: "Majji" });
     expect(headline).toBe("You're working with Majji.");
   });
 
-  it("references a real pending approval count when present", () => {
-    const { subline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 2 });
-    expect(subline).toBe("2 approvals need your review.");
-  });
-
-  it("uses singular wording for exactly one pending approval", () => {
-    const { subline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 1 });
-    expect(subline).toBe("1 approval needs your review.");
-  });
-
-  it("falls back to the real recent shoot name when there is no pending approval", () => {
+  it("references the real recent shoot name when present", () => {
     const { subline } = buildHeroGreeting({
       brandName: "Majji",
-      pendingApprovalCount: 0,
       recentShootName: "Spring Capsule",
     });
     expect(subline).toBe("Continue planning Spring Capsule.");
   });
 
-  it("prefers a real approval count over a real recent shoot name", () => {
-    const { subline } = buildHeroGreeting({
-      brandName: "Majji",
-      pendingApprovalCount: 1,
-      recentShootName: "Spring Capsule",
-    });
-    expect(subline).toBe("1 approval needs your review.");
-  });
-
   it("never fabricates a next action when nothing real is known", () => {
-    const { subline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 0 });
+    const { subline } = buildHeroGreeting({ brandName: "Majji" });
     expect(subline).toBe("Ask the Production Planner what to work on next.");
   });
 });

@@ -137,9 +137,17 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
       <main className={styles.main}>
         <div className={styles.mainScroll}>{children}</div>
         <div className={styles.chatDock} data-testid="operator-chat-dock">
+          {/* agentId="default" resolves to weatherAgent
+              (src/mastra/agents/index.ts) — a generic demo assistant with
+              no brand/shoot context, not a real production-planning agent.
+              Copy here stays honest about that until a real planning agent
+              is registered. Planner internals are out of scope for this
+              parity pass — that's the owning follow-up under
+              IPI-1149 · DASH-MAIN-002 — Restore the Portfolio-First Command
+              Center Experience in iPix V2 */}
           <CopilotChat
             agentId="default"
-            labels={{ welcomeMessageText: "Ask the Production Planner what to work on next." }}
+            labels={{ welcomeMessageText: "Ask a question to get started." }}
           />
         </div>
       </main>
