@@ -38,6 +38,10 @@ const CHANNELS = [
   "website",
 ] as const;
 const ChannelSchema = z.enum(CHANNELS);
+// CHANNELS has only 10 distinct values, but nothing stops a caller from
+// repeating one far past what dedupeChannels needs to see — bound the raw
+// array so validation/dedup never iterates an arbitrarily large duplicate list.
+const MAX_CHANNELS_INPUT = 50;
 
 /** De-dupes a validated channel array — a repeated channel is one target, not two. */
 function dedupeChannels(channels: readonly string[]): string[] {
@@ -80,7 +84,7 @@ const SHOOT_TYPE_BRIEF_BOOSTERS: Record<string, string[]> = {
 };
 
 export const RecommendShootTypeInputSchema = z.object({
-  channels: z.array(ChannelSchema).min(1),
+  channels: z.array(ChannelSchema).min(1).max(MAX_CHANNELS_INPUT),
   brief: z.string().optional(),
   productCategory: z.string().optional(),
   brandDnaSummary: z.string().optional(),
@@ -193,12 +197,12 @@ const DeliverableSchema = z.object({
 });
 
 export const PlanDeliverablesInputSchema = z.object({
-  channels: z.array(ChannelSchema).min(1),
+  channels: z.array(ChannelSchema).min(1).max(MAX_CHANNELS_INPUT),
   shootType: ShootTypeSchema.optional(),
   brandDna: z
     .object({
       productCategory: z.string().optional(),
-      styleKeywords: z.array(z.string()).optional(),
+      styleKeywords: z.array(z.string().max(100)).max(50).optional(),
     })
     .optional(),
 });

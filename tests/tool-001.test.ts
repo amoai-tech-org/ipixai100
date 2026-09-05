@@ -111,6 +111,16 @@ describe("recommendShootType", () => {
     expect(RecommendShootTypeInputSchema.safeParse({ channels: ["carrier_pigeon"] }).success).toBe(false);
   });
 
+  it("accepts channels at the max bound and rejects one over it", () => {
+    const validChannel = "instagram_feed";
+    expect(
+      RecommendShootTypeInputSchema.safeParse({ channels: Array(50).fill(validChannel) }).success,
+    ).toBe(true);
+    expect(
+      RecommendShootTypeInputSchema.safeParse({ channels: Array(51).fill(validChannel) }).success,
+    ).toBe(false);
+  });
+
   it("de-duplicates a repeated channel instead of inflating its affinity score", async () => {
     // youtube alone scores 1 for "campaign" (unique winner, see the first
     // test above); duplicating it must not turn that into a false score of 2.
@@ -185,6 +195,27 @@ describe("planDeliverables", () => {
   it("rejects a misspelled/unrecognized shootType structurally instead of silently ignoring it", () => {
     expect(
       PlanDeliverablesInputSchema.safeParse({ channels: ["shopify"], shootType: "packshott" }).success,
+    ).toBe(false);
+  });
+
+  it("accepts channels at the max bound and rejects one over it", () => {
+    const validChannel = "shopify";
+    expect(PlanDeliverablesInputSchema.safeParse({ channels: Array(50).fill(validChannel) }).success).toBe(true);
+    expect(PlanDeliverablesInputSchema.safeParse({ channels: Array(51).fill(validChannel) }).success).toBe(false);
+  });
+
+  it("accepts brandDna.styleKeywords at the max bound and rejects one over it", () => {
+    expect(
+      PlanDeliverablesInputSchema.safeParse({
+        channels: ["shopify"],
+        brandDna: { styleKeywords: Array(50).fill("minimal") },
+      }).success,
+    ).toBe(true);
+    expect(
+      PlanDeliverablesInputSchema.safeParse({
+        channels: ["shopify"],
+        brandDna: { styleKeywords: Array(51).fill("minimal") },
+      }).success,
     ).toBe(false);
   });
 
