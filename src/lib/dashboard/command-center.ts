@@ -9,6 +9,11 @@ export type DashboardShoot = {
   id: string;
   name: string;
   status: string | null;
+  /** Real DNA score (0-100), when scored. Never fabricated. */
+  dnaScore: number | null;
+  /** First target channel, when set — used for the "IG · 4:5"-style meta
+   *  line. No invented channel. */
+  channel: string | null;
 };
 
 const BRAND_LIMIT = 6;
@@ -127,6 +132,18 @@ export async function loadTrustedBrandIds(
  * empty result without a query — an `.in()` with an empty array is either
  * a wasted round-trip or a backend-specific edge case, not the same thing
  * as "org has brands but no shoots".
+ *
+ * Deliberately NOT selecting `cover_url`: the view resolves it from
+ * `shoot.shoots.mood_board_urls[1]`, a plain URL with no bridge to this
+ * app's one proven secure-delivery contract (signed `type: authenticated`
+ * Cloudinary assets via `cloudinary_assets` + get-authorized-asset-preview.ts
+ * — mood_board_urls entries aren't tracked in that mirror table at all).
+ * Rendering it directly would be an unproven, possibly-broken, possibly
+ * cross-org-leakable path. Wire this once
+ * IPI-1112 · CLD-DELIVERY-001 — Serve Org-Safe Cloudinary Previews with
+ * Named Transforms ships a real signed-preview route for it; until then the
+ * UI shows an honest no-image placeholder for every shoot, same as when a
+ * real cover genuinely doesn't exist.
  */
 export async function loadOrgShoots(
   supabase: SupabaseClient,
@@ -138,10 +155,12 @@ export async function loadOrgShoots(
   try {
     const { data, error } = await supabase
       .from("shoot_portfolio_view")
-      .select("id,name,status,brand_id")
+      .select("id,name,status,brand_id,dna_score,target_channels")
       .in("brand_id", brandIds)
       // Same deterministic-order contract as loadOrgBrands: most-recently-
-      // updated first, id as a stable tie-breaker.
+      // updated first, id as a stable tie-breaker. `updated_at` orders the
+      // result without needing to be in the select list (PostgREST/SQL
+      // ORDER BY isn't limited to selected columns) — it isn't rendered.
       .order("updated_at", { ascending: false })
       .order("id", { ascending: true })
       .limit(SHOOT_LIMIT);
@@ -149,13 +168,21 @@ export async function loadOrgShoots(
       console.error("dashboard.loadOrgShoots: query failed", { error });
       return { ok: false };
     }
-    const rows = data as { id: string; name: string | null; status: string | null }[];
+    const rows = data as {
+      id: string;
+      name: string | null;
+      status: string | null;
+      dna_score: number | null;
+      target_channels: string[] | null;
+    }[];
     return {
       ok: true,
       shoots: rows.map((row) => ({
         id: row.id,
         name: row.name ?? "Untitled shoot",
         status: row.status,
+        dnaScore: row.dna_score ?? null,
+        channel: row.target_channels?.[0] ?? null,
       })),
     };
   } catch (err) {

@@ -91,9 +91,20 @@ function fakeBrandIdsSupabase(
 
 /** Mimics the `shoot_portfolio_view` read `loadOrgShoots` makes, scoped by
  *  `.in("brand_id", brandIds)` rather than `.eq()`. */
+type ShootRow = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  cover_url?: string | null;
+  dna_score?: number | null;
+  target_channels?: string[] | null;
+  updated_at?: string | null;
+};
+
 function fakeShootsSupabase(
-  rowsByBrandId: Record<string, { id: string; name: string | null; status: string | null }[]>,
+  rowsByBrandId: Record<string, ShootRow[]>,
   orderCalls: OrderCall[] = [],
+  selectCalls: string[] = [],
 ) {
   const orderBuilder = (brandIds: string[]) => ({
     order: (column: string, opts: { ascending: boolean }) => {
@@ -109,7 +120,8 @@ function fakeShootsSupabase(
     from(table: string) {
       expect(table).toBe("shoot_portfolio_view");
       return {
-        select() {
+        select(columns: string) {
+          selectCalls.push(columns);
           return {
             in(column: string, brandIds: string[]) {
               expect(column).toBe("brand_id");
@@ -291,6 +303,8 @@ describe("loadOrgShoots", () => {
     expect(called).toBe(false);
   });
 
+  const EMPTY_MEDIA = { dnaScore: null, channel: null };
+
   it("scopes shoots to only the given trusted brand ids, never another brand's", async () => {
     const supabase = fakeShootsSupabase({
       [BRAND_A1]: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress" }],
@@ -300,11 +314,89 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress" }],
+      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress", ...EMPTY_MEDIA }],
     });
     if (result.ok) {
       expect(result.shoots.map((s) => s.id)).not.toContain("shoot-b1");
     }
+  });
+
+  it("maps real dna_score/target_channels through, without fabricating either", async () => {
+    const supabase = fakeShootsSupabase({
+      [BRAND_A1]: [
+        {
+          id: "shoot-a1",
+          name: "Shoot Alpha",
+          status: "active",
+          dna_score: 91,
+          target_channels: ["IG", "TikTok"],
+        },
+      ],
+    });
+
+    const result = await loadOrgShoots(supabase, [BRAND_A1]);
+    expect(result).toEqual({
+      ok: true,
+      shoots: [
+        {
+          id: "shoot-a1",
+          name: "Shoot Alpha",
+          status: "active",
+          dnaScore: 91,
+          // First target channel only — the meta line shows one channel, not a list.
+          channel: "IG",
+        },
+      ],
+    });
+  });
+
+  it("does not select or map cover_url/updated_at — no proven secure-delivery path for cover_url yet", async () => {
+    // Two boundaries, both asserted: the query itself must not ask for
+    // cover_url/updated_at (a leftover row column proves nothing about the
+    // real select() string), and even if it somehow came back, the mapped
+    // DashboardShoot must not surface it (see command-center.ts's doc
+    // comment on loadOrgShoots — blocked on IPI-1112 · CLD-DELIVERY-001).
+    const selectCalls: string[] = [];
+    const supabase = fakeShootsSupabase(
+      {
+        [BRAND_A1]: [
+          {
+            id: "shoot-a1",
+            name: "Shoot Alpha",
+            status: "active",
+            cover_url: "https://res.cloudinary.com/demo/image/upload/shoot-a1.jpg",
+          },
+        ],
+      },
+      undefined,
+      selectCalls,
+    );
+
+    const result = await loadOrgShoots(supabase, [BRAND_A1]);
+
+    expect(selectCalls).toHaveLength(1);
+    expect(selectCalls[0]).not.toMatch(/\bcover_url\b/);
+    expect(selectCalls[0]).not.toMatch(/\bupdated_at\b/);
+    expect(result).toEqual({
+      ok: true,
+      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "active", ...EMPTY_MEDIA }],
+    });
+    if (result.ok) {
+      expect(result.shoots[0]).not.toHaveProperty("coverUrl");
+      expect(result.shoots[0]).not.toHaveProperty("updatedAt");
+    }
+  });
+
+  it("maps a shoot with no real media/score to nulls, never a fabricated placeholder", async () => {
+    const supabase = fakeShootsSupabase({
+      [BRAND_A1]: [{ id: "shoot-a1", name: "Shoot Alpha", status: "planning" }],
+    });
+
+    const result = await loadOrgShoots(supabase, [BRAND_A1]);
+    expect(result).toEqual({
+      ok: true,
+      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "planning", ...EMPTY_MEDIA }],
+    });
   });
 
   it("reads shoot_portfolio_view, not raw shoot.shoots", async () => {
@@ -377,7 +469,23 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Untitled shoot", status: null }],
+      shoots: [{ id: "shoot-a1", name: "Untitled shoot", status: null, ...EMPTY_MEDIA }],
     });
+  });
+
+  it("still selects/orders by updated_at for sort, even though it's not in the mapped result", async () => {
+    // Confirms the smaller select() didn't silently drop the sort contract —
+    // see command-center.ts's comment: ORDER BY doesn't require the column
+    // in SELECT (verified against the live PostgREST endpoint too).
+    const orderCalls: OrderCall[] = [];
+    const supabase = fakeShootsSupabase(
+      { [BRAND_A1]: [{ id: "shoot-a1", name: "Shoot Alpha", status: null }] },
+      orderCalls,
+    );
+    const result = await loadOrgShoots(supabase, [BRAND_A1]);
+    expect(orderCalls[0]).toEqual({ column: "updated_at", opts: { ascending: false } });
+    if (result.ok) {
+      expect(result.shoots[0]).not.toHaveProperty("updatedAt");
+    }
   });
 });
