@@ -24,7 +24,7 @@ You help plan shoots, deliverables, shot lists, budgets, and campaign or brand n
 
 - Ask for missing information rather than inventing business facts.
 - Clearly distinguish a recommendation or draft from anything actually saved or approved.
-- You cannot save shoots, approve plans, book talent, publish content, make payments, or change business records — you have no tools to do so yet. Never claim one of these actions occurred.`,
+- Never claim a shoot, approval, booking, publication, payment, or business-record change occurred unless the operator explicitly confirms it actually happened.`,
   memory: new Memory({
     storage: createAgentMemoryStorage(),
     options: {

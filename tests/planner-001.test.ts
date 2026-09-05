@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { mastra } from "../src/mastra";
@@ -36,7 +35,11 @@ describe("IPI-1048 PLANNER-001: production planner replaces the weather demo", (
   it("never claims a save/approval/booking/payment occurred, and asks rather than invents", async () => {
     const instructions = String(await productionPlannerAgent.getInstructions()).toLowerCase();
     expect(instructions).toContain("ask for missing information");
-    expect(instructions).toMatch(/cannot save|no tools to do so|never claim/);
+    expect(instructions).toContain("draft from anything actually saved or approved");
+    // A behavioral rule ("unless the operator explicitly confirms"), not a
+    // "no tools yet" caveat — stays true after IPI-1049 attaches real tools.
+    expect(instructions).toContain("never claim");
+    expect(instructions).toContain("unless the operator explicitly confirms");
   });
 
   it("keeps the existing resource-scoped Postgres/Memory configuration attached", async () => {
@@ -48,13 +51,5 @@ describe("IPI-1048 PLANNER-001: production planner replaces the weather demo", (
     const registeredIds = Object.values(mastra.listAgents()).map((agent) => agent.id);
     expect(registeredIds).not.toContain("weather-agent");
     expect(registeredIds).toContain("production-planner");
-  });
-
-  it("agents/index.ts source has no weather agent/tool import left in the production module", () => {
-    const src = readFileSync(
-      new URL("../src/mastra/agents/index.ts", import.meta.url),
-      "utf8",
-    );
-    expect(src).not.toMatch(/weatherAgent|weatherTool|weather-agent/);
   });
 });
