@@ -48,7 +48,6 @@ export function MarketingHeader() {
             <button
               type="button"
               className="flex items-center gap-1 text-sm"
-              aria-haspopup="true"
               aria-expanded={servicesOpen}
               aria-controls={servicesMenuId}
               onClick={() => setServicesOpen((v) => !v)}

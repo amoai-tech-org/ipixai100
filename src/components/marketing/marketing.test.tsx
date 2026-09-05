@@ -20,7 +20,6 @@ describe("MarketingHeader (IPI-1053)", () => {
   it("exposes aria-expanded + aria-controls on the Services control", () => {
     render(<MarketingHeader />);
     const button = screen.getByRole("button", { name: /services/i });
-    expect(button.getAttribute("aria-haspopup")).toBe("true");
     expect(button.getAttribute("aria-expanded")).toBe("false");
     expect(button.getAttribute("aria-controls")).toBeTruthy();
   });
@@ -34,6 +33,17 @@ describe("MarketingHeader (IPI-1053)", () => {
       expect(screen.getByRole("link", { name: s.label })).toBeTruthy();
     }
     fireEvent.keyDown(button, { key: "Escape" });
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("closes the Services dropdown when focus leaves its container", () => {
+    render(<MarketingHeader />);
+    const button = screen.getByRole("button", { name: /services/i });
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.blur(button.parentElement as HTMLElement, {
+      relatedTarget: document.body,
+    });
     expect(button.getAttribute("aria-expanded")).toBe("false");
   });
 
@@ -51,6 +61,17 @@ describe("MarketingHeader (IPI-1053)", () => {
     const mobileNav = screen.getByRole("navigation", { name: "Mobile" });
     expect(within(mobileNav).getByRole("link", { name: "Work" })).toBeTruthy();
     expect(within(mobileNav).getByRole("link", { name: "Process" })).toBeTruthy();
+  });
+
+  it("closes the mobile sheet after navigating via a link", () => {
+    render(<MarketingHeader />);
+    const toggle = screen.getByRole("button", { name: "Toggle menu" });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile" });
+    fireEvent.click(within(mobileNav).getByRole("link", { name: "Sign in" }));
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("navigation", { name: "Mobile" })).toBeNull();
   });
 });
 
