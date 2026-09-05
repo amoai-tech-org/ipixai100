@@ -145,6 +145,17 @@ describe("successful authentication navigates to /planner", () => {
     expect(await screen.findByLabelText("Email")).toBeDefined();
   });
 
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login page normalizes a repeated next query key", async () => {
+    getVerifiedOperatorFromCookies.mockResolvedValue(null);
+    const ui = await LoginPage({
+      searchParams: Promise.resolve({
+        next: ["/planner", "/app"],
+      }) as never,
+    });
+    render(ui);
+    expect(await screen.findByLabelText("Email")).toBeDefined();
+  });
+
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form pushes /planner after a successful password sign-in", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     getClaims.mockResolvedValue({});

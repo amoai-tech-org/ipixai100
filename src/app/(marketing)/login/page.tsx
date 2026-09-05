@@ -36,5 +36,8 @@ export default async function LoginPage({
     // never grants access and never redirects into a /planner loop.
   }
   const { next } = await searchParams;
-  return <LoginFormLazy next={safeRedirect(next)} />;
+  // Repeated `next` keys arrive as an array — normalize to the first value
+  // (or reject) so safeRedirect never receives a non-string.
+  const nextValue = Array.isArray(next) ? next[0] : next;
+  return <LoginFormLazy next={safeRedirect(nextValue)} />;
 }
