@@ -52,14 +52,14 @@
     </div>
     <div id="stats" role="status" aria-atomic="true">Measuring…</div>
 
-    <!-- Next.js SDK: getCldImageUrl matches CldImage; cloud name comes from NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME -->
+    <!-- Next.js SDK: getCldImageUrl generates the equivalent fixed-format transformation; cloud name comes from NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME -->
     <h2 id="stage-5-integration-snippet">Next.js SDK snippet</h2>
     <pre><code>import { getCldImageUrl } from "next-cloudinary";
 
 const url = getCldImageUrl({
   src: "samples/waves",
   rawTransformations: [
-    "b_gen_fill,c_pad,w_1000,h_1000,y_-100/l_text:Arial_72_bold:Adapt everywhere,co_white/e_shadow:50/fl_layer_apply,g_south_west,x_80,y_140/l_text:Arial_34:Dynamic media built in real time,co_rgb:E9D5FF/e_shadow:35/fl_layer_apply,g_south_west,x_84,y_90",
+    "b_gen_fill,c_pad,w_1000,h_1000,y_-100/l_text:Arial_72_bold:Adapt everywhere,co_white/e_shadow:50/fl_layer_apply,g_south_west,x_80,y_140/l_text:Arial_34:Dynamic media built in real time,co_rgb:E9D5FF/e_shadow:35/fl_layer_apply,g_south_west,x_84,y_90/f_webp,q_auto",
   ],
 });</code></pre>
 
@@ -108,15 +108,24 @@ const url = getCldImageUrl({
       }
 
       async function measure(url) {
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error(`Cloudinary returned HTTP ${res.status}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        let res;
+        let contentType;
+        let buf;
+        try {
+          res = await fetch(url, { signal: controller.signal });
+          if (!res.ok) {
+            throw new Error(`Cloudinary returned HTTP ${res.status}`);
+          }
+          contentType = res.headers.get("content-type") || "";
+          if (!contentType.toLowerCase().startsWith("image/")) {
+            throw new Error(`Non-image Content-Type: ${contentType || "(missing)"}`);
+          }
+          buf = await res.arrayBuffer();
+        } finally {
+          clearTimeout(timeoutId);
         }
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.toLowerCase().startsWith("image/")) {
-          throw new Error(`Non-image Content-Type: ${contentType || "(missing)"}`);
-        }
-        const buf = await res.arrayBuffer();
         const { width, height } = await decodeDimensions(buf, contentType);
         return {
           status: res.status,
