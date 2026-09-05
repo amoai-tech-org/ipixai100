@@ -69,7 +69,15 @@ describe("successful authentication navigates to /app", () => {
     expect(redirect).toHaveBeenCalledWith("/app");
   });
 
-  it("login form pushes /app after a successful password sign-in", async () => {
+  it("navigates the operator to /app after a successful password sign-in", async () => {
+    // jsdom never actually navigates, so `router.push`/`refresh` are the
+    // only observable signal at this component-test tier — this asserts
+    // the destination string LoginForm actually requests, catching a
+    // regression back to /planner (or any other wrong path) fast and
+    // without a browser. The real user-observable proof of landing on
+    // /app lives in e2e/login-journey.spec.ts, which drives the real
+    // login form through a real browser and asserts the resulting
+    // `page.url()` via the shared signInWithCredentials helper.
     render(createElement(LoginForm));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
