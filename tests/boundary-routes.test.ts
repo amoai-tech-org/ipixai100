@@ -68,6 +68,8 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     render(ui);
     expect(redirect).not.toHaveBeenCalled();
     expect(screen.getByTestId("onboarding-form")).toBeDefined();
+    // The authenticated operator id is passed through to the onboarding form.
+    expect(screen.getByTestId("onboarding-form").textContent).toBe(operator.id);
   });
 
   it("onboarding redirects a single-org operator to /app", async () => {

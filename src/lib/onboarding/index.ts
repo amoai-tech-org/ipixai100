@@ -3,7 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   materializeResultSchema,
   type OnboardingDraft,
+  type OnboardingIdempotencyKey,
   type OnboardingSession,
+  type OnboardingSessionId,
+  type OnboardingUserId,
 } from "./schema";
 
 export { validateUrl } from "./validate-url";
@@ -14,10 +17,16 @@ export {
   onboardingSessionStatusSchema,
   materializeResultSchema,
   onboardingDraftSchema,
+  asOnboardingUserId,
+  asOnboardingSessionId,
+  asOnboardingIdempotencyKey,
   type OnboardingSession,
   type OnboardingSessionStatus,
   type OnboardingDraft,
   type MaterializeResult,
+  type OnboardingUserId,
+  type OnboardingSessionId,
+  type OnboardingIdempotencyKey,
 } from "./schema";
 
 const SESSION_COLUMNS =
@@ -29,8 +38,8 @@ const SESSION_COLUMNS =
  */
 export const getOrCreateOnboardingSession = async (
   supabase: SupabaseClient,
-  userId: string,
-  idempotencyKey: string,
+  userId: OnboardingUserId,
+  idempotencyKey: OnboardingIdempotencyKey,
 ): Promise<OnboardingSession> => {
   const { data: existing, error: selectErr } = await supabase
     .from("onboarding_sessions")
@@ -81,7 +90,7 @@ export const getOrCreateOnboardingSession = async (
 /** Thin autosave for draft_answers (resume depends on this). */
 export const updateOnboardingSessionDraft = async (
   supabase: SupabaseClient,
-  sessionId: string,
+  sessionId: OnboardingSessionId,
   patch: { draft_answers?: Record<string, unknown> },
 ): Promise<void> => {
   const { error } = await supabase
@@ -103,7 +112,7 @@ export const updateOnboardingSessionDraft = async (
 export const materializeOnboarding = async (
   supabase: SupabaseClient,
   draft: OnboardingDraft,
-  options: { idempotencyKey: string },
+  options: { idempotencyKey: OnboardingIdempotencyKey },
 ): Promise<{ orgId: string; brandId: string }> => {
   const { data, error } = await supabase.rpc("materialize_onboarding_session", {
     p_idempotency_key: options.idempotencyKey,

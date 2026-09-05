@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
 import {
+  asOnboardingIdempotencyKey,
+  asOnboardingSessionId,
+  asOnboardingUserId,
   getOrCreateOnboardingIdempotencyKey,
   getOrCreateOnboardingSession,
   materializeOnboarding,
@@ -20,10 +23,14 @@ import {
   serializeDraftAnswers,
   updateOnboardingSessionDraft,
   validateUrl,
+  type OnboardingDraft,
+  type OnboardingSessionId,
 } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/client";
 
 const SAVE_DEBOUNCE_MS = 400;
+
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 const inputClassName =
   "rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
@@ -45,26 +52,29 @@ export function OnboardingForm({ userId }: { userId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<OnboardingSessionId | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<OnboardingDraft | null>(null);
+  const saveInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const supabase = createClient();
-        const key = getOrCreateOnboardingIdempotencyKey(userId);
-        const session = await getOrCreateOnboardingSession(supabase, userId, key);
+        const operatorId = asOnboardingUserId(userId);
+        const key = getOrCreateOnboardingIdempotencyKey(operatorId);
+        const session = await getOrCreateOnboardingSession(supabase, operatorId, key);
         if (cancelled) return;
         // Already materialized (idempotent resume) — the workspace owns the user now.
         if (session.status === "materialized") {
           router.replace("/app");
           return;
         }
-        sessionIdRef.current = session.id;
+        sessionIdRef.current = asOnboardingSessionId(session.id);
         const draft = parseDraftAnswers(session.draft_answers);
         setBrandName(draft.brandName);
         setWebsiteUrl(draft.websiteUrl);
@@ -81,21 +91,50 @@ export function OnboardingForm({ userId }: { userId: string }) {
     };
   }, [router, userId]);
 
-  const saveDraft = useCallback((name: string, url: string) => {
+  /**
+   * Serialized autosave: writes run one at a time and always end on the latest
+   * snapshot, so an older in-flight request can never overwrite a newer draft.
+   * On failure the snapshot is kept so Retry re-saves the newest state.
+   */
+  const flushSave = useCallback(async () => {
     const sessionId = sessionIdRef.current;
-    if (!sessionId) return;
-    if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      setSaving(true);
-      void updateOnboardingSessionDraft(createClient(), sessionId, {
-        draft_answers: serializeDraftAnswers({ brandName: name, websiteUrl: url }),
-      })
-        .catch(() => {
-          // Autosave is best-effort — submit still has the fields from local state.
-        })
-        .finally(() => setSaving(false));
-    }, SAVE_DEBOUNCE_MS);
+    if (!sessionId || saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
+    try {
+      while (pendingSaveRef.current) {
+        const snapshot = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        setSaveState("saving");
+        try {
+          await updateOnboardingSessionDraft(createClient(), sessionId, {
+            draft_answers: serializeDraftAnswers(snapshot),
+          });
+          setSaveState("saved");
+        } catch {
+          pendingSaveRef.current = snapshot;
+          setSaveState("error");
+          break;
+        }
+      }
+    } finally {
+      saveInFlightRef.current = false;
+    }
   }, []);
+
+  const saveDraft = useCallback(
+    (name: string, url: string) => {
+      pendingSaveRef.current = { brandName: name, websiteUrl: url };
+      if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        void flushSave();
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [flushSave],
+  );
+
+  const retrySave = useCallback(() => {
+    void flushSave();
+  }, [flushSave]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -113,7 +152,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
     setSubmitError(null);
     try {
       const supabase = createClient();
-      const key = getOrCreateOnboardingIdempotencyKey(userId);
+      const key = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId(userId));
       await materializeOnboarding(supabase, { brandName: name, websiteUrl }, { idempotencyKey: key });
       router.replace("/app");
     } catch (err) {
@@ -189,7 +228,11 @@ export function OnboardingForm({ userId }: { userId: string }) {
           </div>
 
           {submitError ? (
-            <p className="text-sm text-[var(--destructive)]" data-testid="onboarding-submit-error">
+            <p
+              role="alert"
+              className="text-sm text-[var(--destructive)]"
+              data-testid="onboarding-submit-error"
+            >
               {submitError}
             </p>
           ) : null}
@@ -197,9 +240,23 @@ export function OnboardingForm({ userId }: { userId: string }) {
           <Button type="submit" disabled={submitting}>
             {submitting ? "Creating…" : "Create brand"}
           </Button>
-          <p className="text-xs text-[var(--muted-foreground)]" aria-live="polite">
-            {saving ? "Saving draft…" : "Your draft is saved automatically."}
-          </p>
+          <div
+            className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]"
+            aria-live="polite"
+          >
+            {saveState === "saving" ? (
+              <span>Saving draft…</span>
+            ) : saveState === "error" ? (
+              <>
+                <span>Couldn&rsquo;t save your draft.</span>
+                <button type="button" onClick={retrySave} className="underline">
+                  Retry
+                </button>
+              </>
+            ) : (
+              <span>Your draft is saved automatically.</span>
+            )}
+          </div>
         </form>
       </CardContent>
     </Card>

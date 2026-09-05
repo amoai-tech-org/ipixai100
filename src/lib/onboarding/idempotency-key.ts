@@ -6,27 +6,29 @@
  * so refresh resumes the same onboarding_sessions draft and two users sharing a
  * browser never reuse one key.
  */
+import type { OnboardingIdempotencyKey, OnboardingUserId } from "./schema";
+
 const ONBOARDING_IDEMPOTENCY_STORAGE_PREFIX = "ipix:onboarding:idempotency:v1:";
 
-export function onboardingIdempotencyStorageKey(userId: string): string {
+export function onboardingIdempotencyStorageKey(userId: OnboardingUserId): string {
   return `${ONBOARDING_IDEMPOTENCY_STORAGE_PREFIX}${userId}`;
 }
 
 type IdempotencyStorage = Pick<Storage, "getItem" | "setItem">;
 
 export function getOrCreateOnboardingIdempotencyKey(
-  userId: string,
+  userId: OnboardingUserId,
   storage: IdempotencyStorage = localStorage,
-): string {
+): OnboardingIdempotencyKey {
   if (!userId.trim()) {
     throw new Error("onboarding idempotency key requires a user id");
   }
 
   const storageKey = onboardingIdempotencyStorageKey(userId);
   const existing = storage.getItem(storageKey);
-  if (existing && existing.length > 0) return existing;
+  if (existing && existing.length > 0) return existing as OnboardingIdempotencyKey;
 
   const created = crypto.randomUUID();
   storage.setItem(storageKey, created);
-  return created;
+  return created as OnboardingIdempotencyKey;
 }

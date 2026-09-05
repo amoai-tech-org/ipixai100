@@ -9,9 +9,9 @@ export function serializeDraftAnswers(draft: OnboardingDraft): Record<string, un
 
 export function parseDraftAnswers(raw: unknown): OnboardingDraft {
   if (typeof raw !== "object" || raw === null) return { ...EMPTY_DRAFT };
-  const o = raw as Record<string, unknown>;
+  const draftRecord = raw as Record<string, unknown>;
   return {
-    brandName: typeof o.brandName === "string" ? o.brandName : "",
-    websiteUrl: typeof o.websiteUrl === "string" ? o.websiteUrl : "",
+    brandName: typeof draftRecord.brandName === "string" ? draftRecord.brandName : "",
+    websiteUrl: typeof draftRecord.websiteUrl === "string" ? draftRecord.websiteUrl : "",
   };
 }

@@ -33,3 +33,17 @@ export const onboardingDraftSchema = z.object({
 });
 
 export type OnboardingDraft = z.infer<typeof onboardingDraftSchema>;
+
+/**
+ * Branded identifiers so onboarding boundaries never mix a user id, session id,
+ * and idempotency key. The cast helpers are the only way to mint them — callers
+ * cast at the verified boundary (server operator id, Supabase row id).
+ */
+export type OnboardingUserId = string & { readonly __brand: "OnboardingUserId" };
+export type OnboardingSessionId = string & { readonly __brand: "OnboardingSessionId" };
+export type OnboardingIdempotencyKey = string & { readonly __brand: "OnboardingIdempotencyKey" };
+
+export const asOnboardingUserId = (id: string): OnboardingUserId => id as OnboardingUserId;
+export const asOnboardingSessionId = (id: string): OnboardingSessionId => id as OnboardingSessionId;
+export const asOnboardingIdempotencyKey = (key: string): OnboardingIdempotencyKey =>
+  key as OnboardingIdempotencyKey;

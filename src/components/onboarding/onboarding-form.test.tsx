@@ -38,6 +38,11 @@ const MATERIALIZED_SESSION: TestSession = {
   brand_id: "44444444-4444-4444-4444-444444444444",
 };
 
+/** Explicit success + failure shapes so the mock accepts both (review fix). */
+type RpcResponse =
+  | { data: { organization_id: string; brand_id: string }; error: null }
+  | { data: null; error: { message: string } };
+
 function fakeSupabase(session: TestSession) {
   const supabase = {
     from: vi.fn(() => supabase),
@@ -47,7 +52,7 @@ function fakeSupabase(session: TestSession) {
     single: vi.fn(),
     insert: vi.fn(() => supabase),
     update: vi.fn(() => supabase),
-    rpc: vi.fn().mockResolvedValue({
+    rpc: vi.fn<() => Promise<RpcResponse>>().mockResolvedValue({
       data: {
         organization_id: "33333333-3333-3333-3333-333333333333",
         brand_id: "44444444-4444-4444-4444-444444444444",
@@ -143,5 +148,19 @@ describe("OnboardingForm (IPI-1089 · ONBOARD-001)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
     expect(await screen.findByTestId("onboarding-submit-error")).toBeDefined();
     expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers when the user retries after a failed materialization", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    supabaseMock.rpc.mockResolvedValueOnce({ data: null, error: { message: "unauthorized" } });
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    await screen.findByTestId("onboarding-form");
+    fireEvent.change(screen.getByLabelText("Brand name"), {
+      target: { value: "Maison Noir" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    expect(await screen.findByTestId("onboarding-submit-error")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app"));
   });
 });

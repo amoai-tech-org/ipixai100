@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  asOnboardingIdempotencyKey,
+  asOnboardingSessionId,
+  asOnboardingUserId,
   getOrCreateOnboardingIdempotencyKey,
   getOrCreateOnboardingSession,
   materializeOnboarding,
@@ -36,15 +39,17 @@ describe("getOrCreateOnboardingIdempotencyKey", () => {
       getItem: (k: string) => store.get(k) ?? null,
       setItem: (k: string, v: string) => void store.set(k, v),
     };
-    const a = getOrCreateOnboardingIdempotencyKey("user-1", storage);
-    const b = getOrCreateOnboardingIdempotencyKey("user-1", storage);
+    const a = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId("user-1"), storage);
+    const b = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId("user-1"), storage);
     expect(a).toBe(b);
-    const c = getOrCreateOnboardingIdempotencyKey("user-2", storage);
+    const c = getOrCreateOnboardingIdempotencyKey(asOnboardingUserId("user-2"), storage);
     expect(c).not.toBe(a);
   });
 
   it("throws without a user id", () => {
-    expect(() => getOrCreateOnboardingIdempotencyKey("", {} as Storage)).toThrow();
+    expect(() =>
+      getOrCreateOnboardingIdempotencyKey(asOnboardingUserId(""), {} as Storage),
+    ).toThrow();
   });
 });
 
@@ -95,10 +100,33 @@ describe("getOrCreateOnboardingSession", () => {
     supabase.maybeSingle.mockResolvedValue({ data: session, error: null });
     const result = await getOrCreateOnboardingSession(
       supabase as never,
-      session.user_id,
-      "key-1",
+      asOnboardingUserId(session.user_id),
+      asOnboardingIdempotencyKey("key-1"),
     );
     expect(result).toEqual(session);
+  });
+
+  it("only selects the caller's own session (user_id filter)", async () => {
+    const supabase = mockSupabase();
+    const session = {
+      id: "11111111-1111-1111-1111-111111111111",
+      user_id: "22222222-2222-2222-2222-222222222222",
+      idempotency_key: "key-1",
+      status: "draft",
+      current_screen: 1,
+      draft_answers: {},
+      organization_id: null,
+      brand_id: null,
+    };
+    supabase.maybeSingle.mockResolvedValue({ data: session, error: null });
+    const result = await getOrCreateOnboardingSession(
+      supabase as never,
+      asOnboardingUserId(session.user_id),
+      asOnboardingIdempotencyKey("key-1"),
+    );
+    expect(result).toEqual(session);
+    expect(supabase.eq).toHaveBeenCalledWith("user_id", session.user_id);
+    expect(supabase.eq).toHaveBeenCalledWith("idempotency_key", "key-1");
   });
 
   it("inserts a fresh draft when none exists", async () => {
@@ -119,11 +147,35 @@ describe("getOrCreateOnboardingSession", () => {
     });
     const result = await getOrCreateOnboardingSession(
       supabase as never,
-      "22222222-2222-2222-2222-222222222222",
-      "key-1",
+      asOnboardingUserId("22222222-2222-2222-2222-222222222222"),
+      asOnboardingIdempotencyKey("key-1"),
     );
     expect(result.status).toBe("draft");
     expect(supabase.insert).toHaveBeenCalled();
+  });
+
+  it("recovers from a concurrent insert (23505) by re-selecting", async () => {
+    const supabase = mockSupabase();
+    supabase.maybeSingle.mockResolvedValue({ data: null, error: null });
+    const existing = {
+      id: "11111111-1111-1111-1111-111111111111",
+      user_id: "22222222-2222-2222-2222-222222222222",
+      idempotency_key: "key-1",
+      status: "draft",
+      current_screen: 1,
+      draft_answers: {},
+      organization_id: null,
+      brand_id: null,
+    };
+    supabase.single
+      .mockResolvedValueOnce({ data: null, error: { code: "23505", message: "duplicate key" } })
+      .mockResolvedValueOnce({ data: existing, error: null });
+    const result = await getOrCreateOnboardingSession(
+      supabase as never,
+      asOnboardingUserId(existing.user_id),
+      asOnboardingIdempotencyKey("key-1"),
+    );
+    expect(result).toEqual(existing);
   });
 });
 
@@ -132,7 +184,7 @@ describe("updateOnboardingSessionDraft", () => {
     const supabase = mockSupabase();
     supabase.update.mockReturnValue(supabase);
     supabase.eq.mockResolvedValue({ error: null });
-    await updateOnboardingSessionDraft(supabase as never, "session-1", {
+    await updateOnboardingSessionDraft(supabase as never, asOnboardingSessionId("session-1"), {
       draft_answers: { brandName: "Maison Noir" },
     });
     expect(supabase.update).toHaveBeenCalledWith(
@@ -155,7 +207,7 @@ describe("materializeOnboarding", () => {
     const result = await materializeOnboarding(
       supabase as never,
       { brandName: "  Maison Noir  ", websiteUrl: "" },
-      { idempotencyKey: "key-1" },
+      { idempotencyKey: asOnboardingIdempotencyKey("key-1") },
     );
     expect(supabase.rpc).toHaveBeenCalledWith("materialize_onboarding_session", {
       p_idempotency_key: "key-1",
@@ -180,7 +232,7 @@ describe("materializeOnboarding", () => {
     await materializeOnboarding(
       supabase as never,
       { brandName: "Maison Noir", websiteUrl: "https://maisonnoir.com" },
-      { idempotencyKey: "key-1" },
+      { idempotencyKey: asOnboardingIdempotencyKey("key-1") },
     );
     expect(supabase.rpc).toHaveBeenCalledWith("materialize_onboarding_session", {
       p_idempotency_key: "key-1",
@@ -196,8 +248,23 @@ describe("materializeOnboarding", () => {
       materializeOnboarding(
         supabase as never,
         { brandName: "Maison Noir", websiteUrl: "" },
-        { idempotencyKey: "key-1" },
+        { idempotencyKey: asOnboardingIdempotencyKey("key-1") },
       ),
     ).rejects.toThrow("unauthorized");
+  });
+
+  it("fails closed when the RPC returns an incomplete payload", async () => {
+    const supabase = mockSupabase();
+    supabase.rpc.mockResolvedValue({
+      data: { organization_id: "33333333-3333-3333-3333-333333333333" },
+      error: null,
+    });
+    await expect(
+      materializeOnboarding(
+        supabase as never,
+        { brandName: "Maison Noir", websiteUrl: "" },
+        { idempotencyKey: asOnboardingIdempotencyKey("key-1") },
+      ),
+    ).rejects.toThrow("unexpected payload");
   });
 });
