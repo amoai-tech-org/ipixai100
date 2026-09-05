@@ -29,11 +29,13 @@ export async function signInWithCredentials(
   // The app signs in, verifies claims, then routes to /app (IPI-1058
   // MARKETING-LOGIN-001 — the Command Center is the default workspace). Wait
   // for that final route before persisting storageState so auth cookies are
-  // settled. 15s — Supabase sign-in can be slow when the full suite runs many
-  // auth requests in sequence.
+  // settled. 30s — a cold CI runner compiling /app on demand (Next dev,
+  // first hit) plus a slow Supabase sign-in in sequence measured over 15s
+  // on GitHub Actions; 30s gave headroom without touching the global
+  // Playwright timeout.
   await expect(page).toHaveURL(
     (url) => url.pathname === "/app",
-    { timeout: 15_000 },
+    { timeout: 30_000 },
   );
 }
 
