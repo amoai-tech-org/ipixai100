@@ -22,15 +22,25 @@ Analysis is asynchronous: a project generally needs 100+ completed traces before
 
 All Trace Intelligence routes are read-only `GET` requests under `/api/learning/`.
 
-1. **`mastra api learning` CLI** (preferred): use the same credential model as hosted observability commands. No `--url` or `--header` is required if `MASTRA_PLATFORM_ACCESS_TOKEN` and `MASTRA_PROJECT_ID` are set, or if `.mastra-project.json` is present. The CLI also resolves `X-Mastra-Organization-Id` from `MASTRA_ORGANIZATION_ID` or `.mastra-project.json`.
+1. **`npx --no-install mastra api learning` CLI** (preferred): use the same credential model as hosted observability commands. No `--url` or `--header` is required if `MASTRA_PLATFORM_ACCESS_TOKEN` and `MASTRA_PROJECT_ID` are set, or if `.mastra-project.json` is present. The CLI also resolves `X-Mastra-Organization-Id` from `MASTRA_ORGANIZATION_ID` or `.mastra-project.json`.
 
 ```bash
-mastra api learning entities '{"entityType":"agent"}'
+npx --no-install mastra api learning entities '{"entityType":"agent"}'
 ```
 
 Pass `--url` and `--header` only when overriding the hosted Trace Intelligence target or credentials.
 
-2. **Local dev server proxy**: `mastra dev` proxies `GET http://localhost:4111/api/learning/*` to the platform using its normal platform credentials. Loopback only.
+Before using the CLI path, verify the repository-pinned binary and command group. Do not fall through to a global or registry CLI:
+
+```bash
+npx --no-install mastra --version
+npx --no-install mastra api --help | grep -qE '(^|[[:space:]])learning([[:space:]]|$)'
+npx --no-install mastra api learning --help
+```
+
+If `learning` is unavailable in the installed pin, **do not install a newer CLI just for this command**. Use the direct read-only platform HTTP path below (or the local proxy when `npm run dev:agent` is already running) and verify the current official Trace Intelligence docs before changing command syntax.
+
+2. **Local dev server proxy**: `npm run dev:agent` (repo-pinned `mastra dev`) proxies `GET http://localhost:4111/api/learning/*` to the platform using its normal platform credentials. Loopback only.
 
 ```bash
 curl -fsS "http://localhost:4111/api/learning/entities?entityType=agent" | jq
@@ -57,35 +67,35 @@ Every route has a CLI command. Positional args carry `entityId`/`themeId`; the J
 
 | Command | Route |
 | --- | --- |
-| `mastra api learning entities '{"entityType":"agent"}'` | `/api/learning/entities` |
-| `mastra api learning snapshots <entityId> <input>` | `.../theme-snapshots` |
-| `mastra api learning flow <entityId> <input>` | `.../theme-flow` |
-| `mastra api learning paths <entityId> <input>` | `.../theme-paths` |
-| `mastra api learning theme list <entityId> <input>` | `.../themes` |
-| `mastra api learning theme get <entityId> <themeId> <input>` | `.../themes/:themeId` |
-| `mastra api learning theme examples <entityId> <themeId> <input>` | `.../themes/:themeId/examples` |
-| `mastra api learning theme history <entityId> <themeId> <input>` | `.../themes/:themeId/history` |
-| `mastra api learning noise get <entityId> <input>` | `.../noise` |
-| `mastra api learning noise examples <entityId> <input>` | `.../noise/examples` |
+| `npx --no-install mastra api learning entities '{"entityType":"agent"}'` | `/api/learning/entities` |
+| `npx --no-install mastra api learning snapshots <entityId> <input>` | `.../theme-snapshots` |
+| `npx --no-install mastra api learning flow <entityId> <input>` | `.../theme-flow` |
+| `npx --no-install mastra api learning paths <entityId> <input>` | `.../theme-paths` |
+| `npx --no-install mastra api learning theme list <entityId> <input>` | `.../themes` |
+| `npx --no-install mastra api learning theme get <entityId> <themeId> <input>` | `.../themes/:themeId` |
+| `npx --no-install mastra api learning theme examples <entityId> <themeId> <input>` | `.../themes/:themeId/examples` |
+| `npx --no-install mastra api learning theme history <entityId> <themeId> <input>` | `.../themes/:themeId/history` |
+| `npx --no-install mastra api learning noise get <entityId> <input>` | `.../noise` |
+| `npx --no-install mastra api learning noise examples <entityId> <input>` | `.../noise/examples` |
 
 Same workflow as the curl steps below:
 
 ```bash
 # 1. Discover entities and their available signals
-mastra api learning entities '{"entityType":"agent"}'
+npx --no-install mastra api learning entities '{"entityType":"agent"}'
 
 # 2. List snapshots (signalNames is ordered, comma-separated)
-mastra api learning snapshots my-agent \
+npx --no-install mastra api learning snapshots my-agent \
   '{"entityType":"agent","signalNames":"goal,outcome,behavior,sentiment","limit":10}'
 
 # 3. Themes for one signal in one snapshot (snapshotId from step 2)
-mastra api learning theme list my-agent \
+npx --no-install mastra api learning theme list my-agent \
   '{"entityType":"agent","signalName":"goal","snapshotId":"<snapshotId>"}'
 
 # 4. Drill into one theme (numeric themeId from step 3)
-mastra api learning theme examples my-agent 42 \
+npx --no-install mastra api learning theme examples my-agent 42 \
   '{"entityType":"agent","signalName":"goal","snapshotId":"<snapshotId>","limit":10}'
-mastra api learning theme history my-agent 42 \
+npx --no-install mastra api learning theme history my-agent 42 \
   '{"entityType":"agent","signalName":"goal"}'
 ```
 

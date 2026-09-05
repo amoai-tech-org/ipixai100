@@ -5,12 +5,12 @@ parent: mastra
 impact: HIGH
 impactDescription: Pick the right Mastra primitive before coding
 tags: mastra, agents, workflows, agent-controller, skills, tools, memory, storage
-source: https://github.com/mastra-ai/skills/blob/e43c0af58bcd982b21fb0037a4275830d0f2552c/skills/mastra/references/core-concepts.md
+source: https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/core-concepts.md
 ---
 
 # Core Concepts Reference
 
-Upstream base: [mastra-ai/skills `core-concepts.md` @ e43c0af](https://github.com/mastra-ai/skills/blob/e43c0af58bcd982b21fb0037a4275830d0f2552c/skills/mastra/references/core-concepts.md) (skill 2.1.0), with iPix additions for current installed primitives.
+Upstream base: [mastra-ai/skills `core-concepts.md` @ 690d5d6](https://github.com/mastra-ai/skills/blob/690d5d6cc6e918e73264b483ad3894ade7c763d9/skills/mastra/references/core-concepts.md) (skill 2.1.0), with iPix additions for current installed primitives.
 
 Use this when deciding which Mastra primitive to use or when explaining the high-level shape of a Mastra application.
 

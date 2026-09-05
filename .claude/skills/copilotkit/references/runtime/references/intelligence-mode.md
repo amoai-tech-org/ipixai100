@@ -8,7 +8,7 @@
 - [See also](#see-also)
 
 
-CopilotKit Intelligence supports **cloud-hosted and self-hosted deployment modes**. Current official docs describe self-hosting on Kubernetes with the `copilot-intelligence` Helm chart; self-host access is plan/licensing-gated. Do not assume the managed cloud is the only supported target.
+CopilotKit Intelligence supports **cloud-hosted and self-hosted deployment modes**. This is verified two ways: the installed `@copilotkit/runtime@1.68.1` client documents paired custom `apiUrl`/`wsUrl` overrides for a self-hosted deployment, and current official docs describe Kubernetes self-hosting with the `copilot-intelligence` Helm chart. Self-host access is plan/licensing-gated. Do not assume the managed cloud is the only supported target.
 
 For cloud-hosted Intelligence, obtain the current project credentials from CopilotKit. For self-hosted Intelligence, use the endpoints, identity, storage, and credentials defined by the deployed chart/current official self-hosting guide. Do not invent endpoint suffixes from old runtime internals.
 
@@ -320,6 +320,9 @@ new CopilotRuntime({
 LLM call on the Intelligence service side to generate a short name, billed against your Intelligence quota.
 
 Source: `packages/runtime/src/v2/runtime/core/runtime.ts` (generateThreadNames default).
+
+
+Official self-hosting reference: https://docs.copilotkit.ai/deepagents/intelligence/self-hosting
 
 ## See also
 

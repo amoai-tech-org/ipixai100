@@ -11,7 +11,7 @@ description: >
   discouraged. Load the reference under references/ that matches your task.
 type: core
 library: copilotkit
-library_version: "1.70.1"
+library_version: "1.68.1"
 requires: []
 sources:
   - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/fetch-handler.ts"
@@ -85,7 +85,7 @@ export default { fetch: handler };
 - `createCopilotRuntimeHandler` is the canonical primitive. `createCopilotExpressHandler` / `createCopilotHonoHandler` exist but are **avoid at all costs** — delegate from Express/Hono routes to the fetch primitive instead.
 - `publicLicenseKey` is the canonical provider-side field. `publicApiKey` is a **deprecated alias** — expect to see it in legacy code, emit the canonical name in new code.
 - Intelligence mode auto-wires `IntelligenceAgentRunner`. Passing both `runner` and `intelligence` to `CopilotRuntime` is rejected at construction.
-- Intelligence supports both cloud-hosted and licensed self-hosted deployments. Self-hosting uses CopilotKit's Kubernetes/Helm path; verify current endpoints and chart guidance instead of assuming the cloud URL shape.
+- Intelligence supports both cloud-hosted and plan-gated self-hosted deployments. The installed `@copilotkit/runtime@1.68.1` client explicitly supports paired custom `apiUrl`/`wsUrl` targets for self-hosted deployments; current official docs use CopilotKit's Kubernetes/Helm `copilot-intelligence` chart. Verify current endpoints and chart guidance instead of assuming the managed-cloud URL shape.
 - `hooks.onRequest` runs **before** `beforeRequestMiddleware` (hook-based middleware wins for Response short-circuits). `beforeRequestMiddleware` runs **after** `hooks.onRequest` (see `fetch-handler.ts:136-147`).
 - `identifyUser` (Intelligence) does **not** forward thrown `Response` objects — convert to 500. Gate auth rejection in `hooks.onRequest`, which does forward Responses.
 - `agents__unsafe_dev_only` and `selfManagedAgents` are dev-only aliases of each other; do not reach for them in production. Either signals that the SPA is in dev mode.

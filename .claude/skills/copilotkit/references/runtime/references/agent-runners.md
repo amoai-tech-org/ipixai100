@@ -308,6 +308,6 @@ Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:63-96`.
 
 ## See also
 
-- `copilotkit/intelligence-mode` — CopilotKit Intelligence durability path (cloud-hosted or licensed self-hosted)
+- `copilotkit/intelligence-mode` — CopilotKit Intelligence durability path (cloud-hosted or plan-gated self-hosted; installed 1.68.1 supports custom API/WS targets)
 - `copilotkit/setup-endpoint` — runner is passed via the CopilotRuntime constructor
 - `copilotkit/scale-to-multi-agent` — horizontal scaling considerations

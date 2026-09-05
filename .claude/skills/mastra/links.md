@@ -887,14 +887,14 @@ Index: https://mastra.ai/reference/memory/
 
 ---
 
-## mdeai repository
+## iPix repository
 
 | Artifact | Path |
 | --- | --- |
-| Runtime app | `mdeapp/` (`src/mastra/**`, `npm run dev:agent` → Studio `:4111`) |
+| Runtime app | `/home/sk/ipixai/` (`src/mastra/**`, `npm run dev:agent` → Studio `:4111`) |
 | CopilotKit bridge | `copilotkit-integrations` skill → `references/integrations/mastra.md` |
-| Mastra tasks | `tasks/mastra/` · `tasks/prompts/mastra/` |
+| Mastra docs | `docs/mastra/` |
 
 ---
 
-*Last audited against current Mastra docs/upstream skills on **2026-09-04**; this file is curated and is **not** a byte-for-byte llms.txt mirror. Canonical full index: [mastra.ai/llms.txt](https://mastra.ai/llms.txt) (Supatabs agents/memory/workflows/streaming + ACP + multi-user threads). Re-fetch when links 404. **MCP:** `searchMastraDocs` requires `projectPath` (e.g. `/home/sk/mdeai/mdeapp`). **Upstream:** [mastra-ai/mastra issues](https://github.com/mastra-ai/mastra/issues).*
+*Last audited against current Mastra docs/upstream skills on **2026-09-04**; this file is curated and is **not** a byte-for-byte llms.txt mirror. Canonical full index: [mastra.ai/llms.txt](https://mastra.ai/llms.txt) (Supatabs agents/memory/workflows/streaming + ACP + multi-user threads). Re-fetch when links 404. **MCP:** `searchMastraDocs` requires `projectPath`; determine the active repository root with `git rev-parse --show-toplevel` (iPix: `/home/sk/ipixai`). **Upstream:** [mastra-ai/mastra issues](https://github.com/mastra-ai/mastra/issues).*
