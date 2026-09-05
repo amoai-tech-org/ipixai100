@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 
 import { isOperatorNavHref } from "@/components/operator-panel/nav";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireAppWorkspace } from "@/lib/auth/app-shell";
+import {
+  appWorkspaceDependencies,
+  requireResolvedAppWorkspace,
+} from "@/lib/auth/app-shell";
 
 const COPY: Record<string, { heading: string; body: string }> = {
   brands: {
@@ -44,7 +47,7 @@ export default async function AppSectionPage({
 }: {
   params: Promise<{ section: string }>;
 }) {
-  await requireAppWorkspace();
+  await requireResolvedAppWorkspace(appWorkspaceDependencies);
   const { section } = await params;
   const href = `/app/${section}`;
   const copy = COPY[section];
