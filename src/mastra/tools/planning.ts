@@ -42,6 +42,11 @@ const ChannelSchema = z.enum(CHANNELS);
 // repeating one far past what dedupeChannels needs to see — bound the raw
 // array so validation/dedup never iterates an arbitrarily large duplicate list.
 const MAX_CHANNELS_INPUT = 50;
+// A schema-valid request can still carry pathologically long free-text
+// (brief, description, ...) that gets copied into every generated shot or
+// re-concatenated/lowercased on every scoring pass — bound string length
+// alongside array length so both dimensions of "too much input" are closed.
+const MAX_TEXT_LENGTH = 2000;
 
 /** De-dupes a validated channel array — a repeated channel is one target, not two. */
 function dedupeChannels(channels: readonly string[]): string[] {
@@ -85,9 +90,9 @@ const SHOOT_TYPE_BRIEF_BOOSTERS: Record<string, string[]> = {
 
 export const RecommendShootTypeInputSchema = z.object({
   channels: z.array(ChannelSchema).min(1).max(MAX_CHANNELS_INPUT),
-  brief: z.string().optional(),
-  productCategory: z.string().optional(),
-  brandDnaSummary: z.string().optional(),
+  brief: z.string().max(MAX_TEXT_LENGTH).optional(),
+  productCategory: z.string().max(MAX_TEXT_LENGTH).optional(),
+  brandDnaSummary: z.string().max(MAX_TEXT_LENGTH).optional(),
 });
 export const RecommendShootTypeOutputSchema = z.object({
   ...planningResultFields,
@@ -201,7 +206,7 @@ export const PlanDeliverablesInputSchema = z.object({
   shootType: ShootTypeSchema.optional(),
   brandDna: z
     .object({
-      productCategory: z.string().optional(),
+      productCategory: z.string().max(MAX_TEXT_LENGTH).optional(),
       styleKeywords: z.array(z.string().max(100)).max(50).optional(),
     })
     .optional(),
@@ -293,7 +298,7 @@ const SelectedDeliverableSchema = z.object({
 const TrustedReferenceShotTypeSchema = z.object({
   id: z.string(),
   angle: z.string(),
-  description: z.string(),
+  description: z.string().max(MAX_TEXT_LENGTH),
   channelFit: z.array(z.string()).max(MAX_CHANNEL_FIT),
   background: z.string().nullable().optional(),
 });
@@ -318,8 +323,8 @@ export const GenerateShotListDraftInputSchema = z.object({
     .min(1, "trustedReferenceShotTypes is required — the real trusted-reference provider is a separate upstream task; pass known reference rows explicitly until then")
     .max(MAX_TRUSTED_REFERENCES),
   shootType: z.string().optional(),
-  brandDnaSummary: z.string().optional(),
-  productNames: z.array(z.string()).max(MAX_PRODUCT_NAMES).optional(),
+  brandDnaSummary: z.string().max(MAX_TEXT_LENGTH).optional(),
+  productNames: z.array(z.string().max(MAX_TEXT_LENGTH)).max(MAX_PRODUCT_NAMES).optional(),
 });
 export const GenerateShotListDraftOutputSchema = z.object({
   ...planningResultFields,
@@ -464,27 +469,34 @@ export const estimateShootBudget = createTool({
       assumptions.push({ key: "shootDays", value: effectiveShootDays, source: DEFAULT_SOURCE, assumed: true });
     }
 
-    const effectiveCrewDayRate = rates?.crewDayRate;
+    // Each `effective*Rate` is resolved to its final number right here (not
+    // left undefined for a later `?? DEFAULT` at the point of use) — the
+    // variable name means what it says by the time execute() uses it below.
+    let effectiveCrewDayRate = rates?.crewDayRate;
     if (effectiveCrewDayRate === undefined) {
-      assumptions.push({ key: "crewDayRate", value: DEFAULT_CREW_DAY_RATE, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
+      effectiveCrewDayRate = DEFAULT_CREW_DAY_RATE;
+      assumptions.push({ key: "crewDayRate", value: effectiveCrewDayRate, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
     }
-    const effectiveStudioDayRate = rates?.studioDayRate;
+    let effectiveStudioDayRate = rates?.studioDayRate;
     if (effectiveStudioDayRate === undefined) {
+      effectiveStudioDayRate = DEFAULT_STUDIO_DAY_RATE[studioType as string] ?? DEFAULT_STUDIO_DAY_RATE.location;
       assumptions.push({
         key: "studioDayRate",
-        value: DEFAULT_STUDIO_DAY_RATE[studioType as string] ?? DEFAULT_STUDIO_DAY_RATE.location,
+        value: effectiveStudioDayRate,
         currency: effectiveCurrency,
         source: DEFAULT_SOURCE,
         assumed: true,
       });
     }
-    const effectiveEquipmentDayRate = rates?.equipmentDayRate;
+    let effectiveEquipmentDayRate = rates?.equipmentDayRate;
     if (effectiveEquipmentDayRate === undefined) {
-      assumptions.push({ key: "equipmentDayRate", value: DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
+      effectiveEquipmentDayRate = DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW;
+      assumptions.push({ key: "equipmentDayRate", value: effectiveEquipmentDayRate, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
     }
-    const effectivePostPerAsset = rates?.postPerAsset;
+    let effectivePostPerAsset = rates?.postPerAsset;
     if (effectivePostPerAsset === undefined) {
-      assumptions.push({ key: "postPerAsset", value: DEFAULT_POST_PER_ASSET, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
+      effectivePostPerAsset = DEFAULT_POST_PER_ASSET;
+      assumptions.push({ key: "postPerAsset", value: effectivePostPerAsset, currency: effectiveCurrency, source: DEFAULT_SOURCE, assumed: true });
     }
     let assets = totalAssets;
     if (assets === undefined) {
@@ -497,10 +509,10 @@ export const estimateShootBudget = createTool({
       });
     }
 
-    const crew = (crewCount as number) * (effectiveCrewDayRate ?? DEFAULT_CREW_DAY_RATE) * effectiveShootDays;
-    const studio = (effectiveStudioDayRate ?? DEFAULT_STUDIO_DAY_RATE[studioType as string] ?? DEFAULT_STUDIO_DAY_RATE.location) * effectiveShootDays;
-    const equipment = Math.round((crewCount as number) * (effectiveEquipmentDayRate ?? DEFAULT_EQUIPMENT_DAY_RATE_PER_CREW) * effectiveShootDays);
-    const post = assets * (effectivePostPerAsset ?? DEFAULT_POST_PER_ASSET);
+    const crew = (crewCount as number) * effectiveCrewDayRate * effectiveShootDays;
+    const studio = effectiveStudioDayRate * effectiveShootDays;
+    const equipment = Math.round((crewCount as number) * effectiveEquipmentDayRate * effectiveShootDays);
+    const post = assets * effectivePostPerAsset;
     const total = crew + studio + equipment + post;
 
     // Defense-in-depth: every input above is now bounded/finite by schema,

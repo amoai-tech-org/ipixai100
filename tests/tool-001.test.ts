@@ -217,6 +217,18 @@ describe("planDeliverables", () => {
         brandDna: { styleKeywords: Array(51).fill("minimal") },
       }).success,
     ).toBe(false);
+    expect(
+      PlanDeliverablesInputSchema.safeParse({
+        channels: ["shopify"],
+        brandDna: { styleKeywords: ["k".repeat(100)] },
+      }).success,
+    ).toBe(true);
+    expect(
+      PlanDeliverablesInputSchema.safeParse({
+        channels: ["shopify"],
+        brandDna: { styleKeywords: ["k".repeat(101)] },
+      }).success,
+    ).toBe(false);
   });
 
   it("uses the live Supabase spec (real aspect ratio/format) for a channel it covers, with reference provenance", async () => {
@@ -540,6 +552,29 @@ describe("domain bounds and finite guards", () => {
         selectedDeliverables: [{ channel: "instagram_feed", quantity: 501 }],
         trustedReferenceShotTypes: oneReference,
       }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a trustedReferenceShotType description at the max length and rejects one over it", () => {
+    const okRef = [{ id: "ref-1", angle: "front", description: "x".repeat(2000), channelFit: ["instagram_feed"] }];
+    const tooLongRef = [{ id: "ref-1", angle: "front", description: "x".repeat(2001), channelFit: ["instagram_feed"] }];
+    expect(
+      GenerateShotListDraftInputSchema.safeParse({
+        selectedDeliverables: [{ channel: "instagram_feed", quantity: 1 }],
+        trustedReferenceShotTypes: okRef,
+      }).success,
+    ).toBe(true);
+    expect(
+      GenerateShotListDraftInputSchema.safeParse({
+        selectedDeliverables: [{ channel: "instagram_feed", quantity: 1 }],
+        trustedReferenceShotTypes: tooLongRef,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a brief over the max text length structurally", () => {
+    expect(
+      RecommendShootTypeInputSchema.safeParse({ channels: ["shopify"], brief: "x".repeat(2001) }).success,
     ).toBe(false);
   });
 

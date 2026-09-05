@@ -69,6 +69,15 @@ export async function loadChannelSpecs(channels: readonly string[]): Promise<Map
 
     for (const rule of rules) {
       const channel = rule.condition_value as string;
+      // Every live channel_required row maps to exactly one platform/image-type
+      // pair today (confirmed 2026-09-05) — if a future row legitimately lists
+      // more than one candidate, only the first is used; warn so a silent
+      // narrowing shows up in logs instead of just producing a surprising format.
+      if ((rule.platform_slugs?.length ?? 0) > 1 || (rule.image_type_slugs?.length ?? 0) > 1) {
+        console.warn(
+          `[channel-specs] rule for "${channel}" has multiple platform/image-type candidates; using only the first (platform_slugs=${JSON.stringify(rule.platform_slugs)}, image_type_slugs=${JSON.stringify(rule.image_type_slugs)})`,
+        );
+      }
       const platformId = platformIdBySlug.get(rule.platform_slugs?.[0]);
       const imageTypeId = imageTypeIdBySlug.get(rule.image_type_slugs?.[0]);
       if (!platformId || !imageTypeId) continue;
@@ -80,10 +89,12 @@ export async function loadChannelSpecs(channels: readonly string[]): Promise<Map
         backgroundRequired: spec.background_required ?? null,
       });
     }
-  } catch {
+  } catch (err) {
     // Best-effort enrichment — any unexpected error (e.g. no request
     // context to resolve cookies from) falls back to the caller's default,
-    // it never breaks the deliverables draft.
+    // it never breaks the deliverables draft. Logged (not silent) so a real
+    // regression here — a renamed table, a typo'd column — is visible.
+    console.warn("[channel-specs] loadChannelSpecs failed, falling back to ipix_default:", err);
     return new Map();
   }
 
