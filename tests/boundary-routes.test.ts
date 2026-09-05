@@ -27,6 +27,11 @@ vi.mock("../src/components/ui/empty-state", () => ({
     createElement("div", { "data-testid": "empty-state" }, heading),
 }));
 
+vi.mock("../src/components/onboarding/onboarding-form", () => ({
+  OnboardingForm: ({ userId }: { userId: string }) =>
+    createElement("div", { "data-testid": "onboarding-form" }, userId),
+}));
+
 import OnboardingPage from "../src/app/onboarding/page";
 import OrgSelectionPage from "../src/app/org-selection/page";
 
@@ -62,7 +67,7 @@ describe("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experi
     const ui = await OnboardingPage();
     render(ui);
     expect(redirect).not.toHaveBeenCalled();
-    expect(screen.getByTestId("empty-state")).toBeDefined();
+    expect(screen.getByTestId("onboarding-form")).toBeDefined();
   });
 
   it("onboarding redirects a single-org operator to /app", async () => {
