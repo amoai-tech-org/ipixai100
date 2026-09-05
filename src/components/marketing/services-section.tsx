@@ -1,0 +1,41 @@
+import { BookOpen, CalendarCheck, Camera, PackageCheck, Palette } from "lucide-react";
+import { AnimatedSection } from "./animated-section";
+
+// V2 capability framing — the product journey, not a legacy 8-card service
+// catalog. Brand → Plan → Book → Produce → Deliver. Only shipped capabilities.
+const capabilities = [
+  { icon: Palette, title: "Brand", desc: "Bring your brand context and identity into iPix so every plan is on-brand." },
+  { icon: BookOpen, title: "Plan", desc: "Create a production-ready shoot plan with shot lists and deliverables." },
+  { icon: CalendarCheck, title: "Book", desc: "Hand off to talent, studio, and booking with clear dates and rates." },
+  { icon: Camera, title: "Produce", desc: "Manage the shoot and production from a single workspace." },
+  { icon: PackageCheck, title: "Deliver", desc: "Approve and receive final assets, ready for every channel." },
+];
+
+export function ServicesSection() {
+  return (
+    <section id="services" className="py-24 lg:py-32" style={{ background: "var(--mk-surface)" }}>
+      <div className="mx-auto max-w-7xl px-6 lg:px-12">
+        <AnimatedSection className="mb-20 text-center">
+          <p className="mb-4 text-sm font-medium uppercase tracking-[0.2em]" style={{ color: "var(--mk-text-muted)" }}>
+            How iPix Works
+          </p>
+          <h2 className="text-4xl font-light md:text-5xl">From Brand to Delivered Content</h2>
+        </AnimatedSection>
+
+        <div className="grid grid-cols-1 gap-px sm:grid-cols-2 lg:grid-cols-5" style={{ background: "var(--mk-border)" }}>
+          {capabilities.map((c) => (
+            <div
+              key={c.title}
+              className="group p-8 transition-colors lg:p-10"
+              style={{ background: "var(--mk-surface)" }}
+            >
+              <c.icon size={28} strokeWidth={1.2} className="mb-6" style={{ color: "var(--mk-text-muted)" }} />
+              <h3 className="mb-3 text-xl font-medium">{c.title}</h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--mk-text-muted)" }}>{c.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
