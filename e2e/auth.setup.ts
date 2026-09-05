@@ -12,6 +12,9 @@ import { signInAsE2ETestOperator } from "./support/login";
  */
 const authFile = path.resolve(__dirname, "../playwright/.auth/user.json");
 
+// This file enters a raw password; never persist trace/screenshot artifacts.
+setup.use({ trace: "off", screenshot: "off" });
+
 // A clean Next/Turbopack worktree may spend most of Playwright's default 30s
 // compiling /login and /app on the first authenticated request. Keep the
 // wider budget scoped to this one setup test instead of masking slow tests
