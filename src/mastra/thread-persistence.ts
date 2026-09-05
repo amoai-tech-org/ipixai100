@@ -1,6 +1,6 @@
 import type { MastraMemory } from "@mastra/core/memory";
 
-import { weatherAgent } from "@/mastra/agents";
+import { productionPlannerAgent } from "@/mastra/agents";
 import type { PlannerChatMessage, PlannerThreadRow } from "@/mastra/thread-types";
 
 export type { PlannerChatMessage, PlannerThreadRow };
@@ -48,7 +48,7 @@ export function splitRunThreadIds(resourceId: string, clientThreadId: string) {
 }
 
 export async function getPlannerMemory(): Promise<MastraMemory | undefined> {
-  return weatherAgent.getMemory();
+  return productionPlannerAgent.getMemory();
 }
 
 export async function ensureMastraThread(
