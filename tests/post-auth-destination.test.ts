@@ -14,6 +14,11 @@ describe("safeRedirect", () => {
     expect(safeRedirect("/org-selection")).toBe("/org-selection");
   });
 
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: preserves a query string on an allowlisted internal target", () => {
+    expect(safeRedirect("/planner?source=login")).toBe("/planner?source=login");
+    expect(safeRedirect("/app?tab=brands")).toBe("/app?tab=brands");
+  });
+
   it("rejects external URLs", () => {
     expect(safeRedirect("https://evil.example")).toBeNull();
     expect(safeRedirect("http://evil.example")).toBeNull();

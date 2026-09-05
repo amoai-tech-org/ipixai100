@@ -78,5 +78,7 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  return response;
+  // No verified session after exchange — fail closed to /login rather than
+  // returning the pre-built /planner response.
+  return redirectToLogin("auth", "session_required");
 }

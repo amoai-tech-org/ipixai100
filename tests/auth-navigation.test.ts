@@ -16,6 +16,11 @@ const getVerifiedOperatorFromCookies = vi.hoisted(() => vi.fn());
 const signInWithPassword = vi.hoisted(() => vi.fn());
 const signUp = vi.hoisted(() => vi.fn());
 const getClaims = vi.hoisted(() => vi.fn());
+const signInWithOAuth = vi.hoisted(() => vi.fn());
+
+vi.hoisted(() => {
+  process.env.NEXT_PUBLIC_SUPABASE_GOOGLE_OAUTH_ENABLED = "true";
+});
 
 vi.mock("next/navigation", () => ({
   redirect,
@@ -44,6 +49,7 @@ vi.mock("../src/lib/supabase/client", () => ({
       signInWithPassword,
       signUp,
       getClaims,
+      signInWithOAuth,
     },
   }),
 }));
@@ -109,6 +115,7 @@ afterEach(() => {
   signInWithPassword.mockReset();
   signUp.mockReset();
   getClaims.mockReset();
+  signInWithOAuth.mockReset();
   orgMembersQuery.mockReset();
   orgMembersQuery.mockResolvedValue({
     data: [{ org_id: "22222222-2222-4222-8222-222222222222" }],
@@ -221,6 +228,16 @@ describe("successful authentication navigates to /planner", () => {
     expect(screen.getByRole("button", { name: "Sign in" })).toBeDefined();
   });
 
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: Google button becomes disabled after the first click", async () => {
+    signInWithOAuth.mockReturnValue(new Promise(() => {}));
+    render(createElement(LoginForm, { next: null }));
+    const google = screen.getByRole("button", { name: "Continue with Google" });
+    fireEvent.click(google);
+    await waitFor(() => {
+      expect(google.getAttribute("disabled")).not.toBeNull();
+    });
+  });
+
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback redirects to /planner after a successful code exchange", async () => {
     const url = new URL("http://localhost:3000/auth/callback?code=abc123");
     const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
@@ -282,5 +299,23 @@ describe("successful authentication navigates to /planner", () => {
     const response = await GET(request);
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
+  });
+
+  it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: auth callback with no verified session redirects to /login", async () => {
+    serverCreateClientFromRequest.mockReturnValue({
+      auth: {
+        exchangeCodeForSession: vi.fn().mockResolvedValue({ error: null }),
+        getClaims: vi.fn().mockResolvedValue({
+          data: { claims: {} },
+          error: null,
+        }),
+      },
+      from: () => ({ select: () => ({ eq: orgMembersQuery }) }),
+    });
+    const url = new URL("http://localhost:3000/auth/callback?code=abc123");
+    const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
+    const response = await GET(request);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/login");
   });
 });

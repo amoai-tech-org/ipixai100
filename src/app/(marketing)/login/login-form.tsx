@@ -74,6 +74,7 @@ export function LoginForm({ next }: { next: string | null }) {
     if (submittedRef.current) return;
     submittedRef.current = true;
     setError(null);
+    setSubmitting(true);
     try {
       const supabase = createClient();
       const callback = new URL(`${window.location.origin}/auth/callback`);
@@ -88,6 +89,7 @@ export function LoginForm({ next }: { next: string | null }) {
     } catch {
       setError("Sign in failed");
     } finally {
+      setSubmitting(false);
       submittedRef.current = false;
     }
   }
