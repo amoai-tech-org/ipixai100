@@ -9,12 +9,41 @@ export type DashboardShoot = {
   id: string;
   name: string;
   status: string | null;
+  /** Owning brand id. Shoots load org-wide (not scoped to one brand), so
+   *  this is what lets the hero match a shoot to *its own* brand instead of
+   *  showing another brand's most recent shoot under the wrong hero. */
+  brandId: string;
   /** Real DNA score (0-100), when scored. Never fabricated. */
   dnaScore: number | null;
   /** First target channel, when set — used for the "IG · 4:5"-style meta
    *  line. No invented channel. */
   channel: string | null;
 };
+
+/**
+ * DASH-MAIN-002: pure hero-greeting logic (COPY+CLEAN of Lumina's
+ * buildHeroGreeting concept, ADAPTed — no fabricated fallback like Lumina's
+ * "generate IG deliverables for your active campaign" when nothing real is
+ * known). No approval-count branch: no real source exists yet, and the
+ * owning task hasn't shipped it —
+ * IPI-1084 · APPROVAL-001 — Let Operators Review, Edit, Approve, or Reject
+ * AI Plans Before Anything Is Saved
+ * Add that branch back only once a real pending-approval count can be
+ * supplied; a parameter every caller passes as `0` is speculative, not
+ * currently-supported behavior.
+ */
+export function buildHeroGreeting(input: {
+  brandName: string;
+  recentShootName?: string | null;
+}): { headline: string; subline: string } {
+  const { brandName, recentShootName } = input;
+  const headline = `You're working with ${brandName}.`;
+
+  if (recentShootName) {
+    return { headline, subline: `Continue planning ${recentShootName}.` };
+  }
+  return { headline, subline: "Ask the Production Planner what to work on next." };
+}
 
 const BRAND_LIMIT = 6;
 const SHOOT_LIMIT = 6;
@@ -172,6 +201,7 @@ export async function loadOrgShoots(
       id: string;
       name: string | null;
       status: string | null;
+      brand_id: string;
       dna_score: number | null;
       target_channels: string[] | null;
     }[];
@@ -181,6 +211,7 @@ export async function loadOrgShoots(
         id: row.id,
         name: row.name ?? "Untitled shoot",
         status: row.status,
+        brandId: row.brand_id,
         dnaScore: row.dna_score ?? null,
         channel: row.target_channels?.[0] ?? null,
       })),

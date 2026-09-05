@@ -1,6 +1,10 @@
 .shell {
   display: grid;
-  min-height: 100dvh;
+  /* height (not min-height): a grid's "1fr" row only gets a bounded size
+     when the grid container itself has a definite height — min-height lets
+     the grid grow to fit content instead, so nothing inside ever scrolls
+     independently and the whole page grows past the viewport. */
+  height: 100dvh;
   background: var(--color-bg-page);
   color: var(--color-text-primary);
   grid-template-columns: auto 1fr auto;
@@ -88,7 +92,33 @@
 .main {
   grid-area: main;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mainScroll {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
+}
+
+/* Persistent CopilotKit chat dock — center-column, not the right rail.
+   COPY+CLEAN of Lumina's operator-chat-dock.tsx position/geometry, rebuilt
+   on the current @copilotkit/react-core/v2 runtime (no old route-agent /
+   Cloudflare wiring). Fixed height rather than Lumina's flexible one — a
+   simple docked panel, not full-height chat. */
+.chatDock {
+  flex-shrink: 0;
+  /* min() instead of a bare 320px: on a short viewport (mobile, landscape)
+     a fixed 320px dock can eat most of the shell now that .shell is
+     height:100dvh-bounded — scale it down against the viewport instead of
+     a separate mobile breakpoint. 40dvh stays above 320px on any normal
+     desktop height, so this is a no-op there. */
+  height: min(320px, 40dvh);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  overflow: hidden;
 }
 
 .rail {

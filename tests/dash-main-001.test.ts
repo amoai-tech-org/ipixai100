@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildHeroGreeting,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
@@ -112,7 +113,12 @@ function fakeShootsSupabase(
       return orderBuilder(brandIds);
     },
     limit(n: number) {
-      const rows = brandIds.flatMap((id) => rowsByBrandId[id] ?? []);
+      // brand_id comes from the grouping key, same as the real
+      // `.in("brand_id", brandIds)` read — individual ShootRow fixtures
+      // don't need to repeat it.
+      const rows = brandIds.flatMap((id) =>
+        (rowsByBrandId[id] ?? []).map((row) => ({ ...row, brand_id: id })),
+      );
       return Promise.resolve({ data: rows.slice(0, n), error: null });
     },
   });
@@ -314,7 +320,9 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "in_progress", ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Shoot Alpha", status: "in_progress", brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
     if (result.ok) {
       expect(result.shoots.map((s) => s.id)).not.toContain("shoot-b1");
@@ -342,6 +350,7 @@ describe("loadOrgShoots", () => {
           id: "shoot-a1",
           name: "Shoot Alpha",
           status: "active",
+          brandId: BRAND_A1,
           dnaScore: 91,
           // First target channel only — the meta line shows one channel, not a list.
           channel: "IG",
@@ -379,7 +388,9 @@ describe("loadOrgShoots", () => {
     expect(selectCalls[0]).not.toMatch(/\bupdated_at\b/);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "active", ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Shoot Alpha", status: "active", brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
     if (result.ok) {
       expect(result.shoots[0]).not.toHaveProperty("coverUrl");
@@ -395,7 +406,9 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Shoot Alpha", status: "planning", ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Shoot Alpha", status: "planning", brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
   });
 
@@ -469,7 +482,9 @@ describe("loadOrgShoots", () => {
     const result = await loadOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({
       ok: true,
-      shoots: [{ id: "shoot-a1", name: "Untitled shoot", status: null, ...EMPTY_MEDIA }],
+      shoots: [
+        { id: "shoot-a1", name: "Untitled shoot", status: null, brandId: BRAND_A1, ...EMPTY_MEDIA },
+      ],
     });
   });
 
@@ -487,5 +502,25 @@ describe("loadOrgShoots", () => {
     if (result.ok) {
       expect(result.shoots[0]).not.toHaveProperty("updatedAt");
     }
+  });
+});
+
+describe("buildHeroGreeting", () => {
+  it("headlines with the real brand name", () => {
+    const { headline } = buildHeroGreeting({ brandName: "Majji" });
+    expect(headline).toBe("You're working with Majji.");
+  });
+
+  it("references the real recent shoot name when present", () => {
+    const { subline } = buildHeroGreeting({
+      brandName: "Majji",
+      recentShootName: "Spring Capsule",
+    });
+    expect(subline).toBe("Continue planning Spring Capsule.");
+  });
+
+  it("never fabricates a next action when nothing real is known", () => {
+    const { subline } = buildHeroGreeting({ brandName: "Majji" });
+    expect(subline).toBe("Ask the Production Planner what to work on next.");
   });
 });

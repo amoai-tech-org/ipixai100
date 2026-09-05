@@ -24,7 +24,14 @@ const BRANDS_FAILED = { ok: false as const };
 const SHOOTS_OK = {
   ok: true as const,
   shoots: [
-    { id: "shoot-1", name: "Shoot One", status: "in_progress", dnaScore: null, channel: null },
+    {
+      id: "shoot-1",
+      name: "Shoot One",
+      status: "in_progress",
+      brandId: "brand-1",
+      dnaScore: null,
+      channel: null,
+    },
   ],
 };
 const SHOOTS_EMPTY = { ok: true as const, shoots: [] };
@@ -109,7 +116,16 @@ describe("CommandCenter", () => {
     // contract yet (see the .recentThumb comment in command-center.tsx).
     const shoots = {
       ok: true as const,
-      shoots: [{ id: "shoot-2", name: "Shoot Two", status: "active", dnaScore: 91, channel: "IG" }],
+      shoots: [
+        {
+          id: "shoot-2",
+          name: "Shoot Two",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: 91,
+          channel: "IG",
+        },
+      ],
     };
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
     const tile = screen.getByText("Shoot Two").closest("a");
@@ -121,7 +137,16 @@ describe("CommandCenter", () => {
   it("shows a DNA score of exactly 0 rather than treating it as unscored", () => {
     const shoots = {
       ok: true as const,
-      shoots: [{ id: "shoot-3", name: "Shoot Three", status: "planning", dnaScore: 0, channel: null }],
+      shoots: [
+        {
+          id: "shoot-3",
+          name: "Shoot Three",
+          status: "planning",
+          brandId: "brand-1",
+          dnaScore: 0,
+          channel: null,
+        },
+      ],
     };
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
     expect(screen.getByText("0")).toBeDefined();
@@ -153,5 +178,89 @@ describe("CommandCenter", () => {
     render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_FAILED} />);
     expect(screen.queryByText("Workspace ready")).toBeNull();
     expect(screen.getByText("Workspace loaded")).toBeDefined();
+  });
+
+  it("shows the Production Planner label and a real-data greeting in the hero", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    const hero = screen.getByTestId("command-center-hero");
+    expect(within(hero).getByText("Production Planner")).toBeDefined();
+    expect(within(hero).getByText("You're working with Brand Alpha.")).toBeDefined();
+    // No real shoot/approval data in SHOOTS_OK's single null-score shoot's
+    // name isn't referenced (name is "Shoot One", not used as the subline
+    // source here) — falls through to the honest no-data subline.
+  });
+
+  it("hero subline references the most recent real shoot when one exists", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-4",
+          name: "Spring Capsule",
+          status: "active",
+          brandId: "brand-1",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
+    expect(
+      within(screen.getByTestId("command-center-hero")).getByText("Continue planning Spring Capsule."),
+    ).toBeDefined();
+  });
+
+  it("never references another brand's shoot in the hero subline", () => {
+    // heroBrand is BRANDS_OK's "brand-1"; this shoot belongs to a different
+    // brand entirely, so the hero must not claim it as "recent work" here.
+    const shoots = {
+      ok: true as const,
+      shoots: [
+        {
+          id: "shoot-5",
+          name: "Other Brand's Shoot",
+          status: "active",
+          brandId: "brand-2",
+          dnaScore: null,
+          channel: null,
+        },
+      ],
+    };
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
+    expect(
+      within(screen.getByTestId("command-center-hero")).getByText(
+        "Ask the Production Planner what to work on next.",
+      ),
+    ).toBeDefined();
+  });
+
+  it("hero subline never fabricates a next action when there is no real shoot", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_EMPTY} />);
+    expect(
+      within(screen.getByTestId("command-center-hero")).getByText(
+        "Ask the Production Planner what to work on next.",
+      ),
+    ).toBeDefined();
+  });
+
+  it("shows only the capability-gated Plan a shoot chip, not the unverified Lumina chips", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    const chip = screen.getByRole("link", { name: "Plan a shoot" });
+    expect(chip.getAttribute("href")).toBe("/app/plans");
+    // Generate deliverables / Review approvals have no real capability/route
+    // yet — no generation route exists, and the real approval source hasn't
+    // shipped:
+    // IPI-1084 · APPROVAL-001 — Let Operators Review, Edit, Approve, or Reject
+    // AI Plans Before Anything Is Saved
+    // Both must stay hidden.
+    expect(screen.queryByText("Generate deliverables")).toBeNull();
+    expect(screen.queryByText("Review approvals")).toBeNull();
+  });
+
+  it("renders the Recent work header with a View all link to /app/shoots", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByRole("heading", { name: "Recent work" })).toBeDefined();
+    const viewAll = screen.getByRole("link", { name: "View all" });
+    expect(viewAll.getAttribute("href")).toBe("/app/shoots");
   });
 });

@@ -39,6 +39,15 @@ vi.mock("../src/components/operator-panel/operator-panel.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
+// @copilotkit/react-core/v2's package entry pulls in its own bundled CSS,
+// which this repo's plain-node Vitest config (no CSS transform) can't load.
+// Stubbed here — these tests assert route/layout wiring, not CopilotKit's
+// internals (see operator-panel.test.tsx for the same stub).
+vi.mock("@copilotkit/react-core/v2", () => ({
+  CopilotKit: ({ children }: { children: React.ReactNode }) => createElement("div", null, children),
+  CopilotChat: () => createElement("div", { "data-testid": "copilot-chat-stub" }),
+}));
+
 vi.mock("../src/components/ui/empty-state.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));

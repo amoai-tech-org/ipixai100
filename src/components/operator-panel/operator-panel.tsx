@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -53,7 +54,24 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const navInert = isMobile && !navOpen;
 
   return (
-    <div className={styles.shell} data-testid="operator-panel">
+    // useSingleEndpoint={false} matches the multi-route
+    // /api/copilotkit/[[...slug]] handler (see planner-app.tsx's own
+    // provider) — the v1-compat bridge otherwise defaults to a single
+    // transport and 404s. Auth is server-side on the route itself
+    // (requirePlannerResourceId re-verifies the same AUTH-002 session that
+    // already gated this page), so no client handshake is needed here.
+    // showDevConsole / enableInspector explicitly off: their default dev-
+    // mode toast + floating inspector button sit at a high z-index and
+    // intercept clicks on the real page underneath (caught by an
+    // authenticated e2e smoke run — Quick Links stopped navigating with
+    // the CopilotKit provider mounted and these left on their default).
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      useSingleEndpoint={false}
+      showDevConsole={false}
+      enableInspector={false}
+    >
+      <div className={styles.shell} data-testid="operator-panel">
       <div className={styles.menuBar}>
         <Button
           type="button"
@@ -116,7 +134,23 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <main className={styles.main}>{children}</main>
+      <main className={styles.main}>
+        <div className={styles.mainScroll}>{children}</div>
+        <div className={styles.chatDock} data-testid="operator-chat-dock">
+          {/* agentId="default" resolves to weatherAgent
+              (src/mastra/agents/index.ts) — a generic demo assistant with
+              no brand/shoot context, not a real production-planning agent.
+              Copy here stays honest about that until a real planning agent
+              is registered. Planner internals are out of scope for this
+              parity pass — that's the owning follow-up under
+              IPI-1149 · DASH-MAIN-002 — Restore the Portfolio-First Command
+              Center Experience in iPix V2 */}
+          <CopilotChat
+            agentId="default"
+            labels={{ welcomeMessageText: "Ask a question to get started." }}
+          />
+        </div>
+      </main>
 
       <aside className={styles.rail} data-testid="intelligence-rail" aria-label="Intelligence rail">
         <p className={styles.railTitle}>Intelligence</p>
@@ -125,6 +159,7 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
         </p>
         <OpenPlannerLink className={cn(buttonVariants({ variant: "secondary", size: "sm" }))} />
       </aside>
-    </div>
+      </div>
+    </CopilotKit>
   );
 }
