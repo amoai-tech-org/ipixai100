@@ -90,7 +90,8 @@ export function OnboardingForm({ userId }: { userId: string }) {
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : "Failed to load onboarding");
+        console.error("onboarding load failed", err);
+        setLoadError("Couldn't load your onboarding. Please refresh and try again.");
         setLoading(false);
       }
     })();
@@ -184,9 +185,24 @@ export function OnboardingForm({ userId }: { userId: string }) {
       await materializeOnboarding(supabase, { brandName: name, websiteUrl }, { idempotencyKey: key });
       router.replace("/app");
     } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to create your brand. Please try again.",
-      );
+      // A concurrent materialization from another storage context may have won
+      // the race (the DB partial unique index rejects the second). Recover by
+      // checking whether the user is now onboarded instead of showing an error.
+      try {
+        const supabase = createClient();
+        const alreadyOnboarded = await hasMaterializedOnboardingSession(
+          supabase,
+          asOnboardingUserId(userId),
+        );
+        if (alreadyOnboarded) {
+          router.replace("/app");
+          return;
+        }
+      } catch {
+        // fall through to the error path below
+      }
+      console.error("onboarding materialization failed", err);
+      setSubmitError("Couldn't create your brand. Please try again.");
       setSubmitting(false);
     }
   };

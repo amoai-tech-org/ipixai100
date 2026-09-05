@@ -200,7 +200,8 @@ describe("updateOnboardingSessionDraft", () => {
   it("updates draft_answers on the session row", async () => {
     const supabase = mockSupabase();
     supabase.update.mockReturnValue(supabase);
-    supabase.eq.mockReturnValueOnce(supabase).mockResolvedValue({ error: null });
+    supabase.eq.mockReturnValue(supabase);
+    supabase.single.mockResolvedValue({ data: { id: "session-1" }, error: null });
     await updateOnboardingSessionDraft(supabase as never, asOnboardingSessionId("session-1"), {
       draft_answers: { brandName: "Maison Noir" },
     });
@@ -213,11 +214,27 @@ describe("updateOnboardingSessionDraft", () => {
   it("only persists sessions still in draft state", async () => {
     const supabase = mockSupabase();
     supabase.update.mockReturnValue(supabase);
-    supabase.eq.mockReturnValueOnce(supabase).mockResolvedValue({ error: null });
+    supabase.eq.mockReturnValue(supabase);
+    supabase.single.mockResolvedValue({ data: { id: "session-1" }, error: null });
     await updateOnboardingSessionDraft(supabase as never, asOnboardingSessionId("session-1"), {
       draft_answers: { brandName: "Maison Noir" },
     });
     expect(supabase.eq).toHaveBeenCalledWith("status", "draft");
+  });
+
+  it("rejects when the session is no longer in draft state", async () => {
+    const supabase = mockSupabase();
+    supabase.update.mockReturnValue(supabase);
+    supabase.eq.mockReturnValue(supabase);
+    supabase.single.mockResolvedValue({
+      data: null,
+      error: { code: "PGRST116", message: "The result contains 0 rows" },
+    });
+    await expect(
+      updateOnboardingSessionDraft(supabase as never, asOnboardingSessionId("session-1"), {
+        draft_answers: { brandName: "Maison Noir" },
+      }),
+    ).rejects.toThrow("no longer in draft state");
   });
 });
 
@@ -242,6 +259,14 @@ describe("hasMaterializedOnboardingSession", () => {
       asOnboardingUserId("user-1"),
     );
     expect(result).toBe(false);
+  });
+
+  it("throws when the materialized-session lookup fails", async () => {
+    const supabase = mockSupabase();
+    supabase.maybeSingle.mockResolvedValue({ data: null, error: { message: "db down" } });
+    await expect(
+      hasMaterializedOnboardingSession(supabase as never, asOnboardingUserId("user-1")),
+    ).rejects.toThrow("db down");
   });
 });
 

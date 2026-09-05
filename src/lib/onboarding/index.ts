@@ -93,14 +93,24 @@ export const updateOnboardingSessionDraft = async (
   sessionId: OnboardingSessionId,
   patch: { draft_answers?: Record<string, unknown> },
 ): Promise<void> => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("onboarding_sessions")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", sessionId)
-    .eq("status", "draft");
+    .eq("status", "draft")
+    .select("id")
+    .single();
 
   if (error) {
+    // PGRST116 = zero rows matched (session no longer a draft, e.g. materialized).
+    if (error.code === "PGRST116") {
+      throw new Error("Onboarding session is no longer in draft state");
+    }
     throw new Error(error.message ?? "Failed to update onboarding session");
+  }
+  // Defense-in-depth: a zero-row match must not report success.
+  if (!data) {
+    throw new Error("Onboarding session is no longer in draft state");
   }
 };
 

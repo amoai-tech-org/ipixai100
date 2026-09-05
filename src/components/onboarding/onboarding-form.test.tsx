@@ -54,7 +54,8 @@ function fakeSupabase(session: TestSession) {
       .fn()
       .mockResolvedValueOnce({ data: session, error: null })
       .mockResolvedValue({ data: null, error: null }),
-    single: vi.fn(),
+    // updateOnboardingSessionDraft selects the updated row id via .single().
+    single: vi.fn().mockResolvedValue({ data: { id: session.id }, error: null }),
     insert: vi.fn(() => supabase),
     update: vi.fn(() => supabase),
     rpc: vi.fn<() => Promise<RpcResponse>>().mockResolvedValue({
@@ -151,9 +152,21 @@ describe("OnboardingForm (IPI-1089 · ONBOARD-001)", () => {
   it("persists a pending draft before materializing on submit", async () => {
     supabaseMock = fakeSupabase(DRAFT_SESSION);
     const order: string[] = [];
+    let resolveUpdate!: (value: { data: { id: string }; error: null }) => void;
+    const updateGate = new Promise<{ data: { id: string }; error: null }>((resolve) => {
+      resolveUpdate = resolve;
+    });
     supabaseMock.update.mockImplementation(() => {
       order.push("update");
-      return supabaseMock;
+      return {
+        eq: () => ({
+          eq: () => ({
+            select: () => ({
+              single: () => updateGate,
+            }),
+          }),
+        }),
+      } as never;
     });
     supabaseMock.rpc.mockImplementation(async () => {
       order.push("rpc");
@@ -173,8 +186,11 @@ describe("OnboardingForm (IPI-1089 · ONBOARD-001)", () => {
     });
     // Submit before the 400ms debounce fires so the save is still pending.
     fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    // The save is still in flight — materialization must wait for it.
+    await waitFor(() => expect(order).toContain("update"));
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+    resolveUpdate({ data: { id: DRAFT_SESSION.id }, error: null });
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app"));
-    expect(order.indexOf("update")).toBeGreaterThanOrEqual(0);
     expect(order.indexOf("rpc")).toBeGreaterThan(order.indexOf("update"));
   });
 
@@ -182,7 +198,11 @@ describe("OnboardingForm (IPI-1089 · ONBOARD-001)", () => {
     supabaseMock = fakeSupabase(DRAFT_SESSION);
     supabaseMock.update.mockReturnValue({
       eq: () => ({
-        eq: () => Promise.resolve({ data: null, error: { message: "network down" } }),
+        eq: () => ({
+          select: () => ({
+            single: () => Promise.resolve({ data: null, error: { message: "network down" } }),
+          }),
+        }),
       }),
     } as never);
     render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
@@ -194,6 +214,59 @@ describe("OnboardingForm (IPI-1089 · ONBOARD-001)", () => {
     expect(await screen.findByTestId("onboarding-submit-error")).toBeDefined();
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
     expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers when the user retries after a failed draft save", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    supabaseMock.update
+      .mockReturnValueOnce({
+        eq: () => ({
+          eq: () => ({
+            select: () => ({
+              single: () => Promise.resolve({ data: null, error: { message: "network down" } }),
+            }),
+          }),
+        }),
+      } as never)
+      .mockReturnValue(supabaseMock);
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    await screen.findByTestId("onboarding-form");
+    fireEvent.change(screen.getByLabelText("Brand name"), {
+      target: { value: "New Brand" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    expect(await screen.findByTestId("onboarding-submit-error")).toBeDefined();
+    // Retry re-saves the failed snapshot, then submit materializes + navigates.
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app"));
+    expect(supabaseMock.rpc).toHaveBeenCalled();
+  });
+
+  it("redirects to /app when a concurrent materialization already won", async () => {
+    supabaseMock = fakeSupabase(DRAFT_SESSION);
+    supabaseMock.rpc.mockResolvedValue({
+      data: null,
+      error: {
+        message:
+          'duplicate key value violates unique constraint "onboarding_sessions_one_materialized_per_user"',
+      },
+    });
+    // getOrCreate → draft; load hasMaterialized → none; post-failure
+    // hasMaterialized → the other context's materialized row.
+    supabaseMock.maybeSingle
+      .mockReset()
+      .mockResolvedValueOnce({ data: DRAFT_SESSION, error: null })
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: { id: "materialized-1" }, error: null });
+    render(<OnboardingForm userId="22222222-2222-2222-2222-222222222222" />);
+    await screen.findByTestId("onboarding-form");
+    fireEvent.change(screen.getByLabelText("Brand name"), {
+      target: { value: "New Brand" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app"));
+    expect(screen.queryByTestId("onboarding-submit-error")).toBeNull();
   });
 
   it("shows a retryable error when materialization fails", async () => {
