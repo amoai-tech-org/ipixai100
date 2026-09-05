@@ -37,22 +37,29 @@ test.describe("dashboard (authenticated)", () => {
     await expect(plans).toHaveAttribute("href", "/app/plans");
   });
 
+  // Every toHaveURL below that follows a link click (not a goto) waits 30s,
+  // not the 5s expect() default: each is a client-side navigation to a
+  // not-yet-compiled /app/* route on a fresh checkout, and Next dev compiles
+  // a route on demand on first hit — the same cold-compile cost support/
+  // login.ts's /app redirect wait was widened for (PR #73). Reproduced
+  // locally against a genuinely cold .next for every route in this file, not
+  // just the one that happened to flake in CI, so all of them are widened.
   test("Brands quick link navigates to /app/brands", async ({ page }) => {
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Brands" }).click();
-    await expect(page).toHaveURL(/\/app\/brands$/);
+    await expect(page).toHaveURL(/\/app\/brands$/, { timeout: 30_000 });
   });
 
   test("Shoots quick link navigates to /app/shoots", async ({ page }) => {
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Shoots" }).click();
-    await expect(page).toHaveURL(/\/app\/shoots$/);
+    await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: 30_000 });
   });
 
   test("Plans quick link navigates to /app/plans", async ({ page }) => {
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Plans" }).click();
-    await expect(page).toHaveURL(/\/app\/plans$/);
+    await expect(page).toHaveURL(/\/app\/plans$/, { timeout: 30_000 });
   });
 
   // PR #66 additions below — the QA E2E account's org has 0 brands by
@@ -103,13 +110,13 @@ test.describe("dashboard (authenticated)", () => {
   test("Plan a shoot chip navigates to /app/plans", async ({ page }) => {
     await page.goto("/app");
     await page.getByRole("link", { name: "Plan a shoot" }).click();
-    await expect(page).toHaveURL(/\/app\/plans$/);
+    await expect(page).toHaveURL(/\/app\/plans$/, { timeout: 30_000 });
   });
 
   test("View all navigates to /app/shoots", async ({ page }) => {
     await page.goto("/app");
     await page.getByRole("link", { name: "View all" }).click();
-    await expect(page).toHaveURL(/\/app\/shoots$/);
+    await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: 30_000 });
   });
 
   test("scrolling the workspace does not detach the chat dock or block quick-link clicks", async ({
@@ -125,7 +132,7 @@ test.describe("dashboard (authenticated)", () => {
     await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
     await page.getByRole("link", { name: "Open Brands" }).click();
-    await expect(page).toHaveURL(/\/app\/brands$/);
+    await expect(page).toHaveURL(/\/app\/brands$/, { timeout: 30_000 });
   });
 
   test("a short viewport keeps both dashboard content and the chat dock reachable", async ({
