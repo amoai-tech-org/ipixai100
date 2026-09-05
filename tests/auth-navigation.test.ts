@@ -62,29 +62,29 @@ afterEach(() => {
   getVerifiedOperatorFromCookies.mockReset();
 });
 
-describe("successful authentication navigates to /planner (IPI-1057)", () => {
-  it("login page redirects an already-authenticated operator to /planner", async () => {
+describe("successful authentication navigates to /app", () => {
+  it("login page redirects an already-authenticated operator to /app", async () => {
     getVerifiedOperatorFromCookies.mockResolvedValue(operator);
-    await expect(LoginPage()).rejects.toThrow("REDIRECT:/planner");
-    expect(redirect).toHaveBeenCalledWith("/planner");
+    await expect(LoginPage()).rejects.toThrow("REDIRECT:/app");
+    expect(redirect).toHaveBeenCalledWith("/app");
   });
 
-  it("login form pushes /planner after a successful password sign-in", async () => {
+  it("login form pushes /app after a successful password sign-in", async () => {
     render(createElement(LoginForm));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "qa@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/planner");
+      expect(push).toHaveBeenCalledWith("/app");
       expect(refresh).toHaveBeenCalled();
     });
   });
 
-  it("auth callback redirects to /planner after a successful code exchange", async () => {
+  it("auth callback redirects to /app after a successful code exchange", async () => {
     const url = new URL("http://localhost:3000/auth/callback?code=abc123");
     const request = { url: url.toString(), nextUrl: url } as unknown as NextRequest;
     const response = await GET(request);
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/planner");
+    expect(response.headers.get("location")).toBe("http://localhost:3000/app");
   });
 });
