@@ -222,6 +222,14 @@ export async function loadOrgShoots(
   }
 }
 
+// loadTrustedBrandIds is uncapped (up to TRUSTED_BRAND_ID_MAX_PAGES *
+// TRUSTED_BRAND_ID_PAGE_SIZE = 25,000 ids for one org) — a single
+// `.in("brand_id", brandIds)` filter with all of them risks exceeding
+// Supabase's request URL/header size limit (~16KB). 200 UUIDs is ~7.4KB
+// URL-encoded, comfortably under that with headroom for the rest of the
+// request, so counts are summed across batches of this size instead.
+const BRAND_ID_FILTER_BATCH_SIZE = 200;
+
 /**
  * DASH-MAIN-002: exact org-wide shoot total for the Intelligence rail's
  * derived workspace state. loadOrgShoots's own `shoots` array is capped at
@@ -229,6 +237,9 @@ export async function loadOrgShoots(
  * would silently under-report the real total for any org past that cap, so
  * this is a separate head-only count query instead (no row data
  * transferred, index-backed via the same brand_id filter).
+ *
+ * A single batch failing anywhere returns ok:false for the whole call —
+ * never a partial/undercounted total silently passed off as complete.
  */
 export async function countOrgShoots(
   supabase: SupabaseClient,
@@ -238,15 +249,20 @@ export async function countOrgShoots(
     return { ok: true, count: 0 };
   }
   try {
-    const { count, error } = await supabase
-      .from("shoot_portfolio_view")
-      .select("id", { count: "exact", head: true })
-      .in("brand_id", brandIds);
-    if (error || count === null) {
-      console.error("dashboard.countOrgShoots: query failed", { error });
-      return { ok: false };
+    let total = 0;
+    for (let i = 0; i < brandIds.length; i += BRAND_ID_FILTER_BATCH_SIZE) {
+      const brandIdBatch = brandIds.slice(i, i + BRAND_ID_FILTER_BATCH_SIZE);
+      const { count, error } = await supabase
+        .from("shoot_portfolio_view")
+        .select("id", { count: "exact", head: true })
+        .in("brand_id", brandIdBatch);
+      if (error || count === null) {
+        console.error("dashboard.countOrgShoots: batch query failed", { error });
+        return { ok: false };
+      }
+      total += count;
     }
-    return { ok: true, count };
+    return { ok: true, count: total };
   } catch (err) {
     console.error("dashboard.countOrgShoots: threw", { err });
     return { ok: false };

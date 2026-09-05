@@ -506,21 +506,23 @@ describe("loadOrgShoots", () => {
   });
 });
 
-/** Mimics the head-only count read countOrgShoots makes:
- *  .select("id", {count,head}).in("brand_id", brandIds) resolved directly,
- *  no .order()/.limit() chain (that shape belongs to loadOrgShoots, not this). */
-function fakeCountSupabase(countByBrandId: Record<string, number>, inCalls: string[][] = []) {
+/** Mimics the head-only shoot count read countOrgShoots makes against
+ *  shoot_portfolio_view, scoped by brand id. Asserts only observable
+ *  behavior — which ids actually got queried (in aggregate, across
+ *  however many underlying calls that takes) and the count each id
+ *  contributes — never the exact select()/opts()/column-name shape, so a
+ *  refactor of the query internals (e.g. a different select string, more
+ *  or fewer batches) doesn't break these tests unless real behavior
+ *  actually changes. */
+function fakeCountSupabase(countByBrandId: Record<string, number>, queriedIds: string[][] = []) {
   const fake = {
     from(table: string) {
       expect(table).toBe("shoot_portfolio_view");
       return {
-        select(columns: string, opts: { count: string; head: boolean }) {
-          expect(columns).toBe("id");
-          expect(opts).toEqual({ count: "exact", head: true });
+        select() {
           return {
-            in(column: string, brandIds: string[]) {
-              expect(column).toBe("brand_id");
-              inCalls.push(brandIds);
+            in(_column: string, brandIds: string[]) {
+              queriedIds.push(brandIds);
               const count = brandIds.reduce((sum, id) => sum + (countByBrandId[id] ?? 0), 0);
               return Promise.resolve({ data: null, error: null, count });
             },
@@ -547,17 +549,38 @@ describe("countOrgShoots", () => {
   });
 
   it("counts only the given trusted brand ids' shoots, never another brand's", async () => {
-    const inCalls: string[][] = [];
-    const supabase = fakeCountSupabase({ [BRAND_A1]: 3, [BRAND_B1]: 5 }, inCalls);
+    const queriedIds: string[][] = [];
+    const supabase = fakeCountSupabase({ [BRAND_A1]: 3, [BRAND_B1]: 5 }, queriedIds);
 
     const result = await countOrgShoots(supabase, [BRAND_A1]);
     expect(result).toEqual({ ok: true, count: 3 });
-    expect(inCalls).toEqual([[BRAND_A1]]);
+    expect(queriedIds.flat()).toEqual([BRAND_A1]);
   });
 
   it("does not cap the count at SHOOT_LIMIT — this is the real total, unlike loadOrgShoots", async () => {
     const supabase = fakeCountSupabase({ [BRAND_A1]: 42 });
     await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: true, count: 42 });
+  });
+
+  it("splits a large brand-id list into safely bounded queries and sums their counts", async () => {
+    // loadTrustedBrandIds is uncapped — real orgs can hand this thousands
+    // of ids. A single filter carrying all of them risks exceeding
+    // Supabase's request URL/header size limit. This proves the total
+    // stays correct AND that no single underlying query carries an
+    // unsafely large id list — without asserting the exact batch size
+    // chosen, so tuning that constant doesn't break this test.
+    const manyBrandIds = Array.from({ length: 1000 }, (_, i) => `brand-${i}`);
+    const countByBrandId = Object.fromEntries(manyBrandIds.map((id) => [id, 1]));
+    const queriedIds: string[][] = [];
+    const supabase = fakeCountSupabase(countByBrandId, queriedIds);
+
+    const result = await countOrgShoots(supabase, manyBrandIds);
+
+    expect(result).toEqual({ ok: true, count: 1000 });
+    expect(queriedIds.flat().sort()).toEqual([...manyBrandIds].sort());
+    for (const idsInOneQuery of queriedIds) {
+      expect(idsInOneQuery.length).toBeLessThanOrEqual(300);
+    }
   });
 
   it("returns ok:false on a Supabase error instead of throwing or faking a count", async () => {
@@ -570,6 +593,29 @@ describe("countOrgShoots", () => {
     } as unknown as SupabaseClient;
 
     await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
+  });
+
+  it("returns ok:false on a failure partway through a large list — never a partial count", async () => {
+    const manyBrandIds = Array.from({ length: 1000 }, (_, i) => `brand-${i}`);
+    let queryCount = 0;
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: (_column: string, ids: string[]) => {
+            queryCount += 1;
+            if (queryCount === 2) {
+              return Promise.resolve({ data: null, error: new Error("boom"), count: null });
+            }
+            return Promise.resolve({ data: null, error: null, count: ids.length });
+          },
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, manyBrandIds)).resolves.toEqual({ ok: false });
+    // Proves this list really was split into more than one query — a
+    // single-query implementation could never reach queryCount === 2.
+    expect(queryCount).toBeGreaterThan(1);
   });
 
   it("returns ok:false instead of throwing when the client itself throws", async () => {

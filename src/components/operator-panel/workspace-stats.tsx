@@ -4,12 +4,12 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 export type WorkspaceStats = { brandCount: number; shootCount: number };
 
-type Ctx = {
+type WorkspaceStatsContextValue = {
   stats: WorkspaceStats | null;
   setStats: (stats: WorkspaceStats | null) => void;
 };
 
-const WorkspaceStatsContext = createContext<Ctx | null>(null);
+const WorkspaceStatsContext = createContext<WorkspaceStatsContextValue | null>(null);
 
 /**
  * Small derived-state bridge for the Intelligence rail. The `/app` dashboard
