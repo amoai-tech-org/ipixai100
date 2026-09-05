@@ -54,7 +54,7 @@
 
 **Do not** put Build Type, Sales Channels, Growth Preference, marketing interstitials, AI analysis, or DNA payoff ahead of `/app` unless product proves they are essential.
 
-**RPC contract (live):** `materialize_onboarding_session(idempotency_key, brand_name, brand_url)` — SECURITY INVOKER, `auth.uid()`, RLS on `onboarding_sessions`. Reuse unchanged unless a proven defect exists. Do **not** build three client inserts.
+**RPC contract (live):** `materialize_onboarding_session(p_idempotency_key, p_brand_name, p_brand_url)` — SECURITY INVOKER, `auth.uid()`, RLS on `onboarding_sessions`. Reuse unchanged unless a proven defect exists. Do **not** build three client inserts.
 
 ---
 
