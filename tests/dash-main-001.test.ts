@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildHeroGreeting,
+  countOrgShoots,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
@@ -502,6 +503,83 @@ describe("loadOrgShoots", () => {
     if (result.ok) {
       expect(result.shoots[0]).not.toHaveProperty("updatedAt");
     }
+  });
+});
+
+/** Mimics the head-only count read countOrgShoots makes:
+ *  .select("id", {count,head}).in("brand_id", brandIds) resolved directly,
+ *  no .order()/.limit() chain (that shape belongs to loadOrgShoots, not this). */
+function fakeCountSupabase(countByBrandId: Record<string, number>, inCalls: string[][] = []) {
+  const fake = {
+    from(table: string) {
+      expect(table).toBe("shoot_portfolio_view");
+      return {
+        select(columns: string, opts: { count: string; head: boolean }) {
+          expect(columns).toBe("id");
+          expect(opts).toEqual({ count: "exact", head: true });
+          return {
+            in(column: string, brandIds: string[]) {
+              expect(column).toBe("brand_id");
+              inCalls.push(brandIds);
+              const count = brandIds.reduce((sum, id) => sum + (countByBrandId[id] ?? 0), 0);
+              return Promise.resolve({ data: null, error: null, count });
+            },
+          };
+        },
+      };
+    },
+  };
+  return fake as unknown as SupabaseClient;
+}
+
+describe("countOrgShoots", () => {
+  it("returns ok:true with count 0, no query, when there are no trusted brand ids", async () => {
+    let called = false;
+    const supabase = {
+      from: () => {
+        called = true;
+        throw new Error("should not be called for an empty brandIds list");
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [])).resolves.toEqual({ ok: true, count: 0 });
+    expect(called).toBe(false);
+  });
+
+  it("counts only the given trusted brand ids' shoots, never another brand's", async () => {
+    const inCalls: string[][] = [];
+    const supabase = fakeCountSupabase({ [BRAND_A1]: 3, [BRAND_B1]: 5 }, inCalls);
+
+    const result = await countOrgShoots(supabase, [BRAND_A1]);
+    expect(result).toEqual({ ok: true, count: 3 });
+    expect(inCalls).toEqual([[BRAND_A1]]);
+  });
+
+  it("does not cap the count at SHOOT_LIMIT — this is the real total, unlike loadOrgShoots", async () => {
+    const supabase = fakeCountSupabase({ [BRAND_A1]: 42 });
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: true, count: 42 });
+  });
+
+  it("returns ok:false on a Supabase error instead of throwing or faking a count", async () => {
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          in: () => Promise.resolve({ data: null, error: new Error("boom"), count: null }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
+  });
+
+  it("returns ok:false instead of throwing when the client itself throws", async () => {
+    const supabase = {
+      from: () => {
+        throw new Error("network down");
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(countOrgShoots(supabase, [BRAND_A1])).resolves.toEqual({ ok: false });
   });
 });
 

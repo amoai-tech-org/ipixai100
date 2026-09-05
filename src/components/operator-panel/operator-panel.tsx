@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import { navItemIsActive, OPERATOR_NAV } from "./nav";
 import styles from "./operator-panel.module.css";
+import { useWorkspaceStats, WorkspaceStatsProvider } from "./workspace-stats";
 
 // Keep in sync with operator-panel.module.css @media (max-width: 767px)
 const MOBILE_NAV = "(max-width: 767px)";
@@ -25,6 +26,31 @@ function useMobileNav() {
     return () => mq.removeEventListener("change", sync);
   }, []);
   return isMobile;
+}
+
+/**
+ * `/app`-specific derived state: real, uncapped brand/shoot counts for the
+ * dashboard route only (see AppHomePage's ReportWorkspaceStats). Every
+ * other route — and the dashboard before its counts have loaded — falls
+ * back to the same generic copy the rail always showed, never a fabricated
+ * or stale count.
+ */
+function IntelligenceRailBody({ pathname }: { pathname: string }) {
+  const stats = useWorkspaceStats();
+  if (pathname === "/app" && stats) {
+    const brandNoun = stats.brandCount === 1 ? "brand" : "brands";
+    const shootNoun = stats.shootCount === 1 ? "shoot" : "shoots";
+    return (
+      <p className={styles.railBody} data-testid="intelligence-workspace-stats">
+        {stats.brandCount} {brandNoun} · {stats.shootCount} {shootNoun} in this workspace.
+      </p>
+    );
+  }
+  return (
+    <p className={styles.railBody}>
+      Planner chat stays in its own screen. Open it without replacing this workspace.
+    </p>
+  );
 }
 
 function OpenPlannerLink({
@@ -53,18 +79,19 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
   const isMobile = useMobileNav();
   const navInert = isMobile && !navOpen;
 
+  // useSingleEndpoint={false} matches the multi-route
+  // /api/copilotkit/[[...slug]] handler (see planner-app.tsx's own
+  // provider) — the v1-compat bridge otherwise defaults to a single
+  // transport and 404s. Auth is server-side on the route itself
+  // (requirePlannerResourceId re-verifies the same AUTH-002 session that
+  // already gated this page), so no client handshake is needed here.
+  // showDevConsole / enableInspector explicitly off: their default dev-
+  // mode toast + floating inspector button sit at a high z-index and
+  // intercept clicks on the real page underneath (caught by an
+  // authenticated e2e smoke run — Quick Links stopped navigating with
+  // the CopilotKit provider mounted and these left on their default).
   return (
-    // useSingleEndpoint={false} matches the multi-route
-    // /api/copilotkit/[[...slug]] handler (see planner-app.tsx's own
-    // provider) — the v1-compat bridge otherwise defaults to a single
-    // transport and 404s. Auth is server-side on the route itself
-    // (requirePlannerResourceId re-verifies the same AUTH-002 session that
-    // already gated this page), so no client handshake is needed here.
-    // showDevConsole / enableInspector explicitly off: their default dev-
-    // mode toast + floating inspector button sit at a high z-index and
-    // intercept clicks on the real page underneath (caught by an
-    // authenticated e2e smoke run — Quick Links stopped navigating with
-    // the CopilotKit provider mounted and these left on their default).
+    <WorkspaceStatsProvider>
     <CopilotKit
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
@@ -154,12 +181,11 @@ export function OperatorPanel({ children }: { children: React.ReactNode }) {
 
       <aside className={styles.rail} data-testid="intelligence-rail" aria-label="Intelligence rail">
         <p className={styles.railTitle}>Intelligence</p>
-        <p className={styles.railBody}>
-          Planner chat stays in its own screen. Open it without replacing this workspace.
-        </p>
+        <IntelligenceRailBody pathname={pathname} />
         <OpenPlannerLink className={cn(buttonVariants({ variant: "secondary", size: "sm" }))} />
       </aside>
       </div>
     </CopilotKit>
+    </WorkspaceStatsProvider>
   );
 }

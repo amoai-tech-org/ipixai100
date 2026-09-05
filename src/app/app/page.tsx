@@ -1,4 +1,5 @@
 import { CommandCenter } from "@/components/dashboard/command-center";
+import { ReportWorkspaceStats } from "@/components/operator-panel/workspace-stats";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { requireAppWorkspace } from "@/lib/auth/app-shell";
@@ -7,6 +8,7 @@ import {
   resolveRuntimeTenant,
 } from "@/lib/auth/runtime-org";
 import {
+  countOrgShoots,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
@@ -78,12 +80,26 @@ export default async function AppHomePage() {
     loadOrgBrands(supabase, tenant.orgId),
     loadTrustedBrandIds(supabase, tenant.orgId),
   ]);
-  const shootsResult = trustedBrandIdsResult.ok
-    ? await loadOrgShoots(supabase, trustedBrandIdsResult.brandIds)
-    : ({ ok: false } as const);
+  const [shootsResult, shootCountResult] = trustedBrandIdsResult.ok
+    ? await Promise.all([
+        loadOrgShoots(supabase, trustedBrandIdsResult.brandIds),
+        countOrgShoots(supabase, trustedBrandIdsResult.brandIds),
+      ])
+    : ([{ ok: false }, { ok: false }] as const);
 
   return (
     <div className="p-8">
+      {/* Intelligence rail's derived workspace state — real, uncapped
+          counts (trustedBrandIdsResult already has every trusted brand id,
+          not just the display-capped BRAND_LIMIT list; shootCountResult is
+          a dedicated count query for the same reason). Only reported when
+          both actually succeeded — no fabricated count on a failed read. */}
+      {trustedBrandIdsResult.ok && shootCountResult.ok && (
+        <ReportWorkspaceStats
+          brandCount={trustedBrandIdsResult.brandIds.length}
+          shootCount={shootCountResult.count}
+        />
+      )}
       <CommandCenter brandsResult={brandsResult} shootsResult={shootsResult} />
     </div>
   );

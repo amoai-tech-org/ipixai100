@@ -221,3 +221,34 @@ export async function loadOrgShoots(
     return { ok: false };
   }
 }
+
+/**
+ * DASH-MAIN-002: exact org-wide shoot total for the Intelligence rail's
+ * derived workspace state. loadOrgShoots's own `shoots` array is capped at
+ * SHOOT_LIMIT for the dashboard's display list — reusing its length here
+ * would silently under-report the real total for any org past that cap, so
+ * this is a separate head-only count query instead (no row data
+ * transferred, index-backed via the same brand_id filter).
+ */
+export async function countOrgShoots(
+  supabase: SupabaseClient,
+  brandIds: string[],
+): Promise<{ ok: true; count: number } | { ok: false }> {
+  if (brandIds.length === 0) {
+    return { ok: true, count: 0 };
+  }
+  try {
+    const { count, error } = await supabase
+      .from("shoot_portfolio_view")
+      .select("id", { count: "exact", head: true })
+      .in("brand_id", brandIds);
+    if (error || count === null) {
+      console.error("dashboard.countOrgShoots: query failed", { error });
+      return { ok: false };
+    }
+    return { ok: true, count };
+  } catch (err) {
+    console.error("dashboard.countOrgShoots: threw", { err });
+    return { ok: false };
+  }
+}
