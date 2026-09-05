@@ -110,6 +110,15 @@ export async function loadOrgBrands(
  * no error surfaced. Returns `ok: false` — never a partial list — if the
  * org's brand count exceeds what `TRUSTED_BRAND_ID_MAX_PAGES` pages can
  * hold; that ceiling exists only to bound the loop, not as a soft cap.
+ *
+ * Explicitly ordered by `id` — `.range(from, to)` without an ORDER BY has
+ * no guaranteed row order between separate requests, so a row could shift
+ * pages (or appear on two pages) between one page's fetch and the next.
+ * The `Set` dedupe below is defense in depth on top of that, not a
+ * substitute for it: an id repeated across batches would otherwise get
+ * double-counted by countOrgShoots and double-fetched (then, after
+ * loadOrgShoots's cross-batch sort, potentially duplicated) by
+ * loadOrgShoots.
  */
 export async function loadTrustedBrandIds(
   supabase: SupabaseClient,
@@ -124,6 +133,7 @@ export async function loadTrustedBrandIds(
         .from("brands")
         .select("id")
         .eq("org_id", orgId)
+        .order("id", { ascending: true })
         .range(from, to);
       if (error || !data) {
         console.error("dashboard.loadTrustedBrandIds: query failed", { orgId, page, error });
@@ -132,7 +142,7 @@ export async function loadTrustedBrandIds(
       const rows = data as { id: string }[];
       brandIds.push(...rows.map((row) => row.id));
       if (rows.length < TRUSTED_BRAND_ID_PAGE_SIZE) {
-        return { ok: true, brandIds };
+        return { ok: true, brandIds: [...new Set(brandIds)] };
       }
     }
     console.error("dashboard.loadTrustedBrandIds: exceeded max pages, refusing a partial scope", {
@@ -170,14 +180,23 @@ const BATCH_CONCURRENCY = 5;
  * dispatched chunks in the same concurrency group still run to completion
  * (they're plain reads with no side effect to cancel); no further groups
  * are started once a failure is seen.
+ *
+ * Deduped via Set before chunking — defense in depth on top of
+ * loadTrustedBrandIds's own dedupe. A duplicate id that happened to land
+ * in two different chunks would otherwise fetch (and double-count, or
+ * after loadOrgShoots's cross-batch sort, duplicate) the same underlying
+ * rows twice; a duplicate within the *same* chunk is already harmless
+ * (SQL `IN (x, x)` doesn't return `x`'s rows twice), so this is specifically
+ * about the cross-chunk case.
  */
 async function runBrandIdBatches<T>(
   ids: string[],
   run: (batch: string[]) => Promise<{ ok: true; value: T } | { ok: false }>,
 ): Promise<{ ok: true; values: T[] } | { ok: false }> {
+  const dedupedIds = [...new Set(ids)];
   const batches: string[][] = [];
-  for (let i = 0; i < ids.length; i += BRAND_ID_FILTER_BATCH_SIZE) {
-    batches.push(ids.slice(i, i + BRAND_ID_FILTER_BATCH_SIZE));
+  for (let i = 0; i < dedupedIds.length; i += BRAND_ID_FILTER_BATCH_SIZE) {
+    batches.push(dedupedIds.slice(i, i + BRAND_ID_FILTER_BATCH_SIZE));
   }
   const values: T[] = [];
   for (let i = 0; i < batches.length; i += BATCH_CONCURRENCY) {

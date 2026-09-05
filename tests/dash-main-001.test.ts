@@ -57,13 +57,18 @@ function fakeSupabase(
   return fake as unknown as SupabaseClient;
 }
 
-/** Mimics the paginated, unordered `brands` read `loadTrustedBrandIds` makes
- *  (`select("id").eq("org_id", …).range(from, to)`, called repeatedly until
- *  a page comes back shorter than the page size). `rangeCalls`, when passed,
- *  records every `[from, to]` pair so tests can assert page boundaries. */
+/** Mimics the paginated `brands` read `loadTrustedBrandIds` makes
+ *  (`select("id").eq("org_id", …).order("id", …).range(from, to)`, called
+ *  repeatedly until a page comes back shorter than the page size).
+ *  `rangeCalls`, when passed, records every `[from, to]` pair so tests can
+ *  assert page boundaries. `orderCalls`, when passed, records the `.order()`
+ *  call(s) so a test can assert deterministic ordering is actually requested
+ *  (without it, `.range()` pagination has no guaranteed row order between
+ *  separate requests — a row could be skipped or repeated across pages). */
 function fakeBrandIdsSupabase(
   rowsByOrg: Record<string, { id: string }[]>,
   rangeCalls?: [number, number][],
+  orderCalls?: OrderCall[],
 ) {
   const fake = {
     from(table: string) {
@@ -74,12 +79,17 @@ function fakeBrandIdsSupabase(
             eq(column: string, value: string) {
               expect(column).toBe("org_id");
               return {
-                range(from: number, to: number) {
-                  rangeCalls?.push([from, to]);
-                  return Promise.resolve({
-                    data: (rowsByOrg[value] ?? []).slice(from, to + 1),
-                    error: null,
-                  });
+                order(column: string, opts: { ascending: boolean }) {
+                  orderCalls?.push({ column, opts });
+                  return {
+                    range(from: number, to: number) {
+                      rangeCalls?.push([from, to]);
+                      return Promise.resolve({
+                        data: (rowsByOrg[value] ?? []).slice(from, to + 1),
+                        error: null,
+                      });
+                    },
+                  };
                 },
               };
             },
@@ -278,6 +288,61 @@ describe("loadTrustedBrandIds", () => {
     ]);
   });
 
+  it("orders by id — .range() pagination has no guaranteed row order without it", async () => {
+    const orderCalls: OrderCall[] = [];
+    const supabase = fakeBrandIdsSupabase(
+      { [ORG_A]: [{ id: "brand-a1" }] },
+      undefined,
+      orderCalls,
+    );
+
+    await loadTrustedBrandIds(supabase, ORG_A);
+
+    expect(orderCalls).toEqual([{ column: "id", opts: { ascending: true } }]);
+  });
+
+  it("dedupes brand ids that come back on more than one page", async () => {
+    // Real-world trigger for this: .range() pagination without a stable
+    // sort can return the same row on two different pages if row order
+    // shifts between requests (a bug in itself, fixed by the .order("id")
+    // above) — this proves the dedupe is a real safety net on top of that
+    // fix, not just decoration, by simulating exactly that failure mode.
+    let call = 0;
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            order: () => ({
+              range: (from: number, to: number) => {
+                call += 1;
+                if (call === 1) {
+                  return Promise.resolve({
+                    data: Array.from({ length: to - from + 1 }, (_, i) => ({
+                      id: `brand-${from + i}`,
+                    })),
+                    error: null,
+                  });
+                }
+                // Second page overlaps the first by one id instead of
+                // continuing cleanly — the exact shape a non-deterministic
+                // sort could produce.
+                return Promise.resolve({ data: [{ id: "brand-499" }], error: null });
+              },
+            }),
+          }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadTrustedBrandIds(supabase, ORG_A);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const occurrences = result.brandIds.filter((id) => id === "brand-499").length;
+      expect(occurrences).toBe(1);
+    }
+  });
+
   it("refuses a partial scope instead of returning ok:true when the org exceeds the page-count ceiling", async () => {
     // Every page comes back completely full, forever — this must give up
     // and fail rather than loop indefinitely or hand back a truncated list.
@@ -285,11 +350,13 @@ describe("loadTrustedBrandIds", () => {
       from: () => ({
         select: () => ({
           eq: () => ({
-            range: (from: number, to: number) =>
-              Promise.resolve({
-                data: Array.from({ length: to - from + 1 }, (_, i) => ({ id: `brand-${from + i}` })),
-                error: null,
-              }),
+            order: () => ({
+              range: (from: number, to: number) =>
+                Promise.resolve({
+                  data: Array.from({ length: to - from + 1 }, (_, i) => ({ id: `brand-${from + i}` })),
+                  error: null,
+                }),
+            }),
           }),
         }),
       }),
@@ -302,7 +369,9 @@ describe("loadTrustedBrandIds", () => {
     const supabase = {
       from: () => ({
         select: () => ({
-          eq: () => ({ range: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
+          eq: () => ({
+            order: () => ({ range: () => Promise.resolve({ data: null, error: new Error("boom") }) }),
+          }),
         }),
       }),
     } as unknown as SupabaseClient;
@@ -595,6 +664,26 @@ describe("loadOrgShoots", () => {
 
     await expect(loadOrgShoots(supabase, brandIds)).resolves.toEqual({ ok: false });
     expect(queryCount).toBeGreaterThan(1);
+  });
+
+  it("never returns a duplicate shoot when the brand-id list has a duplicate straddling a batch boundary", async () => {
+    // 250 distinct ids (batch size is 200) plus one repeat of the very
+    // first id, placed near the end — if the batching helper didn't
+    // dedupe before chunking, "brand-0" would land in both batch 1
+    // (ids 0-199) and batch 2 (ids 200-249, plus this repeat), and its
+    // one real shoot would be fetched — and returned — twice.
+    const brandIds = [...Array.from({ length: 250 }, (_, i) => `brand-${i}`), "brand-0"];
+    const rowsByBrandId: Record<string, ShootRow[]> = {
+      "brand-0": [{ id: "shoot-only", name: "Only Shoot", status: "active" }],
+    };
+    const supabase = fakeShootsSupabase(rowsByBrandId);
+
+    const result = await loadOrgShoots(supabase, brandIds);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.shoots.map((s) => s.id)).toEqual(["shoot-only"]);
+    }
   });
 });
 
