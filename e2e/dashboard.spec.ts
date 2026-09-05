@@ -2,6 +2,14 @@ import { test, expect } from "@playwright/test";
 
 import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
 
+// Single source of truth for the cold-compile navigation timeout used below
+// (was duplicated per-assertion) — see PR #73/#74. NAV_TIMEOUT_MS matches
+// the toHaveURL wait; TEST_TIMEOUT_MS gives that same test's *overall*
+// per-test budget (Playwright's default is 30s) enough headroom that the
+// preceding goto()/click() doesn't eat into the assertion's own window.
+const NAV_TIMEOUT_MS = 30_000;
+const TEST_TIMEOUT_MS = NAV_TIMEOUT_MS + 15_000;
+
 // PR #52 (IPI-1066) merged — /app is the real Command Center now, not the
 // pre-merge placeholder. These assertions run for real.
 test.describe("dashboard (authenticated)", () => {
@@ -37,29 +45,36 @@ test.describe("dashboard (authenticated)", () => {
     await expect(plans).toHaveAttribute("href", "/app/plans");
   });
 
-  // Every toHaveURL below that follows a link click (not a goto) waits 30s,
-  // not the 5s expect() default: each is a client-side navigation to a
-  // not-yet-compiled /app/* route on a fresh checkout, and Next dev compiles
-  // a route on demand on first hit — the same cold-compile cost support/
-  // login.ts's /app redirect wait was widened for (PR #73). Reproduced
-  // locally against a genuinely cold .next for every route in this file, not
-  // just the one that happened to flake in CI, so all of them are widened.
+  // Every toHaveURL below that follows a link click (not a goto) waits
+  // NAV_TIMEOUT_MS, not the 5s expect() default: each is a client-side
+  // navigation to a not-yet-compiled /app/* route on a fresh checkout, and
+  // Next dev compiles a route on demand on first hit — the same cold-compile
+  // cost support/login.ts's /app redirect wait was widened for (PR #73).
+  // Reproduced locally against a genuinely cold .next for every route in
+  // this file, not just the one that happened to flake in CI, so all of
+  // them are widened. Each such test also raises its own test.setTimeout so
+  // the preceding goto()/click() can't eat into that assertion's budget —
+  // Playwright's default 30s per-test timeout would otherwise still be able
+  // to abort the test before a full NAV_TIMEOUT_MS assertion wait completes.
   test("Brands quick link navigates to /app/brands", async ({ page }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Brands" }).click();
-    await expect(page).toHaveURL(/\/app\/brands$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/app\/brands$/, { timeout: NAV_TIMEOUT_MS });
   });
 
   test("Shoots quick link navigates to /app/shoots", async ({ page }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Shoots" }).click();
-    await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: NAV_TIMEOUT_MS });
   });
 
   test("Plans quick link navigates to /app/plans", async ({ page }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Plans" }).click();
-    await expect(page).toHaveURL(/\/app\/plans$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/app\/plans$/, { timeout: NAV_TIMEOUT_MS });
   });
 
   // PR #66 additions below — the QA E2E account's org has 0 brands by
@@ -108,20 +123,23 @@ test.describe("dashboard (authenticated)", () => {
   });
 
   test("Plan a shoot chip navigates to /app/plans", async ({ page }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "Plan a shoot" }).click();
-    await expect(page).toHaveURL(/\/app\/plans$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/app\/plans$/, { timeout: NAV_TIMEOUT_MS });
   });
 
   test("View all navigates to /app/shoots", async ({ page }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
     await page.goto("/app");
     await page.getByRole("link", { name: "View all" }).click();
-    await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/app\/shoots$/, { timeout: NAV_TIMEOUT_MS });
   });
 
   test("scrolling the workspace does not detach the chat dock or block quick-link clicks", async ({
     page,
   }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
     // Regression guard for the exact risk PR #66 called out: before its
     // shell height:100dvh fix, the whole page grew to fit content instead
     // of the dock pinning with independent scroll, and Quick Link clicks
@@ -132,7 +150,7 @@ test.describe("dashboard (authenticated)", () => {
     await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
     await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
     await page.getByRole("link", { name: "Open Brands" }).click();
-    await expect(page).toHaveURL(/\/app\/brands$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/app\/brands$/, { timeout: NAV_TIMEOUT_MS });
   });
 
   test("a short viewport keeps both dashboard content and the chat dock reachable", async ({
