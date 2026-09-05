@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { getOwnOrgId, supabaseForPage } from "./support/tenant-supabase";
+
 // PR #52 (IPI-1066) merged — /app is the real Command Center now, not the
 // pre-merge placeholder. These assertions run for real.
 test.describe("dashboard (authenticated)", () => {
@@ -51,5 +53,94 @@ test.describe("dashboard (authenticated)", () => {
     await page.goto("/app");
     await page.getByRole("link", { name: "Open Plans" }).click();
     await expect(page).toHaveURL(/\/app\/plans$/);
+  });
+
+  // PR #66 additions below — the QA E2E account's org has 0 brands by
+  // design (see the empty-state test above), so these prove the real,
+  // live integration for what that account's actual data can exercise:
+  // the chat dock, the capability-gated chip, "View all", and the
+  // shell/scroll layout the dock introduced. They do not (and cannot,
+  // without seeded multi-brand/multi-shoot data) prove the hero's
+  // cross-brand exclusion — that's covered at the component-test level
+  // (command-center.test.tsx: "never references another brand's shoot in
+  // the hero subline") and recorded as a known e2e coverage gap.
+
+  test("hero card does not render for the QA org's real 0-brand state", async ({ page }) => {
+    // Deterministic, not assumed: confirm this session resolves to exactly
+    // one real organization and that organization's brands really are 0
+    // right now (read-only, RLS-enforced) before asserting on it — a
+    // drifted QA account would otherwise fail with a confusing "No brands
+    // yet" heading-not-found instead of a clear brand-count mismatch.
+    const orgId = await getOwnOrgId(page);
+    const supabase = await supabaseForPage(page);
+    const { count, error } = await supabase
+      .from("brands")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId);
+    expect(error, `brands count read failed: ${error?.message ?? "unknown"}`).toBeNull();
+    expect(
+      count,
+      "expected the QA org to have 0 brands — this is the deterministic precondition for the hero-absence proof below",
+    ).toBe(0);
+
+    // Real conditional-render proof, not mocked: heroBrand is undefined
+    // when brandsResult.brands is empty, so <HeroCard> must not render at
+    // all — same account/org as the "No brands yet" empty-state test.
+    await page.goto("/app");
+    await expect(page.getByRole("heading", { name: "No brands yet" })).toBeVisible();
+    await expect(page.getByTestId("command-center-hero")).toHaveCount(0);
+  });
+
+  test("persistent chat dock is visible on /app and stays capability-honest", async ({ page }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+    // No fabricated actions — real capability gate (quick-action-chips.tsx),
+    // asserted live, not just in the mocked component test.
+    await expect(page.getByText("Generate deliverables")).toHaveCount(0);
+    await expect(page.getByText("Review approvals")).toHaveCount(0);
+  });
+
+  test("Plan a shoot chip navigates to /app/plans", async ({ page }) => {
+    await page.goto("/app");
+    await page.getByRole("link", { name: "Plan a shoot" }).click();
+    await expect(page).toHaveURL(/\/app\/plans$/);
+  });
+
+  test("View all navigates to /app/shoots", async ({ page }) => {
+    await page.goto("/app");
+    await page.getByRole("link", { name: "View all" }).click();
+    await expect(page).toHaveURL(/\/app\/shoots$/);
+  });
+
+  test("scrolling the workspace does not detach the chat dock or block quick-link clicks", async ({
+    page,
+  }) => {
+    // Regression guard for the exact risk PR #66 called out: before its
+    // shell height:100dvh fix, the whole page grew to fit content instead
+    // of the dock pinning with independent scroll, and Quick Link clicks
+    // silently stopped registering as navigation. Scrolling into view of
+    // a landmark deep in the main content exercises that inner scroll
+    // region; the dock and a nav link must both remain live afterward.
+    await page.goto("/app");
+    await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
+    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+    await page.getByRole("link", { name: "Open Brands" }).click();
+    await expect(page).toHaveURL(/\/app\/brands$/);
+  });
+
+  test("a short viewport keeps both dashboard content and the chat dock reachable", async ({
+    page,
+  }) => {
+    // Mobile landscape-ish height, not just mobile-chromium's 390x844
+    // portrait — the dock's height:min(320px,40dvh) fix specifically
+    // targets short viewports, so prove it at one.
+    await page.setViewportSize({ width: 390, height: 500 });
+    await page.goto("/app");
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
+    // Both surfaces reachable, not just present: scroll to a deep main-
+    // content landmark, then confirm the dock is still there afterward.
+    await page.getByRole("heading", { name: "Quick links" }).scrollIntoViewIfNeeded();
+    await expect(page.getByTestId("operator-chat-dock")).toBeVisible();
   });
 });
