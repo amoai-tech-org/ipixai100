@@ -28,6 +28,8 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+const lastNextProp = vi.hoisted(() => ({ value: null as string | null }));
+
 vi.mock("next/dynamic", () => ({
   default: (
     loader: () => Promise<React.ComponentType<{ next: string | null }>>,
@@ -35,8 +37,9 @@ vi.mock("next/dynamic", () => ({
     const DynamicLoginForm = (props: { next: string | null }) => {
       const [Comp, setComp] = useState<React.ComponentType<{ next: string | null }> | null>(null);
       useEffect(() => {
+        lastNextProp.value = props.next;
         loader().then((m) => setComp(() => m));
-      }, []);
+      }, [props.next]);
       return Comp ? createElement(Comp, props) : null;
     };
     return DynamicLoginForm;
@@ -157,10 +160,12 @@ describe("successful authentication navigates to /planner", () => {
     const ui = await LoginPage({
       searchParams: Promise.resolve({
         next: ["/planner", "/app"],
-      }) as never,
+      }),
     });
     render(ui);
     expect(await screen.findByLabelText("Email")).toBeDefined();
+    // The lazy form receives the normalized first query value.
+    expect(lastNextProp.value).toBe("/planner");
   });
 
   it("IPI-1058 · MARKETING-LOGIN-001 — Reuse the Proven iPix Login Experience With the New Supabase Auth Setup: login form pushes /planner after a successful password sign-in", async () => {
