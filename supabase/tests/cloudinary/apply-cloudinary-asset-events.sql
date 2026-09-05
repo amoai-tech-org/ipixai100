@@ -1,10 +1,13 @@
 -- IPI-1111 · CLD-WEBHOOK-001 — SQL state-machine fixtures.
--- Requires migration 20260903020000_ipi1111_apply_cloudinary_asset_event.sql applied
+-- Requires migrations applied in order:
+--   20260903020000_ipi1111_apply_cloudinary_asset_event.sql
+--   20260905094610_ipi1111-schema-version-guard.sql
 -- on a schema matching apply-cloudinary-ci-seed.sql (CI) or production-shaped tables.
 -- Runner: CI job cloudinary-webhook-rpc (also safe manually with rollback).
 --
 -- Covers: duplicate-after-delete, stale delete, two-resource delete batch,
--- foreign brand (no move), partial rename (preserve resource_type), missing provider id.
+-- foreign brand (no move), partial rename (preserve resource_type), missing provider id,
+-- first-seen schema_version guard, missing org_id, brand/org mismatch, existing-provider ownership.
 
 begin;
 
@@ -51,6 +54,7 @@ begin
     'asset_id', asset_1,
     'brand_id', brand_a,
     'org_id', org_a,
+    'schema_version', '1',
     'format', 'jpg'
   ));
   if r->>'outcome' is distinct from 'applied' then
@@ -225,7 +229,8 @@ begin
     'request_id', 'req-upload-2',
     'asset_id', asset_2,
     'brand_id', brand_a,
-    'org_id', org_a
+    'org_id', org_a,
+    'schema_version', '1'
   ));
   if r->>'outcome' is distinct from 'applied' then
     raise exception 'second upload expected applied, got %', r;
@@ -254,6 +259,110 @@ begin
   if (batch->'results'->0->>'outcome') is distinct from 'archived'
      or (batch->'results'->1->>'outcome') is distinct from 'archived' then
     raise exception 'batch delete outcomes not archived: %', batch;
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- IPI-1111 regression: first-seen asset without schema_version must be rejected
+  ---------------------------------------------------------------------------
+  r := public.apply_cloudinary_asset_event(jsonb_build_object(
+    'kind', 'upload',
+    'cloudinary_asset_id', 'cld-no-schema',
+    'version', 1,
+    'public_id', 'brands/a/no-schema',
+    'secure_url', 'https://res.example/no-schema',
+    'resource_type', 'image',
+    'delivery_type', 'authenticated',
+    'request_id', 'req-no-schema',
+    'asset_id', asset_1,
+    'brand_id', brand_a,
+    'org_id', org_a
+  ));
+  if r->>'outcome' is distinct from 'noop_missing_schema_version' then
+    raise exception 'first-seen without schema_version expected noop_missing_schema_version, got %', r;
+  end if;
+
+  -- No asset or mirror row should have been created for the rejected provider.
+  if exists (select 1 from public.cloudinary_assets where cloudinary_asset_id = 'cld-no-schema') then
+    raise exception 'first-seen without schema_version created a mirror row';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- IPI-1111 regression: first-seen asset with schema_version=1 but missing org_id
+  ---------------------------------------------------------------------------
+  r := public.apply_cloudinary_asset_event(jsonb_build_object(
+    'kind', 'upload',
+    'cloudinary_asset_id', 'cld-no-org',
+    'version', 1,
+    'public_id', 'brands/a/no-org',
+    'secure_url', 'https://res.example/no-org',
+    'resource_type', 'image',
+    'delivery_type', 'authenticated',
+    'request_id', 'req-no-org',
+    'asset_id', asset_1,
+    'brand_id', brand_a,
+    'schema_version', '1'
+  ));
+  if r->>'outcome' is distinct from 'noop_missing_org_id' then
+    raise exception 'first-seen without org_id expected noop_missing_org_id, got %', r;
+  end if;
+
+  if exists (select 1 from public.cloudinary_assets where cloudinary_asset_id = 'cld-no-org') then
+    raise exception 'first-seen without org_id created a mirror row';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- IPI-1111 regression: first-seen asset with brand/org mismatch
+  ---------------------------------------------------------------------------
+  r := public.apply_cloudinary_asset_event(jsonb_build_object(
+    'kind', 'upload',
+    'cloudinary_asset_id', 'cld-mismatch',
+    'version', 1,
+    'public_id', 'brands/a/mismatch',
+    'secure_url', 'https://res.example/mismatch',
+    'resource_type', 'image',
+    'delivery_type', 'authenticated',
+    'request_id', 'req-mismatch',
+    'asset_id', asset_1,
+    'brand_id', brand_a,
+    'org_id', org_b,
+    'schema_version', '1'
+  ));
+  if r->>'outcome' is distinct from 'noop_unknown_brand' then
+    raise exception 'first-seen with brand/org mismatch expected noop_unknown_brand, got %', r;
+  end if;
+
+  if exists (select 1 from public.cloudinary_assets where cloudinary_asset_id = 'cld-mismatch') then
+    raise exception 'first-seen with brand/org mismatch created a mirror row';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- IPI-1111 regression: existing asset ignores malicious context
+  ---------------------------------------------------------------------------
+  -- provider_1 already exists with brand_a/org_a. A replay with brand_b/org_b
+  -- must NOT retarget ownership.
+  r := public.apply_cloudinary_asset_event(jsonb_build_object(
+    'kind', 'overwrite',
+    'cloudinary_asset_id', provider_1,
+    'version', 11,
+    'public_id', 'brands/a/shot',
+    'secure_url', 'https://res.example/a11',
+    'request_id', 'req-malicious-overwrite',
+    'asset_id', asset_1,
+    'brand_id', brand_b,
+    'org_id', org_b,
+    'schema_version', '1'
+  ));
+  if r->>'outcome' is distinct from 'applied' then
+    raise exception 'existing asset overwrite expected applied, got %', r;
+  end if;
+
+  select a.brand_id, a.v2_shoot_id
+  into strict brand_seen, resource_t
+  from public.assets a
+  where a.id = asset_1;
+
+  if brand_seen is distinct from brand_a then
+    raise exception 'existing asset brand was retargeted to %', brand_seen;
   end if;
 
   raise notice 'IPI-1111 SQL state-machine fixtures OK';

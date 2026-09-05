@@ -265,7 +265,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - name: Seed schema, apply migration, run SQL fixture
+      - name: Seed schema, apply migrations, run SQL fixture
         env:
           PGPASSWORD: postgres
         run: |
@@ -273,6 +273,8 @@ jobs:
             -f supabase/tests/cloudinary/apply-cloudinary-ci-seed.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/migrations/20260903020000_ipi1111_apply_cloudinary_asset_event.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260905094610_ipi1111-schema-version-guard.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f supabase/tests/cloudinary/apply-cloudinary-asset-events.sql
 

@@ -31,6 +31,10 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
     expect(outcomeNeedsRetry("noop_missing_brand_id")).toBe(false);
     expect(WEBHOOK_OK_OUTCOMES.has("noop_missing_brand_id")).toBe(true);
     expect(WEBHOOK_RETRY_OUTCOMES.has("noop_missing_brand_id")).toBe(false);
+    expect(outcomeNeedsRetry("noop_missing_schema_version")).toBe(false);
+    expect(WEBHOOK_OK_OUTCOMES.has("noop_missing_schema_version")).toBe(true);
+    expect(outcomeNeedsRetry("noop_missing_org_id")).toBe(false);
+    expect(WEBHOOK_OK_OUTCOMES.has("noop_missing_org_id")).toBe(true);
     expect(outcomeNeedsRetry("applied")).toBe(false);
     expect(outcomeNeedsRetry("batch_applied")).toBe(false);
   });
@@ -58,6 +62,7 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
           org_id: ORG,
           brand_id: BRAND,
           v2_shoot_id: SHOOT,
+          schema_version: "1",
         },
       },
     });
@@ -136,25 +141,119 @@ describe("IPI-1111 Cloudinary webhook normalize + context", () => {
     expect(payload.delivery_type).toBeNull();
   });
 
-  it("parses pipe-delimited context strings", async () => {
+  it("parses pipe-delimited context strings with schema_version=1", async () => {
     const { readIpixUploadContext } = await import(
       "../src/lib/cloudinary/upload-context"
     );
     const ctx = readIpixUploadContext(
-      `asset_id=${ASSET}|brand_id=${BRAND}|org_id=${ORG}`,
+      `asset_id=${ASSET}|brand_id=${BRAND}|org_id=${ORG}|schema_version=1`,
     );
     expect(ctx.assetId).toBe(ASSET);
     expect(ctx.brandId).toBe(BRAND);
+    expect(ctx.schemaVersion).toBe("1");
   });
 
-  it("keeps signed context.custom authoritative over metadata", async () => {
+  it("nulls out org/brand/v2_shoot_id when schema_version is absent", async () => {
+    const { readIpixUploadContext } = await import(
+      "../src/lib/cloudinary/upload-context"
+    );
+    const ctx = readIpixUploadContext({
+      custom: { asset_id: ASSET, brand_id: BRAND, org_id: ORG, v2_shoot_id: SHOOT },
+    });
+    expect(ctx.assetId).toBe(ASSET);
+    expect(ctx.schemaVersion).toBeNull();
+    expect(ctx.orgId).toBeNull();
+    expect(ctx.brandId).toBeNull();
+    expect(ctx.v2ShootId).toBeNull();
+  });
+
+  it("nulls out org/brand/v2_shoot_id when schema_version is not '1'", async () => {
+    const { readIpixUploadContext } = await import(
+      "../src/lib/cloudinary/upload-context"
+    );
+    const ctx = readIpixUploadContext({
+      custom: {
+        asset_id: ASSET,
+        brand_id: BRAND,
+        org_id: ORG,
+        v2_shoot_id: SHOOT,
+        schema_version: "2",
+      },
+    });
+    expect(ctx.assetId).toBe(ASSET);
+    expect(ctx.schemaVersion).toBe("2");
+    expect(ctx.orgId).toBeNull();
+    expect(ctx.brandId).toBeNull();
+    expect(ctx.v2ShootId).toBeNull();
+  });
+
+  it("propagates schema_version through toRpcPayload", async () => {
+    const { normalizeCloudinaryNotifications, toRpcPayload } = await import(
+      "../src/lib/cloudinary/webhook-normalize"
+    );
+    const [event] = normalizeCloudinaryNotifications({
+      notification_type: "upload",
+      request_id: "req-1",
+      asset_id: PROVIDER,
+      public_id: "brands/x/shot",
+      version: 8,
+      secure_url: "https://res.cloudinary.com/demo/image/authenticated/v8/brands/x/shot",
+      resource_type: "image",
+      type: "authenticated",
+      context: {
+        custom: {
+          asset_id: ASSET,
+          org_id: ORG,
+          brand_id: BRAND,
+          v2_shoot_id: SHOOT,
+          schema_version: "1",
+        },
+      },
+    });
+    const payload = toRpcPayload(event!);
+    expect(payload.schema_version).toBe("1");
+    expect(payload.asset_id).toBe(ASSET);
+    expect(payload.brand_id).toBe(BRAND);
+    expect(payload.org_id).toBe(ORG);
+    expect(payload.v2_shoot_id).toBe(SHOOT);
+  });
+
+  it("propagates null schema_version through toRpcPayload", async () => {
+    const { normalizeCloudinaryNotifications, toRpcPayload } = await import(
+      "../src/lib/cloudinary/webhook-normalize"
+    );
+    const [event] = normalizeCloudinaryNotifications({
+      notification_type: "upload",
+      request_id: "req-2",
+      asset_id: PROVIDER,
+      public_id: "brands/x/shot",
+      version: 8,
+      secure_url: "https://res.cloudinary.com/demo/image/authenticated/v8/brands/x/shot",
+      resource_type: "image",
+      type: "authenticated",
+      context: {
+        custom: {
+          asset_id: ASSET,
+          org_id: ORG,
+          brand_id: BRAND,
+        },
+      },
+    });
+    const payload = toRpcPayload(event!);
+    expect(payload.schema_version).toBeNull();
+    expect(payload.org_id).toBeNull();
+    expect(payload.brand_id).toBeNull();
+    expect(payload.v2_shoot_id).toBeNull();
+  });
+
+  it("keeps signed context.custom authoritative over metadata with schema_version=1", async () => {
     const { readIpixUploadContext } = await import(
       "../src/lib/cloudinary/upload-context"
     );
     const foreignBrand = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
     const ctx = readIpixUploadContext(
       {
-        custom: { asset_id: ASSET, brand_id: BRAND, org_id: ORG },
+        custom: { asset_id: ASSET, brand_id: BRAND, org_id: ORG, schema_version: "1" },
         brand_id: foreignBrand,
       },
       { brand_id: foreignBrand, org_id: foreignBrand },
@@ -568,7 +667,10 @@ describe("IPI-1111 SQL state-machine contract (documented outcomes)", () => {
     | "noop_equal_version"
     | "noop_delete_unknown"
     | "noop_missing_provider_id"
-    | "noop_unknown_brand";
+    | "noop_unknown_brand"
+    | "noop_missing_brand_id"
+    | "noop_missing_schema_version"
+    | "noop_missing_org_id";
 
   function applyUpload(args: {
     mirror: Mirror | null;
