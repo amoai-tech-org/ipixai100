@@ -15,20 +15,22 @@ test("critical journey: login succeeds", async ({ page }) => {
   await signInAsE2ETestOperator(page);
   // Explicit here (not just inside the shared helper) — this is the
   // public, user-observable proof that password sign-in lands the
-  // operator on /app, not an internal implementation detail.
-  await expect(page).toHaveURL(/\/app$/);
+  // operator on /planner (IPI-1057 root cutover), not an internal
+  // implementation detail.
+  await expect(page).toHaveURL(/\/planner$/);
 });
 
 // PR #52 (IPI-1066) merged — /app is the real Command Center now.
-test(
-  "critical journey: dashboard → brand navigation",
-  async ({ page }) => {
-    await signInAsE2ETestOperator(page);
+// Reuses the auth.setup storageState (already signed in) so this test does
+// not trigger a second password sign-in that Supabase may rate-limit.
+test.describe("dashboard navigation (reuses auth.setup session)", () => {
+  test.use({ storageState: "playwright/.auth/user.json" });
 
+  test("critical journey: dashboard → brand navigation", async ({ page }) => {
     await page.goto("/app");
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
     await page.getByRole("link", { name: "Open Brands" }).click();
     await expect(page).toHaveURL(/\/app\/brands$/);
-  },
-);
+  });
+});

@@ -13,14 +13,29 @@ export async function signInWithCredentials(
   password: string,
 ): Promise<void> {
   await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
+  // Wait for React hydration so the submit button's onClick is attached —
+  // a pre-hydration click on the type="button" control would be lost.
+  await page.waitForFunction(() => {
+    const btn = document.querySelector('button[type="button"]');
+    if (!btn) return false;
+    return Object.values(btn).some(
+      (v) => v && typeof v === "object" && "onClick" in v,
+    );
+  });
+  // The marketing footer exposes an aria-label="Email" mailto link, so target
+  // the form field by role to avoid a strict-mode collision.
+  await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  // The app signs in, verifies claims, then router.push("/app"). Wait for
-  // that final route before persisting storageState so auth cookies are
-  // settled.
-  await expect(page).toHaveURL((url) => url.pathname === "/app");
+  // The app signs in, verifies claims, then routes to /planner (IPI-1057
+  // root cutover). Wait for that final route before persisting storageState
+  // so auth cookies are settled. 15s — Supabase sign-in can be slow when the
+  // full suite runs many auth requests in sequence.
+  await expect(page).toHaveURL(
+    (url) => url.pathname === "/planner",
+    { timeout: 15_000 },
+  );
 }
 
 export async function signInAsE2ETestOperator(page: Page): Promise<void> {
