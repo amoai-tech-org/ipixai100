@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildHeroGreeting,
   loadOrgBrands,
   loadOrgShoots,
   loadTrustedBrandIds,
@@ -487,5 +488,45 @@ describe("loadOrgShoots", () => {
     if (result.ok) {
       expect(result.shoots[0]).not.toHaveProperty("updatedAt");
     }
+  });
+});
+
+describe("buildHeroGreeting", () => {
+  it("headlines with the real brand name", () => {
+    const { headline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 0 });
+    expect(headline).toBe("You're working with Majji.");
+  });
+
+  it("references a real pending approval count when present", () => {
+    const { subline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 2 });
+    expect(subline).toBe("2 approvals need your review.");
+  });
+
+  it("uses singular wording for exactly one pending approval", () => {
+    const { subline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 1 });
+    expect(subline).toBe("1 approval needs your review.");
+  });
+
+  it("falls back to the real recent shoot name when there is no pending approval", () => {
+    const { subline } = buildHeroGreeting({
+      brandName: "Majji",
+      pendingApprovalCount: 0,
+      recentShootName: "Spring Capsule",
+    });
+    expect(subline).toBe("Continue planning Spring Capsule.");
+  });
+
+  it("prefers a real approval count over a real recent shoot name", () => {
+    const { subline } = buildHeroGreeting({
+      brandName: "Majji",
+      pendingApprovalCount: 1,
+      recentShootName: "Spring Capsule",
+    });
+    expect(subline).toBe("1 approval needs your review.");
+  });
+
+  it("never fabricates a next action when nothing real is known", () => {
+    const { subline } = buildHeroGreeting({ brandName: "Majji", pendingApprovalCount: 0 });
+    expect(subline).toBe("Ask the Production Planner what to work on next.");
   });
 });

@@ -9,9 +9,11 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { buildHeroGreeting } from "@/lib/dashboard/command-center";
 import type { DashboardBrand, DashboardShoot } from "@/lib/dashboard/command-center";
 
 import styles from "./command-center.module.css";
+import { QuickActionChips } from "./quick-action-chips";
 
 type BrandsResult = { ok: true; brands: DashboardBrand[] } | { ok: false };
 type ShootsResult = { ok: true; shoots: DashboardShoot[] } | { ok: false };
@@ -71,6 +73,43 @@ function dnaBadgeClass(score: number): string {
   return `${styles.recentDnaBadge} ${styles.recentDnaLow}`;
 }
 
+/**
+ * COPY+CLEAN of Lumina's PortfolioHeroCard hierarchy: media, "Production
+ * Planner" label, then a real-data-only headline/subline (buildHeroGreeting).
+ */
+function HeroCard({
+  brand,
+  recentShootName,
+}: {
+  brand: DashboardBrand;
+  recentShootName: string | undefined;
+}) {
+  // pendingApprovalCount is always 0: no real approval source exists until
+  // IPI-1084 ships (see buildHeroGreeting's doc comment in command-center.ts).
+  const greeting = buildHeroGreeting({
+    brandName: brand.name,
+    pendingApprovalCount: 0,
+    recentShootName,
+  });
+  return (
+    <div className={styles.heroCard} data-testid="command-center-hero">
+      {/* No stock photo standing in for a real brand cover — brands don't
+          have one yet, so this is an honest initial avatar. */}
+      <span className={styles.heroAvatar} aria-hidden>
+        {brand.name.charAt(0).toUpperCase()}
+      </span>
+      <div className={styles.heroBody}>
+        <p className={styles.heroPlannerLabel}>
+          <span className={styles.heroPlannerDot} aria-hidden />
+          Production Planner
+        </p>
+        <h2 className={styles.heroName}>{greeting.headline}</h2>
+        <p className={styles.heroSubline}>{greeting.subline}</p>
+      </div>
+    </div>
+  );
+}
+
 export function CommandCenter({ brandsResult, shootsResult }: Props) {
   const heroBrand = brandsResult.ok ? brandsResult.brands[0] : undefined;
   // "Live" would claim a continuously-current feed this page doesn't have —
@@ -78,6 +117,7 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
   // true: whether this request's own reads succeeded — never "ready" while
   // an ErrorState is rendering right below it.
   const hasLoadError = !brandsResult.ok || !shootsResult.ok;
+  const recentShootName = shootsResult.ok ? shootsResult.shoots[0]?.name : undefined;
 
   return (
     <div className={styles.root} data-testid="command-center">
@@ -96,19 +136,9 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
         <p className={styles.subheading}>Your organization&apos;s brands.</p>
       </header>
 
-      {heroBrand && (
-        <div className={styles.heroCard} data-testid="command-center-hero">
-          {/* No stock photo standing in for a real brand cover — brands
-              don't have one yet, so this is an honest initial avatar. */}
-          <span className={styles.heroAvatar} aria-hidden>
-            {heroBrand.name.charAt(0).toUpperCase()}
-          </span>
-          <div className={styles.heroBody}>
-            <p className={styles.heroEyebrow}>Most recent brand</p>
-            <h2 className={styles.heroName}>{heroBrand.name}</h2>
-          </div>
-        </div>
-      )}
+      {heroBrand && <HeroCard brand={heroBrand} recentShootName={recentShootName} />}
+
+      <QuickActionChips />
 
       <section aria-labelledby="command-center-brands">
         <h2 id="command-center-brands" className={styles.sectionHeading}>
@@ -145,9 +175,14 @@ export function CommandCenter({ brandsResult, shootsResult }: Props) {
       </section>
 
       <section aria-labelledby="command-center-shoots">
-        <h2 id="command-center-shoots" className={styles.sectionHeading}>
-          Recent shoots
-        </h2>
+        <div className={styles.recentHeader}>
+          <h2 id="command-center-shoots" className={styles.sectionHeading}>
+            Recent work
+          </h2>
+          <Link href="/app/shoots" className={styles.recentViewAll}>
+            View all
+          </Link>
+        </div>
         {!shootsResult.ok ? (
           <ErrorState message="Couldn't load your shoots. Please try again shortly." />
         ) : shootsResult.shoots.length === 0 ? (

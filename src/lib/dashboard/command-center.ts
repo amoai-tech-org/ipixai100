@@ -16,6 +16,32 @@ export type DashboardShoot = {
   channel: string | null;
 };
 
+/**
+ * DASH-MAIN-002: pure hero-greeting logic (COPY+CLEAN of Lumina's
+ * buildHeroGreeting concept, ADAPTed — no fabricated fallback like Lumina's
+ * "generate IG deliverables for your active campaign" when nothing real is
+ * known). `pendingApprovalCount` is always 0 today: no real source exists
+ * until IPI-1084 ships, so that branch is dead code in practice but kept so
+ * the shape is already correct once it's wired.
+ */
+export function buildHeroGreeting(input: {
+  brandName: string;
+  pendingApprovalCount: number;
+  recentShootName?: string | null;
+}): { headline: string; subline: string } {
+  const { brandName, pendingApprovalCount, recentShootName } = input;
+  const headline = `You're working with ${brandName}.`;
+
+  if (pendingApprovalCount > 0) {
+    const noun = pendingApprovalCount === 1 ? "approval needs" : "approvals need";
+    return { headline, subline: `${pendingApprovalCount} ${noun} your review.` };
+  }
+  if (recentShootName) {
+    return { headline, subline: `Continue planning ${recentShootName}.` };
+  }
+  return { headline, subline: "Ask the Production Planner what to work on next." };
+}
+
 const BRAND_LIMIT = 6;
 const SHOOT_LIMIT = 6;
 // Page size for the org's own brand id list used to scope Shoots — not a

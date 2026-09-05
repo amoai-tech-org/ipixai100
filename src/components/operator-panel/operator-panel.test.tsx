@@ -53,6 +53,16 @@ vi.mock("./operator-panel.module.css", () => ({
   default: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 
+// @copilotkit/react-core/v2's package entry pulls in its own bundled CSS,
+// which this repo's plain-node Vitest config (no CSS transform) can't load.
+// Stubbed here rather than adding a project-wide CSS plugin for one test —
+// these tests assert OperatorPanel's own shell/nav/rail behavior, not
+// CopilotKit's internals.
+vi.mock("@copilotkit/react-core/v2", () => ({
+  CopilotKit: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  CopilotChat: () => <div data-testid="copilot-chat-stub" />,
+}));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/app",
 }));
@@ -88,6 +98,8 @@ describe("OperatorPanel", () => {
     expect(screen.getByTestId("operator-panel")).toBeDefined();
     expect(screen.getByText("Workspace body")).toBeDefined();
     expect(screen.getByTestId("intelligence-rail")).toBeDefined();
+    // Persistent CopilotKit chat dock — center workspace, not the rail.
+    expect(screen.getByTestId("operator-chat-dock")).toBeDefined();
     const plannerLinks = screen.getAllByRole("link", { name: "Open Planner" });
     expect(plannerLinks.length).toBeGreaterThan(0);
     expect(plannerLinks.every((link) => link.getAttribute("href") === "/")).toBe(true);

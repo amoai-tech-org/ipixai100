@@ -154,4 +154,51 @@ describe("CommandCenter", () => {
     expect(screen.queryByText("Workspace ready")).toBeNull();
     expect(screen.getByText("Workspace loaded")).toBeDefined();
   });
+
+  it("shows the Production Planner label and a real-data greeting in the hero", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    const hero = screen.getByTestId("command-center-hero");
+    expect(within(hero).getByText("Production Planner")).toBeDefined();
+    expect(within(hero).getByText("You're working with Brand Alpha.")).toBeDefined();
+    // No real shoot/approval data in SHOOTS_OK's single null-score shoot's
+    // name isn't referenced (name is "Shoot One", not used as the subline
+    // source here) — falls through to the honest no-data subline.
+  });
+
+  it("hero subline references the most recent real shoot when one exists", () => {
+    const shoots = {
+      ok: true as const,
+      shoots: [{ id: "shoot-4", name: "Spring Capsule", status: "active", dnaScore: null, channel: null }],
+    };
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={shoots} />);
+    expect(
+      within(screen.getByTestId("command-center-hero")).getByText("Continue planning Spring Capsule."),
+    ).toBeDefined();
+  });
+
+  it("hero subline never fabricates a next action when there is no real shoot", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_EMPTY} />);
+    expect(
+      within(screen.getByTestId("command-center-hero")).getByText(
+        "Ask the Production Planner what to work on next.",
+      ),
+    ).toBeDefined();
+  });
+
+  it("shows only the capability-gated Plan a shoot chip, not the unverified Lumina chips", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    const chip = screen.getByRole("link", { name: "Plan a shoot" });
+    expect(chip.getAttribute("href")).toBe("/app/plans");
+    // Generate deliverables / Review approvals have no real capability/route
+    // yet (no generation route; IPI-1084 hasn't shipped) — must stay hidden.
+    expect(screen.queryByText("Generate deliverables")).toBeNull();
+    expect(screen.queryByText("Review approvals")).toBeNull();
+  });
+
+  it("renders the Recent work header with a View all link to /app/shoots", () => {
+    render(<CommandCenter brandsResult={BRANDS_OK} shootsResult={SHOOTS_OK} />);
+    expect(screen.getByRole("heading", { name: "Recent work" })).toBeDefined();
+    const viewAll = screen.getByRole("link", { name: "View all" });
+    expect(viewAll.getAttribute("href")).toBe("/app/shoots");
+  });
 });
