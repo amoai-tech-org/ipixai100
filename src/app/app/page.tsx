@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
+
 import { CommandCenter } from "@/components/dashboard/command-center";
 import { ReportWorkspaceStats } from "@/components/operator-panel/workspace-stats";
-import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { requireAppWorkspace } from "@/lib/auth/app-shell";
 import {
@@ -27,6 +28,11 @@ import { createClient } from "@/lib/supabase/server";
  * A failed brand or shoot read degrades only its own section, not the
  * whole page — the hero and quick links are static and don't depend on
  * either query, and the two reads don't depend on each other's success.
+ *
+ * /app is the default post-login destination (IPI-1058 · MARKETING-LOGIN-001),
+ * so it enforces the same tenant boundaries as the dedicated routes: a
+ * zero-org user goes to /onboarding, a multi-org user to /org-selection, and
+ * a membership lookup failure fails closed to /login.
  */
 export default async function AppHomePage() {
   const operator = await requireAppWorkspace();
@@ -45,33 +51,15 @@ export default async function AppHomePage() {
   });
 
   if (tenant.status === "needs_onboarding") {
-    return (
-      <div className="p-8">
-        <EmptyState
-          heading="No organization yet"
-          body="Your account isn't linked to an organization yet. Ask an admin to invite you, or contact support."
-        />
-      </div>
-    );
+    redirect("/onboarding");
   }
 
   if (tenant.status === "needs_org_selection") {
-    return (
-      <div className="p-8">
-        <EmptyState
-          heading="Choose an organization"
-          body="Your account belongs to more than one organization. Organization switching isn't available on this dashboard yet."
-        />
-      </div>
-    );
+    redirect("/org-selection");
   }
 
   if (tenant.status === "lookup_failed") {
-    return (
-      <div className="p-8">
-        <ErrorState message="Couldn't load your organization. Please try again shortly." />
-      </div>
-    );
+    redirect("/login");
   }
 
   // Independent reads: brands and the trusted brand-id scope for shoots
